@@ -1,0 +1,16 @@
+[package]
+name = "kepler-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "kepler_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kepler"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = "2.0.21"
