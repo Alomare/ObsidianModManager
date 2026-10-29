@@ -1,4 +1,4 @@
-//! `kepler.json`: what a mod is and which game resources it changes.
+//! `obsidian.json`: what a mod is and which game resources it changes.
 
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::hash::parse_ref;
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
-pub const FILE: &str = "kepler.json";
+pub const FILE: &str = "obsidian.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Scope {
@@ -126,7 +126,7 @@ impl From<ResourceSpec> for RawResource {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
-    pub kepler: u32,
+    pub obsidian: u32,
     pub id: String,
     pub version: semver::Version,
     pub name: Localized,
@@ -158,8 +158,8 @@ fn one() -> u32 {
     1
 }
 
-fn bad(field: impl Into<String>, reason: impl Into<String>) -> KeplerError {
-    KeplerError::BadManifest { field: field.into(), reason: reason.into() }
+fn bad(field: impl Into<String>, reason: impl Into<String>) -> ObsidianError {
+    ObsidianError::BadManifest { field: field.into(), reason: reason.into() }
 }
 
 fn is_hex16(s: &str) -> bool {
@@ -187,8 +187,8 @@ fn check_path(mod_dir: &Path, p: &Path, field: &str) -> Result<()> {
 
 impl Manifest {
     pub fn validate(&self, mod_dir: &Path) -> Result<()> {
-        if self.kepler != 1 {
-            return Err(bad("kepler", "only version 1 is supported"));
+        if self.obsidian != 1 {
+            return Err(bad("obsidian", "only version 1 is supported"));
         }
         if !valid_id(&self.id) {
             return Err(bad("id", "use 1 to 64 of a-z, 0-9, '.', '_' or '-', starting with a letter or digit"));
@@ -240,7 +240,7 @@ mod tests {
     use crate::testutil::{put, spaced_tempdir};
 
     const EXAMPLE: &str = r#"{
-      "kepler": 1, "id": "author.short-name", "version": "1.0.0",
+      "obsidian": 1, "id": "author.short-name", "version": "1.0.0",
       "name": { "en": "Example", "pt-BR": "Exemplo" }, "description": { "en": "x" },
       "authors": ["Author"], "scope": "client", "entry": "src/main.lua",
       "resources": [
@@ -263,7 +263,7 @@ mod tests {
 
     fn field_of(r: Result<Manifest>) -> String {
         match r {
-            Err(KeplerError::BadManifest { field, .. }) => field,
+            Err(ObsidianError::BadManifest { field, .. }) => field,
             other => panic!("expected BadManifest, got {other:?}"),
         }
     }

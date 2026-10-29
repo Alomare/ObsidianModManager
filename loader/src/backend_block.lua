@@ -1,7 +1,7 @@
 -- No Galactic War or leaderboard reporting while session content is deployed (spec 6.3, layer 3).
 -- The game keeps unsent results in memory and retries on a timer, so a blocked upload is simply
 -- never sent; the local save still updates as usual.
-local log = require("kepler/loader/log")
+local log = require("obsidian/loader/log")
 
 local METHODS = { "begin_upload_mission_stats", "begin_upload_leaderboard_stats", "begin_upload_leaderboard_provinggrounds_stats" }
 

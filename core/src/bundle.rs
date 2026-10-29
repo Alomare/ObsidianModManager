@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 pub const VERSION: u32 = 0xF000_0004;
 const CHUNK: usize = 0x10000;
@@ -37,7 +37,7 @@ struct Cursor<'a> {
 
 impl<'a> Cursor<'a> {
     fn take(&mut self, n: usize) -> Result<&'a [u8]> {
-        let end = self.pos.checked_add(n).filter(|&e| e <= self.data.len()).ok_or(KeplerError::TruncatedBundle)?;
+        let end = self.pos.checked_add(n).filter(|&e| e <= self.data.len()).ok_or(ObsidianError::TruncatedBundle)?;
         let s = &self.data[self.pos..end];
         self.pos = end;
         Ok(s)
@@ -55,7 +55,7 @@ fn inflate(file: &[u8], want: Option<usize>) -> Result<Vec<u8>> {
     let mut c = Cursor { data: file, pos: 0 };
     let version = c.u32()?;
     if version != VERSION {
-        return Err(KeplerError::BadBundleVersion(version));
+        return Err(ObsidianError::BadBundleVersion(version));
     }
     let total = c.u32()? as usize;
     c.u32()?;
@@ -68,7 +68,7 @@ fn inflate(file: &[u8], want: Option<usize>) -> Result<Vec<u8>> {
             out.extend_from_slice(chunk);
         } else {
             use std::io::Read;
-            flate2::read::ZlibDecoder::new(chunk).read_to_end(&mut out).map_err(|_| KeplerError::TruncatedBundle)?;
+            flate2::read::ZlibDecoder::new(chunk).read_to_end(&mut out).map_err(|_| ObsidianError::TruncatedBundle)?;
         }
     }
     out.truncate(total);
@@ -104,7 +104,7 @@ pub fn parse_payload(payload: &[u8]) -> Result<Bundle> {
     let count = c.u32()? as usize;
     let props: [u8; PROPS] = c.take(PROPS)?.try_into().unwrap();
     // The index repeats what each entry header says, so skip it.
-    c.take(count.checked_mul(16).ok_or(KeplerError::TruncatedBundle)?)?;
+    c.take(count.checked_mul(16).ok_or(ObsidianError::TruncatedBundle)?)?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let type_hash = c.u64()?;
@@ -122,7 +122,7 @@ pub fn parse_payload(payload: &[u8]) -> Result<Bundle> {
         entries.push(Entry { type_hash, name_hash, flags, variants });
     }
     if payload[c.pos..].iter().any(|&b| b != 0) {
-        return Err(KeplerError::TrailingData);
+        return Err(ObsidianError::TrailingData);
     }
     Ok(Bundle { props, entries })
 }
@@ -174,7 +174,7 @@ pub fn write_file(path: &Path, b: &Bundle) -> Result<()> {
 pub fn read_index(path: &Path) -> Result<Vec<(u64, u64)>> {
     let file = std::fs::read(path)?;
     let head = inflate(&file, Some(4))?;
-    let count = u32::from_le_bytes(head[..4].try_into().map_err(|_| KeplerError::TruncatedBundle)?) as usize;
+    let count = u32::from_le_bytes(head[..4].try_into().map_err(|_| ObsidianError::TruncatedBundle)?) as usize;
     let payload = inflate(&file, Some(4 + PROPS + count * 16))?;
     let mut c = Cursor { data: &payload, pos: 4 + PROPS };
     (0..count).map(|_| Ok((c.u64()?, c.u64()?))).collect()
@@ -230,14 +230,14 @@ mod tests {
     fn nonzero_trailing_data_is_rejected() {
         let mut p = serialize_payload(&sample());
         p.push(1);
-        assert!(matches!(parse_payload(&p), Err(KeplerError::TrailingData)));
+        assert!(matches!(parse_payload(&p), Err(ObsidianError::TrailingData)));
     }
 
     #[test]
     fn wrong_version_is_rejected() {
         let mut f = compress(&serialize_payload(&sample()));
         f[..4].copy_from_slice(&0xF000_0005u32.to_le_bytes());
-        assert!(matches!(decompress(&f), Err(KeplerError::BadBundleVersion(0xF000_0005))));
+        assert!(matches!(decompress(&f), Err(ObsidianError::BadBundleVersion(0xF000_0005))));
     }
 
     #[test]

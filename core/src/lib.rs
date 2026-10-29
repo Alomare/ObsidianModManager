@@ -1,4 +1,4 @@
-//! kepler-core: everything Kepler does to game files.
+//! obsidian-core: everything Obsidian does to game files.
 
 pub mod backup;
 pub mod bundle;
@@ -19,4 +19,4 @@ pub mod paths;
 pub(crate) mod testutil;
 pub mod vdf;
 
-pub use error::{KeplerError, Result};
+pub use error::{ObsidianError, Result};

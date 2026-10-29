@@ -38,7 +38,7 @@ pub fn modset_hash(mods: &[SessionMod]) -> String {
 
 /// Tags appended to the vanilla build hash: 12 lowercase hex digits each.
 pub fn pool_tags(modset: &str) -> PoolTags {
-    PoolTags { identical: sha256_hex(&format!("kepler:{modset}"))[..12].to_string(), consent: sha256_hex("kepler:consent:1")[..12].to_string() }
+    PoolTags { identical: sha256_hex(&format!("obsidian:{modset}"))[..12].to_string(), consent: sha256_hex("obsidian:consent:1")[..12].to_string() }
 }
 
 #[cfg(test)]

@@ -26,7 +26,7 @@ function E.deploy(over)
 		has_session = false,
 		mods = {},
 		features = {},
-		texts = { en = { mod_failed = "Kepler: %s failed to start", build_unknown = "Kepler: unknown game build" } },
+		texts = { en = { mod_failed = "Obsidian: %s failed to start", build_unknown = "Obsidian: unknown game build" } },
 	}
 	for k, v in pairs(over or {}) do d[k] = v end
 	return d
@@ -36,9 +36,9 @@ end
 function E.new(opts)
 	opts = opts or {}
 	local e = { opts = opts, loaded = {} }
-	e.root = (os.getenv("TEMP") or ".") .. "/kepler-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
-	e.kepler_dir = e.root .. "/Arrowhead/Helldivers/kepler"
-	mkdir(e.kepler_dir .. "/logs")
+	e.root = (os.getenv("TEMP") or ".") .. "/obsidian-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
+	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/obsidian"
+	mkdir(e.obsidian_dir .. "/logs")
 
 	local real_getenv = os.getenv
 	os.getenv = function(k)
@@ -56,10 +56,10 @@ function E.new(opts)
 	rawset(_G, "require", function(name)
 		if e.loaded[name] ~= nil then return e.loaded[name] end
 		local value
-		local rest = name:match("^kepler/loader/(.+)$")
+		local rest = name:match("^obsidian/loader/(.+)$")
 		if rest then
 			value = assert(loadfile(SRC .. rest .. ".lua"))(name)
-		elseif name == "kepler/deploy" then
+		elseif name == "obsidian/deploy" then
 			value = deploy
 		elseif opts.mods and opts.mods[name] then
 			value = assert(loadstring(opts.mods[name], name))(name)
@@ -91,7 +91,7 @@ function E.new(opts)
 			lobby = {
 				my_id = l.my_id,
 				members = function() return l.members end,
-				member_data = function(_, peer, key) return key == "kepler" and l.data[peer] or nil end,
+				member_data = function(_, peer, key) return key == "obsidian" and l.data[peer] or nil end,
 				set_member_data = function(_, key, value) l.published[key] = value end,
 			},
 		})
@@ -115,11 +115,11 @@ function E.new(opts)
 	end
 
 	function e:log(name)
-		return read(e.kepler_dir .. "/logs/" .. (name or "loader") .. ".log") or ""
+		return read(e.obsidian_dir .. "/logs/" .. (name or "loader") .. ".log") or ""
 	end
 
 	function e:core()
-		return e.loaded["kepler/loader/core"]
+		return e.loaded["obsidian/loader/core"]
 	end
 
 	return e
@@ -151,7 +151,7 @@ function E.count(text, needle)
 end
 
 function E.mod(id, over)
-	local m = { id = id, version = "1.0.0", scope = "client", entry = "kepler/mods/" .. id .. "/main", loader_api = 1 }
+	local m = { id = id, version = "1.0.0", scope = "client", entry = "obsidian/mods/" .. id .. "/main", loader_api = 1 }
 	for k, v in pairs(over or {}) do m[k] = v end
 	return m
 end

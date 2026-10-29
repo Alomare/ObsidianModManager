@@ -1,6 +1,6 @@
 //! Lua resources: LuaJIT 2.0 bytecode inside the game's small length envelope.
 
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 const MAGIC: [u8; 4] = [0x1b, 0x4c, 0x4a, 0x01];
 const FLAG_BIG_ENDIAN: u8 = 0x01;
@@ -8,13 +8,13 @@ const FLAG_BIG_ENDIAN: u8 = 0x01;
 /// Accepts LuaJIT 2.0 bytecode only: the game rejects source and 2.1 bytecode.
 pub fn check_bytecode(code: &[u8]) -> Result<()> {
     if code.len() < 5 || code[..3] != MAGIC[..3] {
-        return Err(KeplerError::InvalidBytecode("not LuaJIT bytecode (plain source cannot run in the game)".into()));
+        return Err(ObsidianError::InvalidBytecode("not LuaJIT bytecode (plain source cannot run in the game)".into()));
     }
     if code[3] != MAGIC[3] {
-        return Err(KeplerError::InvalidBytecode(format!("bytecode version {} is not LuaJIT 2.0", code[3])));
+        return Err(ObsidianError::InvalidBytecode(format!("bytecode version {} is not LuaJIT 2.0", code[3])));
     }
     if code[4] & FLAG_BIG_ENDIAN != 0 {
-        return Err(KeplerError::InvalidBytecode("big-endian bytecode".into()));
+        return Err(ObsidianError::InvalidBytecode("big-endian bytecode".into()));
     }
     Ok(())
 }
@@ -28,7 +28,7 @@ pub fn wrap_resource(code: &[u8]) -> Vec<u8> {
 }
 
 pub fn unwrap_resource(res: &[u8]) -> Result<&[u8]> {
-    let bad = || KeplerError::InvalidBytecode("not a lua resource envelope".into());
+    let bad = || ObsidianError::InvalidBytecode("not a lua resource envelope".into());
     let len = u32::from_le_bytes(res.get(..4).ok_or_else(bad)?.try_into().unwrap()) as usize;
     let kind = u32::from_le_bytes(res.get(4..8).ok_or_else(bad)?.try_into().unwrap());
     if kind != 2 || res.len() != len + 8 {

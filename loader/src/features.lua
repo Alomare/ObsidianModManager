@@ -1,6 +1,6 @@
 -- The built-in features: client scope, each switched on in the app.
-local B = require("kepler/loader/builtins")
-local log = require("kepler/loader/log")
+local B = require("obsidian/loader/builtins")
+local log = require("obsidian/loader/log")
 
 local M = {}
 

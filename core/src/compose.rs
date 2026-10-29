@@ -6,7 +6,7 @@ use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, wrap_resource};
 use crate::luajit::compile;
 use crate::manifest::{Payload, load_manifest};
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Planned {
@@ -38,11 +38,11 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
     for entry in profile.mods.iter().filter(|m| m.enabled) {
         let dir = lib.mod_dir(&entry.id);
         if !dir.join(crate::manifest::FILE).is_file() {
-            return Err(KeplerError::ModMissing(entry.id.clone()));
+            return Err(ObsidianError::ModMissing(entry.id.clone()));
         }
         let m = load_manifest(&dir)?;
         for r in &m.resources {
-            let bundle = r.bundle.clone().ok_or_else(|| KeplerError::BundleRequired { mod_id: m.id.clone() })?;
+            let bundle = r.bundle.clone().ok_or_else(|| ObsidianError::BundleRequired { mod_id: m.id.clone() })?;
             let bytes = std::fs::read(dir.join(r.data_path()))?;
             let data = match &r.payload {
                 Payload::Data(_) => bytes,
@@ -89,10 +89,10 @@ mod tests {
     fn add_mod(t: &std::path::Path, lib: &Library, id: &str, kind: &str, bytes: &[u8]) {
         let d = t.join(format!("stage-{id}"));
         let json = format!(
-            r##"{{"kepler":1,"id":"{id}","version":"1.0.0","name":{{"en":"{id}"}},
+            r##"{{"obsidian":1,"id":"{id}","version":"1.0.0","name":{{"en":"{id}"}},
                "resources":[{{"type":"lua","name":"#0000000000000001","bundle":"00000000000000aa","{kind}":"r.bin"}}]}}"##
         );
-        put(&d, "kepler.json", json.as_bytes());
+        put(&d, "obsidian.json", json.as_bytes());
         put(&d, "r.bin", bytes);
         lib.install(&d).unwrap();
     }
@@ -133,7 +133,7 @@ mod tests {
         add_mod(t.path(), &lib, "bad", "bytecode", &[0x1b, 0x4c, 0x4a, 0x02, 0x02]);
         let c = compose(&lib, &profile(&[("bc", true)])).unwrap();
         assert_eq!(&c.bundles["00000000000000aa"][0].data[..8], &[76, 0, 0, 0, 2, 0, 0, 0]);
-        assert!(matches!(compose(&lib, &profile(&[("bad", true)])), Err(KeplerError::InvalidBytecode(_))));
+        assert!(matches!(compose(&lib, &profile(&[("bad", true)])), Err(ObsidianError::InvalidBytecode(_))));
     }
 
     #[test]
@@ -152,7 +152,7 @@ mod tests {
         let lib = Library::open(&t.path().join("data")).unwrap();
         add_mod(t.path(), &lib, "src", "source", b"return (");
         match compose(&lib, &profile(&[("src", true)])) {
-            Err(KeplerError::CompileFailed { chunk, .. }) => assert_eq!(chunk, "src/r.bin"),
+            Err(ObsidianError::CompileFailed { chunk, .. }) => assert_eq!(chunk, "src/r.bin"),
             other => panic!("{other:?}"),
         }
     }
@@ -161,6 +161,6 @@ mod tests {
     fn missing_mod_is_an_error() {
         let t = spaced_tempdir();
         let lib = Library::open(&t.path().join("data")).unwrap();
-        assert!(matches!(compose(&lib, &profile(&[("ghost", true)])), Err(KeplerError::ModMissing(_))));
+        assert!(matches!(compose(&lib, &profile(&[("ghost", true)])), Err(ObsidianError::ModMissing(_))));
     }
 }

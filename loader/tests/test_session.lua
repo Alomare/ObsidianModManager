@@ -15,7 +15,7 @@ local function engine(lobby, deploy_over, mods)
 end
 
 local function cleared()
-	return rawget(_G, "kepler").session.cleared()
+	return rawget(_G, "obsidian").session.cleared()
 end
 
 test("solo_is_cleared", function()
@@ -72,12 +72,12 @@ test("own_member_data_is_published", function()
 	local lobby = { my_id = "me", members = { "me" }, data = {} }
 	local e = engine(lobby)
 	e:frames(31)
-	E.eq(lobby.published.kepler, "1;" .. OWN .. ";0")
+	E.eq(lobby.published.obsidian, "1;" .. OWN .. ";0")
 end)
 
 local HOOK_MODS = {
-	["kepler/mods/s/main"] = "kepler.hook('Target', 'run', function(original, self, x) return 'session ' .. x end)",
-	["kepler/mods/c/main"] = "kepler.hook(Target, 'look', function(original, self) return 'client' end)",
+	["obsidian/mods/s/main"] = "obsidian.hook('Target', 'run', function(original, self, x) return 'session ' .. x end)",
+	["obsidian/mods/c/main"] = "obsidian.hook(Target, 'look', function(original, self) return 'client' end)",
 }
 
 local function hook_engine(data)
@@ -111,7 +111,7 @@ test("hook_on_undeclared_scope_is_gated", function()
 	undeclared.scope = nil
 	local e = engine({ my_id = "me", members = { "me", "p2" }, data = {} },
 		{ mods = { undeclared } },
-		{ ["kepler/mods/u/main"] = "kepler.hook(Target, 'run', function() return 'modded' end)" })
+		{ ["obsidian/mods/u/main"] = "obsidian.hook(Target, 'run', function() return 'modded' end)" })
 	e:frames(31)
 	E.has(e:log(), "started u")
 	E.eq(rawget(_G, "Target"):run(), "vanilla")
@@ -119,7 +119,7 @@ end)
 
 test("hook_by_global_name_resolves_later", function()
 	local e = engine(nil, { mods = { E.mod("c") } },
-		{ ["kepler/mods/c/main"] = "kepler.hook('LaterClass', 'go', function() return 'hooked' end)" })
+		{ ["obsidian/mods/c/main"] = "obsidian.hook('LaterClass', 'go', function() return 'hooked' end)" })
 	rawset(_G, "LaterClass", { go = function() return "vanilla" end })
 	e.opts.modules["lua/later"] = true
 	rawget(_G, "require")("lua/later")
@@ -128,7 +128,7 @@ end)
 
 test("on_require_fires_after_module_loads", function()
 	local e = engine(nil, { mods = { E.mod("c") } },
-		{ ["kepler/mods/c/main"] = "kepler.on_require('lua/thing', function(v) rawset(_G, 'GOT', v) end)" })
+		{ ["obsidian/mods/c/main"] = "obsidian.on_require('lua/thing', function(v) rawset(_G, 'GOT', v) end)" })
 	e.opts.modules["lua/thing"] = "value"
 	rawget(_G, "require")("lua/thing")
 	E.eq(rawget(_G, "GOT"), "value")
@@ -137,7 +137,7 @@ end)
 test("on_session_fires_on_change_only", function()
 	local lobby = { my_id = "me", members = { "me" }, data = {} }
 	local e = engine(lobby, { mods = { E.mod("s", { scope = "session" }) } },
-		{ ["kepler/mods/s/main"] = "CALLS = ''; kepler.on_session(function(on) rawset(_G, 'CALLS', CALLS .. tostring(on) .. ',') end)" })
+		{ ["obsidian/mods/s/main"] = "CALLS = ''; obsidian.on_session(function(on) rawset(_G, 'CALLS', CALLS .. tostring(on) .. ',') end)" })
 	e:frames(31)
 	lobby.members = { "me", "p2" }
 	e:frames(60)

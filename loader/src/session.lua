@@ -1,7 +1,7 @@
 -- When a session is cleared for session mods (spec 6.2), and the lobby handshake (spec 6.3, layer 2).
--- Every Kepler player publishes lobby member data "kepler" = "1;<mod-set hash>;<consent 0|1>".
-local B = require("kepler/loader/builtins")
-local log = require("kepler/loader/log")
+-- Every Obsidian player publishes lobby member data "obsidian" = "1;<mod-set hash>;<consent 0|1>".
+local B = require("obsidian/loader/builtins")
+local log = require("obsidian/loader/log")
 
 local EVERY = 30
 
@@ -11,7 +11,7 @@ function M.setup(core)
 	M.core = core
 end
 
--- Anything but exactly version 1, 64 lowercase hex digits and 0 or 1 counts as not a Kepler player.
+-- Anything but exactly version 1, 64 lowercase hex digits and 0 or 1 counts as not a Obsidian player.
 function M.parse(value)
 	if B.type(value) ~= "string" then return nil end
 	local version, hash, consent = B.match(value, "^(%d+);([0-9a-f]+);([01])$")
@@ -43,15 +43,15 @@ function M.evaluate()
 	end
 	local value = "1;" .. B.tostring(deploy.modset) .. ";" .. (own_consent and "1" or "0")
 	if M.published ~= value or M.published_lobby ~= l then
-		l:set_member_data("kepler", value)
+		l:set_member_data("obsidian", value)
 		M.published, M.published_lobby = value, l
 	end
 	local me, list, signature = l.my_id, {}, {}
 	local identical, consenting = true, own_consent
 	for _, peer in B.ipairs(l:members() or {}) do
 		if peer ~= me then
-			local d = M.parse(l:member_data(peer, "kepler"))
-			B.insert(list, { peer = peer, kepler = d ~= nil, modset = d and d.modset, consent = d and d.consent or false })
+			local d = M.parse(l:member_data(peer, "obsidian"))
+			B.insert(list, { peer = peer, obsidian = d ~= nil, modset = d and d.modset, consent = d and d.consent or false })
 			B.insert(signature, B.tostring(peer))
 			if not d or d.modset ~= deploy.modset then identical = false end
 			if not (d and d.consent) then consenting = false end
@@ -60,7 +60,7 @@ function M.evaluate()
 	M.members = list
 	local on = #list == 0 or identical or consenting
 	set_cleared(on)
-	-- Data overrides and legacy mods can't be switched off live, so everyone running Kepler gets told.
+	-- Data overrides and legacy mods can't be switched off live, so everyone running Obsidian gets told.
 	if not on and deploy.has_static_session then
 		B.sort(signature)
 		local key = B.concat(signature, ",")
@@ -95,7 +95,7 @@ function M.api()
 		members = function()
 			local copy = {}
 			for i, m in B.ipairs(M.members) do
-				copy[i] = { peer = m.peer, kepler = m.kepler, modset = m.modset, consent = m.consent }
+				copy[i] = { peer = m.peer, obsidian = m.obsidian, modset = m.modset, consent = m.consent }
 			end
 			return copy
 		end,

@@ -1,21 +1,21 @@
-//! Needs KEPLER_GAME_DIR (the Helldivers folder) and KEPLER_EXAMPLES_DIR (internal/_examples); run with --ignored.
+//! Needs OBSIDIAN_GAME_DIR (the Helldivers folder) and OBSIDIAN_EXAMPLES_DIR (internal/_examples); run with --ignored.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use kepler_core::game::find_game;
-use kepler_core::import::import_path;
-use kepler_core::library::Library;
+use obsidian_core::game::find_game;
+use obsidian_core::import::import_path;
+use obsidian_core::library::Library;
 
 fn zip_in(folder: &str) -> PathBuf {
-    let dir = PathBuf::from(std::env::var("KEPLER_EXAMPLES_DIR").expect("KEPLER_EXAMPLES_DIR")).join("FROM NEXUS").join(folder);
+    let dir = PathBuf::from(std::env::var("OBSIDIAN_EXAMPLES_DIR").expect("OBSIDIAN_EXAMPLES_DIR")).join("FROM NEXUS").join(folder);
     std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()).find(|p| p.extension().is_some_and(|x| x == "zip")).unwrap()
 }
 
 #[test]
 #[ignore]
 fn rework_and_tpc_import_to_their_resource_lists() {
-    let game = find_game(Some(std::env::var("KEPLER_GAME_DIR").expect("KEPLER_GAME_DIR").as_ref())).unwrap();
+    let game = find_game(Some(std::env::var("OBSIDIAN_GAME_DIR").expect("OBSIDIAN_GAME_DIR").as_ref())).unwrap();
     let data = tempfile::tempdir().unwrap();
     let lib = Library::open(data.path()).unwrap();
     let mut seen = Vec::new();

@@ -1,27 +1,27 @@
-//! `kepler`: the command line over kepler-core.
+//! `obsidian`: the command line over obsidian-core.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use kepler_core::compose::compose;
-use kepler_core::deploy::{DeployOptions, deploy, purge, status};
-use kepler_core::game::{GameInstall, find_game};
-use kepler_core::gate::KNOWN_BUILDS;
-use kepler_core::hash::{format_name, format_type};
-use kepler_core::import::import_path;
-use kepler_core::library::{InstallOutcome, Library, Profile};
-use kepler_core::manifest::Scope;
-use kepler_core::paths::data_dir;
-use kepler_core::{KeplerError, Result};
+use obsidian_core::compose::compose;
+use obsidian_core::deploy::{DeployOptions, deploy, purge, status};
+use obsidian_core::game::{GameInstall, find_game};
+use obsidian_core::gate::KNOWN_BUILDS;
+use obsidian_core::hash::{format_name, format_type};
+use obsidian_core::import::import_path;
+use obsidian_core::library::{InstallOutcome, Library, Profile};
+use obsidian_core::manifest::Scope;
+use obsidian_core::paths::data_dir;
+use obsidian_core::{ObsidianError, Result};
 
 #[derive(Parser)]
-#[command(name = "kepler", version, about = "Mod manager for HELLDIVERS (2015)")]
+#[command(name = "obsidian", version, about = "Mod manager for HELLDIVERS (2015)")]
 struct Cli {
     /// The Helldivers game folder (skips the Steam search)
     #[arg(long, global = true)]
     game: Option<PathBuf>,
-    /// Where Kepler keeps mods, the profile and backups
+    /// Where Obsidian keeps mods, the profile and backups
     #[arg(long, global = true)]
     data_dir: Option<PathBuf>,
     #[command(subcommand)]
@@ -58,7 +58,7 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("Error: {e}");
-            if matches!(e, KeplerError::UnsupportedBuild(_)) { ExitCode::from(2) } else { ExitCode::FAILURE }
+            if matches!(e, ObsidianError::UnsupportedBuild(_)) { ExitCode::from(2) } else { ExitCode::FAILURE }
         }
     }
 }
@@ -88,7 +88,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Command::Import { path } => {
             let r = import_path(&path, &game()?, &lib)?;
-            let what = if r.legacy { "legacy mod" } else { "Kepler mod" };
+            let what = if r.legacy { "legacy mod" } else { "Obsidian mod" };
             let how = match r.outcome {
                 InstallOutcome::Added => "added".to_string(),
                 InstallOutcome::Replaced { old_version } => format!("replaced version {old_version}"),
@@ -106,7 +106,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::List => {
             let mods = lib.list()?;
             if profile.mods.is_empty() {
-                println!("The library is empty. Add mods with: kepler import <folder or .zip>");
+                println!("The library is empty. Add mods with: obsidian import <folder or .zip>");
             }
             for (i, entry) in profile.mods.iter().enumerate() {
                 let Some(m) = mods.iter().find(|m| m.id == entry.id) else { continue };
@@ -150,7 +150,7 @@ fn run(cli: Cli) -> Result<()> {
                 println!("Saves backed up to {}", b.display());
             }
             if !r.conflicts.is_empty() {
-                println!("{} conflicts resolved by load order (see: kepler conflicts)", r.conflicts.len());
+                println!("{} conflicts resolved by load order (see: obsidian conflicts)", r.conflicts.len());
             }
             if r.patches.is_empty() {
                 println!("No mods enabled, so the game is vanilla.");
@@ -162,7 +162,7 @@ fn run(cli: Cli) -> Result<()> {
                 println!("Removed {}", p.display());
             }
             for p in &r.kept_changed {
-                println!("Kept {} (changed since Kepler wrote the file)", p.display());
+                println!("Kept {} (changed since Obsidian wrote the file)", p.display());
             }
             if r.removed.is_empty() && r.kept_changed.is_empty() {
                 println!("Nothing to purge.");
@@ -187,12 +187,12 @@ fn run(cli: Cli) -> Result<()> {
 fn toggle(profile: &mut Profile, data: &std::path::Path, id: &str, on: bool) -> Result<()> {
     profile.set_enabled(id, on)?;
     profile.save(data)?;
-    println!("{id} is now {}. Run kepler deploy to apply.", if on { "on" } else { "off" });
+    println!("{id} is now {}. Run obsidian deploy to apply.", if on { "on" } else { "off" });
     Ok(())
 }
 
 fn print_gate(g: &GameInstall) -> Result<()> {
-    let r = kepler_core::gate::check_build(&g.root, KNOWN_BUILDS)?;
+    let r = obsidian_core::gate::check_build(&g.root, KNOWN_BUILDS)?;
     match r.build {
         Some(b) => println!("Game build: {b}"),
         None => println!("Game build: not recognised (differs in {})", r.mismatches.join(", ")),

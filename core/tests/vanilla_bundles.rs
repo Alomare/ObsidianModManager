@@ -1,11 +1,11 @@
-//! Needs the real game: set KEPLER_GAME_DIR to the Helldivers folder and run with --ignored.
+//! Needs the real game: set OBSIDIAN_GAME_DIR to the Helldivers folder and run with --ignored.
 
-use kepler_core::bundle;
+use obsidian_core::bundle;
 
 #[test]
 #[ignore]
 fn every_vanilla_bundle_round_trips() {
-    let game = std::env::var("KEPLER_GAME_DIR").expect("KEPLER_GAME_DIR");
+    let game = std::env::var("OBSIDIAN_GAME_DIR").expect("OBSIDIAN_GAME_DIR");
     let contents = std::path::Path::new(&game).join("contents");
     let (mut bundles, mut entries) = (0, 0);
     for f in std::fs::read_dir(&contents).unwrap() {

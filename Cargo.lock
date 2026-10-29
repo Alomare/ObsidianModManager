@@ -410,24 +410,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kepler-core"
-version = "0.1.0-beta.1"
-dependencies = [
- "assert_cmd",
- "chrono",
- "clap",
- "flate2",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "winreg",
- "zip",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -480,6 +462,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "obsidian-core"
+version = "0.1.0-beta.1"
+dependencies = [
+ "assert_cmd",
+ "chrono",
+ "clap",
+ "flate2",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "winreg",
+ "zip",
 ]
 
 [[package]]

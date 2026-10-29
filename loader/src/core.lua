@@ -1,11 +1,11 @@
--- Kepler Loader core: the boot sequence, starting mods, error isolation and the `kepler` API.
-local B = require("kepler/loader/builtins")
-local log = require("kepler/loader/log")
-local hooks = require("kepler/loader/hooks")
-local session = require("kepler/loader/session")
-local backend_block = require("kepler/loader/backend_block")
-local pool = require("kepler/loader/pool")
-local features = require("kepler/loader/features")
+-- Obsidian Loader core: the boot sequence, starting mods, error isolation and the `obsidian` API.
+local B = require("obsidian/loader/builtins")
+local log = require("obsidian/loader/log")
+local hooks = require("obsidian/loader/hooks")
+local session = require("obsidian/loader/session")
+local backend_block = require("obsidian/loader/backend_block")
+local pool = require("obsidian/loader/pool")
+local features = require("obsidian/loader/features")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -25,14 +25,14 @@ local api = {
 	session = session.api(),
 	capabilities = B.setmetatable({}, {
 		__index = capabilities,
-		__newindex = function() B.error("kepler.capabilities is read-only", 2) end,
+		__newindex = function() B.error("obsidian.capabilities is read-only", 2) end,
 		__metatable = false,
 	}),
 }
 M.api = api
 M.capabilities = capabilities
 
--- "Allow session mods from other Kepler users", from the settings file.
+-- "Allow session mods from other Obsidian users", from the settings file.
 function M.consent()
 	return M.consent_on == true
 end
@@ -186,10 +186,10 @@ function M.boot()
 	end
 
 	local appdata = B.getenv("APPDATA")
-	if appdata then log.setup(appdata .. "/Arrowhead/Helldivers/kepler/logs") end
-	log.line("Kepler Loader, API " .. API_VERSION .. ", jit " .. (B.type(jit) == "table" and "available" or "missing"))
+	if appdata then log.setup(appdata .. "/Arrowhead/Helldivers/obsidian/logs") end
+	log.line("Obsidian Loader, API " .. API_VERSION .. ", jit " .. (B.type(jit) == "table" and "available" or "missing"))
 
-	local ok, deploy = B.pcall(B.require, "kepler/deploy")
+	local ok, deploy = B.pcall(B.require, "obsidian/deploy")
 	if not ok or B.type(deploy) ~= "table" then
 		log.line("no deploy table, no mod started: " .. B.tostring(deploy))
 		return
@@ -216,7 +216,7 @@ function M.boot()
 
 	backend_block.setup(M, hooks)
 
-	B.rawset(B.G, "kepler", api)
+	B.rawset(B.G, "obsidian", api)
 	for _, mod in B.ipairs(deploy.mods or {}) do
 		start(mod)
 	end

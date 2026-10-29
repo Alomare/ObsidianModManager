@@ -1,4 +1,4 @@
-//! Build gate: Kepler deploys only to game builds whose files it knows.
+//! Build gate: Obsidian deploys only to game builds whose files it knows.
 
 use std::path::Path;
 
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     #[ignore]
     fn real_game_passes_gate() {
-        let game = std::env::var("KEPLER_GAME_DIR").expect("KEPLER_GAME_DIR");
+        let game = std::env::var("OBSIDIAN_GAME_DIR").expect("OBSIDIAN_GAME_DIR");
         assert_eq!(check_build(Path::new(&game), KNOWN_BUILDS).unwrap().build.as_deref(), Some("Steam 6001293"));
     }
 }

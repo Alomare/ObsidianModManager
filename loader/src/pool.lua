@@ -1,8 +1,8 @@
 -- Matchmaking separation (spec 6.3, layer 1). build_info reads the game hash out of
 -- BUILD_REVISION_INFORMATION after this chunk runs, so appending a tag to the hash there moves
 -- the player into a pool that vanilla players never see.
-local B = require("kepler/loader/builtins")
-local log = require("kepler/loader/log")
+local B = require("obsidian/loader/builtins")
+local log = require("obsidian/loader/log")
 
 local M = {}
 

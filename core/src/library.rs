@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::manifest::{Manifest, load_manifest};
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 const PROFILE: &str = "profile.json";
 
@@ -43,11 +43,11 @@ impl Library {
     pub fn mod_dir(&self, id: &str) -> PathBuf {
         self.root.join(id)
     }
-    /// Copies a staged folder holding `kepler.json` into `mods/<id>`, replacing an older copy.
+    /// Copies a staged folder holding `obsidian.json` into `mods/<id>`, replacing an older copy.
     pub fn install(&self, staged: &Path) -> Result<InstallOutcome> {
         let m = load_manifest(staged)?;
         let target = self.mod_dir(&m.id);
-        let tmp = self.root.join(format!("{}.kepler-tmp", m.id));
+        let tmp = self.root.join(format!("{}.obsidian-tmp", m.id));
         if tmp.exists() {
             std::fs::remove_dir_all(&tmp)?;
         }
@@ -66,7 +66,7 @@ impl Library {
         let mut out = Vec::new();
         for e in std::fs::read_dir(&self.root)? {
             let p = e?.path();
-            let tmp = p.extension().is_some_and(|x| x == "kepler-tmp");
+            let tmp = p.extension().is_some_and(|x| x == "obsidian-tmp");
             if !tmp && p.is_dir() && p.join(crate::manifest::FILE).is_file() {
                 out.push(load_manifest(&p)?);
             }
@@ -108,7 +108,7 @@ impl Profile {
         self.mods = first;
     }
     pub fn set_enabled(&mut self, id: &str, on: bool) -> Result<()> {
-        let entry = self.mods.iter_mut().find(|m| m.id == id).ok_or_else(|| KeplerError::ModMissing(id.to_string()))?;
+        let entry = self.mods.iter_mut().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.to_string()))?;
         entry.enabled = on;
         Ok(())
     }
@@ -132,8 +132,8 @@ mod tests {
 
     fn staged(root: &Path, id: &str, version: &str) -> PathBuf {
         let d = root.join(format!("stage-{id}-{version}"));
-        let json = format!(r#"{{"kepler":1,"id":"{id}","version":"{version}","name":{{"en":"{id}"}}}}"#);
-        put(&d, "kepler.json", json.as_bytes());
+        let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"{version}","name":{{"en":"{id}"}}}}"#);
+        put(&d, "obsidian.json", json.as_bytes());
         d
     }
 

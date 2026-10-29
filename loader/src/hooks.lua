@@ -1,7 +1,7 @@
--- kepler.hook and kepler.on_require, the wrapped require, and the per-frame driver.
+-- obsidian.hook and obsidian.on_require, the wrapped require, and the per-frame driver.
 -- Hooks of session mods call the original whenever the session isn't cleared (spec 6.4).
-local B = require("kepler/loader/builtins")
-local log = require("kepler/loader/log")
+local B = require("obsidian/loader/builtins")
+local log = require("obsidian/loader/log")
 
 local M = { pending = {}, requires = {}, fired = {}, frame_fns = {}, frame_installed = false }
 

@@ -1,9 +1,9 @@
-//! Errors returned by kepler-core.
+//! Errors returned by obsidian-core.
 
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum KeplerError {
+pub enum ObsidianError {
     #[error("not a resource name or #hash: {0}")]
     BadRef(String),
     #[error("unexpected bundle version {0:#x}")]
@@ -16,11 +16,11 @@ pub enum KeplerError {
     InvalidBytecode(String),
     #[error("HELLDIVERS was not found in these Steam libraries: {0}")]
     GameNotFound(String),
-    #[error("kepler.json, {field}: {reason}")]
+    #[error("obsidian.json, {field}: {reason}")]
     BadManifest { field: String, reason: String },
     #[error("archive type not supported yet (use a folder or a .zip): {0}")]
     UnsupportedArchive(String),
-    #[error("nothing to import: no kepler.json and no game bundle files in {0}")]
+    #[error("nothing to import: no obsidian.json and no game bundle files in {0}")]
     NothingToImport(String),
     #[error("{0} is not a bundle of this game")]
     UnknownBundle(String),
@@ -28,7 +28,7 @@ pub enum KeplerError {
     UnsupportedLegacyEntry { bundle: String, entry: String },
     #[error("mod {0} is in the profile but not in the library")]
     ModMissing(String),
-    #[error("the LuaJIT 2.0 compiler was not found (looked in {0}); run tools/build-luajit.cmd or set KEPLER_LUAJIT")]
+    #[error("the LuaJIT 2.0 compiler was not found (looked in {0}); run tools/build-luajit.cmd or set OBSIDIAN_LUAJIT")]
     CompilerUnavailable(String),
     #[error("Lua error in {chunk}: {message}")]
     CompileFailed { chunk: String, message: String },
@@ -46,4 +46,4 @@ pub enum KeplerError {
     Io(#[from] std::io::Error),
 }
 
-pub type Result<T> = std::result::Result<T, KeplerError>;
+pub type Result<T> = std::result::Result<T, ObsidianError>;

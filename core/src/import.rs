@@ -1,4 +1,4 @@
-//! Importing mods: Kepler mods as they are, legacy whole-bundle mods as resource-level changes.
+//! Importing mods: Obsidian mods as they are, legacy whole-bundle mods as resource-level changes.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -8,7 +8,7 @@ use crate::game::GameInstall;
 use crate::hash::{format_name, format_type};
 use crate::library::{InstallOutcome, Library};
 use crate::manifest::{self, Manifest, Payload, ResourceSpec, Scope, write_manifest};
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportReport {
@@ -26,11 +26,11 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         src
     } else if src.extension().is_some_and(|x| x.eq_ignore_ascii_case("zip")) {
         extracted = tempfile::tempdir()?;
-        let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(|e| KeplerError::UnsupportedArchive(e.to_string()))?;
-        z.extract(extracted.path()).map_err(|e| KeplerError::UnsupportedArchive(e.to_string()))?;
+        let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
+        z.extract(extracted.path()).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
         extracted.path()
     } else {
-        return Err(KeplerError::UnsupportedArchive(src.display().to_string()));
+        return Err(ObsidianError::UnsupportedArchive(src.display().to_string()));
     };
     let stem = src.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
 
@@ -49,7 +49,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
 
     let bundles: Vec<&PathBuf> = files.iter().filter(|p| p.file_name().is_some_and(|n| is_bundle_name(&n.to_string_lossy()))).collect();
     if bundles.is_empty() {
-        return Err(KeplerError::NothingToImport(src.display().to_string()));
+        return Err(ObsidianError::NothingToImport(src.display().to_string()));
     }
     let staged = tempfile::tempdir()?;
     let (mut changed, mut added, mut removed_ignored) = (0, 0, 0);
@@ -58,7 +58,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         let vanilla_path = game.contents().join(&name);
         if !vanilla_path.is_file() {
-            return Err(KeplerError::UnknownBundle(name));
+            return Err(ObsidianError::UnknownBundle(name));
         }
         let vanilla: BTreeMap<(u64, u64), Entry> =
             bundle::read_file(&vanilla_path)?.entries.into_iter().map(|e| ((e.type_hash, e.name_hash), e)).collect();
@@ -74,7 +74,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
             let entry = format!("{}-{}", hex16(e.type_hash), hex16(e.name_hash));
             let v = match e.variants.as_slice() {
                 [v] if v.lang == 0 && v.stream_size == 0 => v,
-                _ => return Err(KeplerError::UnsupportedLegacyEntry { bundle: name.clone(), entry }),
+                _ => return Err(ObsidianError::UnsupportedLegacyEntry { bundle: name.clone(), entry }),
             };
             let rel = PathBuf::from("res").join(&name).join(format!("{entry}.bin"));
             std::fs::create_dir_all(staged.path().join(rel.parent().unwrap()))?;
@@ -92,13 +92,13 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     }
     if changed + added == 0 {
         // Usually the game files were already modded by hand, so there is nothing to compare against.
-        return Err(KeplerError::NothingToImport(format!(
+        return Err(ObsidianError::NothingToImport(format!(
             "{} (the mod matches the game files exactly; if you installed the mod by hand before, verify the game files in Steam first)",
             src.display()
         )));
     }
     let m = Manifest {
-        kepler: 1,
+        obsidian: 1,
         id: legacy_id(&stem),
         version: semver::Version::new(0, 0, 0),
         name: [("en".to_string(), stem)].into(),
@@ -225,10 +225,10 @@ mod tests {
     }
 
     #[test]
-    fn kepler_mod_folder_is_installed_as_is() {
+    fn obsidian_mod_folder_is_installed_as_is() {
         let f = fixture(standard());
         let k = f.mod_dir.join("kmod");
-        crate::testutil::put(&k, "kepler.json", br#"{"kepler":1,"id":"me.kmod","version":"1.0.0","name":{"en":"K"}}"#);
+        crate::testutil::put(&k, "obsidian.json", br#"{"obsidian":1,"id":"me.kmod","version":"1.0.0","name":{"en":"K"}}"#);
         let r = import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
         assert_eq!((r.id.as_str(), r.legacy), ("me.kmod", false));
     }
@@ -244,13 +244,13 @@ mod tests {
     #[test]
     fn mod_identical_to_the_game_is_nothing_to_import() {
         let f = fixture(vec![e(LUA, 1, 0, b"old"), e(LUA, 2, 0, b"keep")]);
-        assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(KeplerError::NothingToImport(_))));
+        assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(ObsidianError::NothingToImport(_))));
     }
 
     #[test]
     fn unknown_bundle_name_is_an_error() {
         let f = fixture(standard());
         std::fs::rename(f.mod_dir.join("contents/00000000000000aa"), f.mod_dir.join("contents/00000000000000bb")).unwrap();
-        assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(KeplerError::UnknownBundle(_))));
+        assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(ObsidianError::UnknownBundle(_))));
     }
 }

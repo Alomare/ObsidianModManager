@@ -1,15 +1,15 @@
 [package]
-name = "kepler-core"
+name = "obsidian-core"
 version = "0.1.0-beta.1"
 edition = "2024"
 publish = false
 
 [lib]
-name = "kepler_core"
+name = "obsidian_core"
 path = "src/lib.rs"
 
 [[bin]]
-name = "kepler"
+name = "obsidian"
 path = "src/main.rs"
 
 [dependencies]

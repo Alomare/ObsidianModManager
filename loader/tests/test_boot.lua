@@ -19,18 +19,18 @@ test("wrong_revision_starts_no_mod_and_logs_once", function()
 	local e = E.new({
 		revision = "parent: 40000:0123456789ab tip",
 		deploy = E.deploy({ mods = { E.mod("a.b") } }),
-		mods = { ["kepler/mods/a.b/main"] = "STARTED = true" },
+		mods = { ["obsidian/mods/a.b/main"] = "STARTED = true" },
 	})
 	e:boot()
 	E.eq(rawget(_G, "STARTED"), nil, "mod ran")
 	E.eq(E.count(e:log(), "build unknown"), 1)
-	E.eq(rawget(_G, "kepler"), nil, "api installed")
+	E.eq(rawget(_G, "obsidian"), nil, "api installed")
 end)
 
 test("mod_error_disables_only_that_mod", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("bad"), E.mod("good") } }),
-		mods = { ["kepler/mods/bad/main"] = "error('broken on purpose')", ["kepler/mods/good/main"] = "GOOD = true" },
+		mods = { ["obsidian/mods/bad/main"] = "error('broken on purpose')", ["obsidian/mods/good/main"] = "GOOD = true" },
 	})
 	e:boot()
 	E.eq(rawget(_G, "GOOD"), true, "good mod ran")
@@ -46,7 +46,7 @@ end)
 test("mod_needing_newer_api_is_refused", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("new", { loader_api = 2 }) } }),
-		mods = { ["kepler/mods/new/main"] = "STARTED = true" },
+		mods = { ["obsidian/mods/new/main"] = "STARTED = true" },
 	})
 	e:boot()
 	E.eq(rawget(_G, "STARTED"), nil)
@@ -57,8 +57,8 @@ test("after_startup_runs_after_every_entry", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("a"), E.mod("b") } }),
 		mods = {
-			["kepler/mods/a/main"] = "ORDER = 'a'; kepler.after_startup(function() rawset(_G, 'ORDER', ORDER .. ',after') end)",
-			["kepler/mods/b/main"] = "ORDER = ORDER .. ',b'",
+			["obsidian/mods/a/main"] = "ORDER = 'a'; obsidian.after_startup(function() rawset(_G, 'ORDER', ORDER .. ',after') end)",
+			["obsidian/mods/b/main"] = "ORDER = ORDER .. ',b'",
 		},
 	})
 	e:boot()
@@ -69,9 +69,9 @@ test("mod_replacing_pcall_does_not_break_the_loader", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("vandal"), E.mod("bad"), E.mod("good") } }),
 		mods = {
-			["kepler/mods/vandal/main"] = "pcall = function() error('x') end; xpcall = pcall; string.format = nil; tostring = nil",
-			["kepler/mods/bad/main"] = "error('second')",
-			["kepler/mods/good/main"] = "GOOD = true",
+			["obsidian/mods/vandal/main"] = "pcall = function() error('x') end; xpcall = pcall; string.format = nil; tostring = nil",
+			["obsidian/mods/bad/main"] = "error('second')",
+			["obsidian/mods/good/main"] = "GOOD = true",
 		},
 	})
 	e:boot()
@@ -82,7 +82,7 @@ end)
 
 test("log_marks_mod_loading_before_start", function()
 	local e = E.new({ deploy = E.deploy({ mods = { E.mod("a.b") } }) })
-	e.opts.mods = { ["kepler/mods/a.b/main"] = "SEEN = io.open(os.getenv('APPDATA') .. '/Arrowhead/Helldivers/kepler/logs/loader.log'):read('*a')" }
+	e.opts.mods = { ["obsidian/mods/a.b/main"] = "SEEN = io.open(os.getenv('APPDATA') .. '/Arrowhead/Helldivers/obsidian/logs/loader.log'):read('*a')" }
 	e:boot()
 	local seen = rawget(_G, "SEEN")
 	E.has(seen, "loading a.b", "log during start")
@@ -93,7 +93,7 @@ end)
 test("changes_line_lists_new_globals", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("a.b") } }),
-		mods = { ["kepler/mods/a.b/main"] = "FOO = 1; string.shout = string.upper" },
+		mods = { ["obsidian/mods/a.b/main"] = "FOO = 1; string.shout = string.upper" },
 	})
 	e:boot()
 	E.has(e:log(), "changes: a.b globals+=FOO stdlib+=string.shout")
@@ -102,7 +102,7 @@ end)
 test("log_name_is_sanitized", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("../x") } }),
-		mods = { ["kepler/mods/../x/main"] = "kepler.log('hello', 42)" },
+		mods = { ["obsidian/mods/../x/main"] = "obsidian.log('hello', 42)" },
 	})
 	e:boot()
 	E.has(e:log("x"), "hello 42")
@@ -111,7 +111,7 @@ end)
 test("capabilities_is_read_only", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("a") } }),
-		mods = { ["kepler/mods/a/main"] = "CAP = kepler.capabilities.after_startup; kepler.capabilities.after_startup = false" },
+		mods = { ["obsidian/mods/a/main"] = "CAP = obsidian.capabilities.after_startup; obsidian.capabilities.after_startup = false" },
 	})
 	e:boot()
 	E.eq(rawget(_G, "CAP"), true)
@@ -122,7 +122,7 @@ end)
 test("repeated_error_logged_three_times_then_mod_off", function()
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("a") } }),
-		mods = { ["kepler/mods/a/main"] = "" },
+		mods = { ["obsidian/mods/a/main"] = "" },
 	})
 	e:boot()
 	local core = e:core()

@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 pub const STEAM_DIR: &str = "steamapps/common/Helldivers";
 
@@ -29,7 +29,7 @@ pub fn find_in_libraries(libraries: &[PathBuf]) -> Result<PathBuf> {
         .find(|root| root.join("binaries").join("x64").join("helldivers.exe").is_file())
         .ok_or_else(|| {
             let names: Vec<String> = libraries.iter().map(|l| l.display().to_string()).collect();
-            KeplerError::GameNotFound(if names.is_empty() { "(no Steam library found)".into() } else { names.join("; ") })
+            ObsidianError::GameNotFound(if names.is_empty() { "(no Steam library found)".into() } else { names.join("; ") })
         })
 }
 
@@ -42,9 +42,9 @@ pub fn find_game(explicit: Option<&Path>) -> Result<GameInstall> {
     Ok(GameInstall { root, saves_dir: appdata().join("Arrowhead").join("Helldivers").join("saves") })
 }
 
-/// `KEPLER_APPDATA` (tests) or the Windows roaming app data folder.
+/// `OBSIDIAN_APPDATA` (tests) or the Windows roaming app data folder.
 fn appdata() -> PathBuf {
-    std::env::var_os("KEPLER_APPDATA").or_else(|| std::env::var_os("APPDATA")).map(PathBuf::from).unwrap_or_default()
+    std::env::var_os("OBSIDIAN_APPDATA").or_else(|| std::env::var_os("APPDATA")).map(PathBuf::from).unwrap_or_default()
 }
 
 fn steam_libraries() -> Vec<PathBuf> {

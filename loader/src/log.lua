@@ -1,5 +1,5 @@
 -- The loader log (rewritten on every line, so a crash leaves the last line on disk) and per-mod logs.
-local B = require("kepler/loader/builtins")
+local B = require("obsidian/loader/builtins")
 
 local M = { dir = nil, lines = {}, opened = {}, counts = {} }
 

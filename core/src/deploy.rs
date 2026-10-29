@@ -1,4 +1,4 @@
-//! Deploy writes Kepler's patches next to the game's bundles; purge removes exactly those.
+//! Deploy writes Obsidian's patches next to the game's bundles; purge removes exactly those.
 
 use std::path::{Path, PathBuf};
 
@@ -10,10 +10,10 @@ use crate::compose::{Conflict, compose};
 use crate::game::GameInstall;
 use crate::gate::{GateReport, KNOWN_BUILDS, KnownBuild, check_build, sha256_file};
 use crate::library::{Library, Profile};
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 pub const STATE: &str = "deploy-state.json";
-const TMP: &str = "kepler-tmp";
+const TMP: &str = "obsidian-tmp";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeployedFile {
@@ -111,7 +111,7 @@ fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
 pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Result<DeployReport> {
     let contents = game.contents();
     let gate = check_build(&game.root, opts.known_builds)?;
-    let build = gate.build.clone().ok_or_else(|| KeplerError::UnsupportedBuild(gate.clone()))?;
+    let build = gate.build.clone().ok_or_else(|| ObsidianError::UnsupportedBuild(gate.clone()))?;
     for e in std::fs::read_dir(&contents)? {
         let p = e?.path();
         if p.is_file() && p.extension().is_some_and(|x| x == TMP) {
@@ -130,7 +130,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     for bundle in comp.bundles.keys() {
         let base = contents.join(bundle);
         if !base.is_file() {
-            return Err(KeplerError::UnknownBundle(bundle.clone()));
+            return Err(ObsidianError::UnknownBundle(bundle.clone()));
         }
         let taken: Vec<u32> = foreign.iter().filter(|(b, _, _)| b == bundle).map(|(_, n, _)| *n).collect();
         let mut slot = 0;
@@ -138,7 +138,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
             slot += 1;
         }
         if taken.iter().any(|&n| n > slot) {
-            return Err(KeplerError::ForeignPatchGap { bundle: bundle.clone(), missing: slot });
+            return Err(ObsidianError::ForeignPatchGap { bundle: bundle.clone(), missing: slot });
         }
         plan.push((bundle, base, contents.join(format!("{bundle}.patch_{slot}"))));
     }
@@ -181,7 +181,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
             remove_all(done.iter().copied());
             remove_all(temps.iter().map(|(t, _)| t));
             let _ = std::fs::remove_file(data_dir.join(STATE));
-            return Err(KeplerError::DeployFailed(format!("{}: {e}", target.display())));
+            return Err(ObsidianError::DeployFailed(format!("{}: {e}", target.display())));
         }
         done.push(target);
     }
@@ -221,7 +221,7 @@ mod tests {
     use crate::gate::fake_build;
     use crate::library::{Library, Profile};
     use crate::testutil::{put, spaced_tempdir};
-    use crate::KeplerError;
+    use crate::ObsidianError;
     use std::collections::BTreeMap;
 
     struct World {
@@ -250,10 +250,10 @@ mod tests {
         for b in ["aa", "bb"] {
             let d = t.path().join(format!("stage-{b}"));
             let json = format!(
-                r##"{{"kepler":1,"id":"mod-{b}","version":"1.0.0","name":{{"en":"{b}"}},
+                r##"{{"obsidian":1,"id":"mod-{b}","version":"1.0.0","name":{{"en":"{b}"}},
                    "resources":[{{"type":"#0000000000000001","name":"#00000000000000f0","bundle":"00000000000000{b}","data":"r.bin"}}]}}"##
             );
-            put(&d, "kepler.json", json.as_bytes());
+            put(&d, "obsidian.json", json.as_bytes());
             put(&d, "r.bin", b"modded");
             lib.install(&d).unwrap();
         }
@@ -311,7 +311,7 @@ mod tests {
         let w = world();
         bundle::write_file(&patch(&w, "00000000000000aa.patch_0"), &base(7)).unwrap();
         bundle::write_file(&patch(&w, "00000000000000aa.patch_2"), &base(8)).unwrap();
-        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(KeplerError::ForeignPatchGap { missing: 1, .. })));
+        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(ObsidianError::ForeignPatchGap { missing: 1, .. })));
         assert!(!patch(&w, "00000000000000bb.patch_0").exists());
     }
 
@@ -330,18 +330,18 @@ mod tests {
     #[test]
     fn deploy_cleans_leftover_tmp_files() {
         let w = world();
-        put(&w.game.contents(), "00000000000000aa.patch_0.kepler-tmp", b"junk");
+        put(&w.game.contents(), "00000000000000aa.patch_0.obsidian-tmp", b"junk");
         deploy(&w.game, &w.data, &w.opts).unwrap();
-        assert!(!patch(&w, "00000000000000aa.patch_0.kepler-tmp").exists());
+        assert!(!patch(&w, "00000000000000aa.patch_0.obsidian-tmp").exists());
     }
 
     #[test]
     fn deploy_rolls_back_when_a_rename_fails() {
         let w = world();
         put(&patch(&w, "00000000000000bb.patch_0"), "blocker", b"x");
-        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(KeplerError::DeployFailed(_))));
+        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(ObsidianError::DeployFailed(_))));
         assert!(!patch(&w, "00000000000000aa.patch_0").exists());
-        assert!(!patch(&w, "00000000000000aa.patch_0.kepler-tmp").exists());
+        assert!(!patch(&w, "00000000000000aa.patch_0.obsidian-tmp").exists());
         assert!(!w.data.join(STATE).exists());
     }
 
@@ -350,7 +350,7 @@ mod tests {
         let w = world();
         bundle::write_file(&w.game.contents().join("00000000000000aa"), &base(5)).unwrap();
         let before = snapshot(&w.game.contents());
-        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(KeplerError::UnsupportedBuild(_))));
+        assert!(matches!(deploy(&w.game, &w.data, &w.opts), Err(ObsidianError::UnsupportedBuild(_))));
         assert_eq!(snapshot(&w.game.contents()), before);
         assert!(!w.data.join("backups").exists());
     }
@@ -386,9 +386,9 @@ mod tests {
     #[test]
     fn state_is_written_atomically_and_removed_on_rollback() {
         let w = world();
-        put(&w.data, "deploy-state.json.kepler-tmp", b"torn");
+        put(&w.data, "deploy-state.json.obsidian-tmp", b"torn");
         deploy(&w.game, &w.data, &w.opts).unwrap();
-        assert!(!w.data.join("deploy-state.json.kepler-tmp").exists());
+        assert!(!w.data.join("deploy-state.json.obsidian-tmp").exists());
         purge(&w.game, &w.data).unwrap();
         put(&patch(&w, "00000000000000bb.patch_0"), "blocker", b"x");
         assert!(deploy(&w.game, &w.data, &w.opts).is_err());

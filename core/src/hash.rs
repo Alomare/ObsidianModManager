@@ -1,6 +1,6 @@
 //! Resource name hashing (MurmurHash64A, seed 0) and the `#hex` notation.
 
-use crate::{KeplerError, Result};
+use crate::{ObsidianError, Result};
 
 const M: u64 = 0xc6a4a7935bd1e995;
 const R: u32 = 47;
@@ -54,8 +54,8 @@ pub fn parse_ref(s: &str) -> Result<u64> {
         Some(hex) if hex.len() == 16 && hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) => {
             Ok(u64::from_str_radix(hex, 16).unwrap())
         }
-        Some(_) => Err(KeplerError::BadRef(s.to_string())),
-        None if s.is_empty() => Err(KeplerError::BadRef(s.to_string())),
+        Some(_) => Err(ObsidianError::BadRef(s.to_string())),
+        None if s.is_empty() => Err(ObsidianError::BadRef(s.to_string())),
         None => Ok(hash_name(s)),
     }
 }
