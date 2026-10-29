@@ -18,6 +18,15 @@ use crate::snapshot::{GateCache, Snapshot, find, snapshot as read_snapshot};
 pub struct Ctx {
     pub data: PathBuf,
     pub gate: Mutex<GateCache>,
+    /// Held by each command that reads or changes the library or profile. The commands are async,
+    /// so they run off the window's thread and the window stays responsive; this keeps them in turn.
+    pub work: Mutex<()>,
+}
+
+impl Ctx {
+    fn turn(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.work.lock().unwrap_or_else(|p| p.into_inner())
+    }
 }
 
 /// An error for the UI: `code` is the core error's name, which the UI turns into a catalog key
@@ -116,7 +125,8 @@ pub fn import_all(data: &Path, game: Option<&GameInstall>, paths: &[PathBuf]) ->
 }
 
 #[tauri::command]
-pub fn snapshot(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
+pub async fn snapshot(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
     fresh(&ctx)
 }
 
@@ -132,13 +142,15 @@ pub fn set_app_settings(ctx: State<'_, Ctx>, settings: AppSettings) -> CmdResult
 }
 
 #[tauri::command]
-pub fn set_enabled(ctx: State<'_, Ctx>, id: String, on: bool) -> CmdResult<Snapshot> {
+pub async fn set_enabled(ctx: State<'_, Ctx>, id: String, on: bool) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
     with_profile(&ctx.data, |p| p.set_enabled(&id, on))?;
     fresh(&ctx)
 }
 
 #[tauri::command]
-pub fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
+pub async fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
     with_profile(&ctx.data, |p| {
         p.set_order(&ids);
         Ok(())
@@ -147,13 +159,15 @@ pub fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
 }
 
 #[tauri::command]
-pub fn use_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
+pub async fn use_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
     profiles::use_profile(&ctx.data, &name)?;
     fresh(&ctx)
 }
 
 #[tauri::command]
-pub fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult<ImportBatch> {
+pub async fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult<ImportBatch> {
+    let _turn = ctx.turn();
     let game = find(&AppSettings::load(&ctx.data));
     let results = import_all(&ctx.data, game.as_ref(), &paths);
     Ok(ImportBatch { snapshot: fresh(&ctx)?, results })

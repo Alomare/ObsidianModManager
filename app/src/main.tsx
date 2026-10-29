@@ -7,9 +7,12 @@ import "@fontsource/barlow/500.css";
 import "@fontsource/barlow/600.css";
 import "./styles.css";
 import App from "./App";
+import { Crash } from "./Crash";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <Crash>
+      <App />
+    </Crash>
   </StrictMode>,
 );

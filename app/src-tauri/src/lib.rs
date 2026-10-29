@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 pub fn run() {
-    let ctx = commands::Ctx { data: obsidian_core::paths::data_dir(None), gate: Mutex::new(Default::default()) };
+    let ctx = commands::Ctx { data: obsidian_core::paths::data_dir(None), gate: Mutex::new(Default::default()), work: Mutex::new(()) };
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch brings the open window forward instead.

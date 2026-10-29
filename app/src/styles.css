@@ -189,3 +189,6 @@ button.link:hover { filter: brightness(1.2); }
 .credits li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.4rem; font-size: 0.9rem; }
 .credit-license { font-size: 0.7rem; color: var(--mu); border: 1px solid var(--ln); padding: 0 0.3rem; }
 .credit-for { flex-basis: 100%; color: var(--mu); font-size: 0.8rem; }
+
+.crash { padding: 2rem; user-select: text; }
+.crash pre { white-space: pre-wrap; font-size: 0.8rem; color: var(--mu); }
