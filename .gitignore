@@ -1,0 +1,13 @@
+# Reference material and private notes, never shipped
+_examples/
+internal/
+ideas.txt
+
+# Windows
+Desktop.ini
+Thumbs.db
+
+# Build output
+target/
+node_modules/
+dist/
