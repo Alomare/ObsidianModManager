@@ -39,7 +39,8 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
       </div>
       <div className="nav-end">
         <div className="state">
-          <span>{snap ? t(`app.game.${snap.game}`) : t("app.loading")}</span>
+          {/* HD1 gets no more updates, so a supported build needs no label. */}
+          {(!snap || snap.game !== "supported") && <span>{snap ? t(`app.game.${snap.game}`) : t("app.loading")}</span>}
           <b className={waiting ? "waiting" : undefined}>{snap ? t(`app.changes.${snap.changes}`) : ""}</b>
         </div>
         <div className="actions">

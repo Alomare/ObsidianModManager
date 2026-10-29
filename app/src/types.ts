@@ -32,3 +32,9 @@ export type AppSettings = {
 };
 
 export type CmdError = { code: string; message: string };
+
+export type ImportResult = {
+  file: string; ok: boolean; kind: "installed" | "updated" | "reinstalled" | "";
+  name: Localized; version: string | null; oldVersion: string | null; error: CmdError | null;
+};
+export type ImportBatch = { snapshot: Snapshot; results: ImportResult[] };

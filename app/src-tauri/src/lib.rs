@@ -22,7 +22,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(ctx)
-        .invoke_handler(tauri::generate_handler![commands::snapshot, commands::get_app_settings, commands::set_app_settings])
+        .invoke_handler(tauri::generate_handler![
+            commands::snapshot,
+            commands::get_app_settings,
+            commands::set_app_settings,
+            commands::set_enabled,
+            commands::set_order,
+            commands::use_profile,
+            commands::import_paths,
+        ])
         .run(tauri::generate_context!())
         .expect("Obsidian failed to start");
 }

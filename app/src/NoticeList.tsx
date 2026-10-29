@@ -1,4 +1,5 @@
 import { CloseIcon } from "./Icons";
+import { t } from "./i18n";
 import { dismiss, useNotices } from "./notices";
 
 export function Notices() {
@@ -8,7 +9,7 @@ export function Notices() {
       {list.map((n) => (
         <div key={n.id} className={`notice ${n.kind}`}>
           <span>{n.text}</span>
-          <button className="bare" onClick={() => dismiss(n.id)} aria-label="Close"><CloseIcon /></button>
+          <button className="bare" onClick={() => dismiss(n.id)} aria-label={t("app.close")}><CloseIcon /></button>
         </div>
       ))}
     </div>
