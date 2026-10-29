@@ -6,6 +6,7 @@ pub mod game;
 pub mod gate;
 pub mod hash;
 pub mod lua;
+pub mod manifest;
 #[cfg(test)]
 pub(crate) mod testutil;
 pub mod vdf;
