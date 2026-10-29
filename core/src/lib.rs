@@ -1,7 +1,9 @@
 //! kepler-core: everything Kepler does to game files.
 
+pub mod backup;
 pub mod bundle;
 pub mod compose;
+pub mod deploy;
 pub mod error;
 pub mod game;
 pub mod gate;
