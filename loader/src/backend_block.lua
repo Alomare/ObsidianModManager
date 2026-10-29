@@ -11,7 +11,24 @@ local METHODS = {
 	"complete_planets", "complete_defend_event_mission", "complete_attack_event_mission",
 }
 
+-- The two texts the mission end screen picks between for the Galactic Campaign line.
+local CAMPAIGN_TEXTS = { mission_end_galactic_campaign_progress = true, mission_end_galactic_campaign_no_progress = true }
+
 local M = {}
+
+-- LocalizationManager.string runs for every text on screen, every frame, so this wrapper stays
+-- lean instead of going through the protected hook path.
+local function wrap_campaign_text(core)
+	local lm = B.rawget(B.G, "LocalizationManager")
+	if B.type(lm) ~= "table" or B.type(lm.string) ~= "function" then return false end
+	local original = lm.string
+	lm.string = function(self, key, ...)
+		if CAMPAIGN_TEXTS[key] then return core.text("campaign_not_uploaded") end
+		return original(self, key, ...)
+	end
+	log.line("hook installed: LocalizationManager.string")
+	return true
+end
 
 local function empty(t)
 	local keys = {}
@@ -28,6 +45,12 @@ function M.setup(core, hooks)
 				if B.type(v) == "table" then empty(v) end
 			end
 			log.limited("upload " .. name, "blocked upload: " .. name)
+		end)
+	end
+	if not wrap_campaign_text(core) then
+		local done = false
+		hooks.on_frame(function()
+			if not done then done = wrap_campaign_text(core) end
 		end)
 	end
 	log.line("galactic war reporting blocked: session content is deployed")

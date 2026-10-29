@@ -87,4 +87,29 @@ test("hook_install_is_logged", function()
 	E.has(e:log(), "hook installed: CampaignManager.upload_mission_stats")
 end)
 
+-- The mission end screen reads one of two texts; with session content both say why nothing was sent.
+local function localization()
+	local lm = { string = function(_, key) return "game:" .. key end }
+	rawset(_G, "LocalizationManager", lm)
+	return lm
+end
+
+test("mission_end_says_why_progress_was_not_uploaded", function()
+	local lm = localization()
+	local texts = { en = { campaign_not_uploaded = "Progress was not uploaded to Galactic Campaign due to session mods" } }
+	local e = E.new({ deploy = E.deploy({ has_session = true, modset = string.rep("a", 64), texts = texts }) })
+	e:boot()
+	e:start_frames()
+	for _, key in ipairs({ "mission_end_galactic_campaign_progress", "mission_end_galactic_campaign_no_progress" }) do
+		E.eq(lm:string(key), "Progress was not uploaded to Galactic Campaign due to session mods", key)
+	end
+	E.eq(lm:string("menu_play"), "game:menu_play", "other texts")
+end)
+
+test("mission_end_text_untouched_without_session_content", function()
+	local lm = localization()
+	local e = engine(false)
+	E.eq(lm:string("mission_end_galactic_campaign_progress"), "game:mission_end_galactic_campaign_progress")
+end)
+
 return T
