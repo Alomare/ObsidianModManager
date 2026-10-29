@@ -20,6 +20,11 @@ local api = {
 M.api = api
 M.capabilities = capabilities
 
+-- "Allow session mods from other Kepler users", from the settings file (Task 8 reads the file).
+function M.consent()
+	return false
+end
+
 function M.notice(key, ...)
 	B.insert(M.notices, { key = key, args = { ... } })
 end
@@ -157,6 +162,8 @@ function M.boot()
 		if jit_was_on then B.pcall(jit.on) end
 		return
 	end
+
+	B.require("kepler/loader/pool").apply(deploy, M.consent())
 
 	B.rawset(B.G, "kepler", api)
 	for _, mod in B.ipairs(deploy.mods or {}) do

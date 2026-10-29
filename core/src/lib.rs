@@ -13,6 +13,7 @@ pub mod library;
 pub mod lua;
 pub mod luajit;
 pub mod manifest;
+pub mod modset;
 pub mod paths;
 #[cfg(test)]
 pub(crate) mod testutil;
