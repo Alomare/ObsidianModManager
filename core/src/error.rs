@@ -28,8 +28,10 @@ pub enum KeplerError {
     UnsupportedLegacyEntry { bundle: String, entry: String },
     #[error("mod {0} is in the profile but not in the library")]
     ModMissing(String),
-    #[error("mod {mod_id}: {file} is Lua source, which needs the compiler that arrives in a later version")]
-    CompilerUnavailable { mod_id: String, file: String },
+    #[error("the LuaJIT 2.0 compiler was not found (looked in {0}); run tools/build-luajit.cmd or set KEPLER_LUAJIT")]
+    CompilerUnavailable(String),
+    #[error("Lua error in {chunk}: {message}")]
+    CompileFailed { chunk: String, message: String },
     #[error("mod {mod_id}: every resource needs a bundle in this version")]
     BundleRequired { mod_id: String },
     #[error("game build not recognised: {}", .0.mismatches.join(", "))]

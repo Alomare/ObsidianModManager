@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, wrap_resource};
+use crate::luajit::compile;
 use crate::manifest::{Payload, load_manifest};
 use crate::{KeplerError, Result};
 
@@ -50,7 +51,8 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
                     wrap_resource(&bytes)
                 }
                 Payload::Source(p) => {
-                    return Err(KeplerError::CompilerUnavailable { mod_id: m.id.clone(), file: p.display().to_string() });
+                    let chunk = format!("{}/{}", m.id, p.to_string_lossy().replace('\\', "/"));
+                    wrap_resource(&compile(&bytes, &chunk)?)
                 }
             };
             let planned = Planned { type_hash: r.type_hash, name_hash: r.name_hash, flags: r.flags, data, owner: m.id.clone() };
@@ -135,11 +137,24 @@ mod tests {
     }
 
     #[test]
-    fn source_needs_the_compiler() {
+    fn source_resource_is_compiled_and_wrapped() {
         let t = spaced_tempdir();
         let lib = Library::open(&t.path().join("data")).unwrap();
         add_mod(t.path(), &lib, "src", "source", b"return 1");
-        assert!(matches!(compose(&lib, &profile(&[("src", true)])), Err(KeplerError::CompilerUnavailable { .. })));
+        let c = compose(&lib, &profile(&[("src", true)])).unwrap();
+        let res = &c.bundles["00000000000000aa"][0].data;
+        crate::lua::check_bytecode(crate::lua::unwrap_resource(res).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn source_error_names_the_mod_and_file() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        add_mod(t.path(), &lib, "src", "source", b"return (");
+        match compose(&lib, &profile(&[("src", true)])) {
+            Err(KeplerError::CompileFailed { chunk, .. }) => assert_eq!(chunk, "src/r.bin"),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

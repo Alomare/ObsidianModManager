@@ -12,7 +12,7 @@ The first beta is the `kepler` command line for Windows. It handles the mods peo
 
 ## Command line
 
-The `kepler` command line works today; the desktop app comes later. Build it with `cargo build --release` and run it with the game closed:
+The `kepler` command line works today; the desktop app comes later. Build it with `cargo build --release`, plus `toolsuild-luajit.cmd` once for the LuaJIT 2.0 compiler that turns mod scripts into code the game can run. Run it with the game closed:
 
 ```
 kepler import <mod folder or .zip>   add a mod to the library (old whole-file mods work too)

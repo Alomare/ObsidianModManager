@@ -11,6 +11,7 @@ pub mod hash;
 pub mod import;
 pub mod library;
 pub mod lua;
+pub mod luajit;
 pub mod manifest;
 pub mod paths;
 #[cfg(test)]
