@@ -6,6 +6,10 @@ Mods installed with Kepler never overwrite a game file, so several mods can run 
 
 Kepler is in early development. The design is in [docs/superpowers/specs](docs/superpowers/specs).
 
+## Beta
+
+The first beta is the `kepler` command line for Windows. It handles the mods people already share, the ones that replace whole game files, and turns them into small patches the game loads on top of the originals. Kepler Loader and the desktop app are not in this beta, so nothing yet stops a mod from changing the game for other players. Until the loader ships, play with these mods the way you would after installing them by hand: with friends who run the same mods.
+
 ## Command line
 
 The `kepler` command line works today; the desktop app comes later. Build it with `cargo build --release` and run it with the game closed:
