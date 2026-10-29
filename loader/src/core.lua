@@ -5,7 +5,6 @@ local hooks = require("obsidian/loader/hooks")
 local session = require("obsidian/loader/session")
 local backend_block = require("obsidian/loader/backend_block")
 local pool = require("obsidian/loader/pool")
-local features = require("obsidian/loader/features")
 local settings = require("obsidian/loader/settings")
 local game_text = require("obsidian/loader/game_text")
 
@@ -14,13 +13,13 @@ local MAX_ERRORS = 10
 local STDLIB = { "string", "table", "math", "io", "os", "coroutine", "debug", "package", "bit", "jit" }
 
 local M = {
-	mods = {}, mods_by_id = {}, notices = {}, notices_shown = {}, after = {},
+	mods = {}, mods_by_id = {}, notices = {}, notices_shown = {}, after = {}, frame_callbacks = {},
 	current = nil, deploy = nil, consent_on = false, frame_count = 0,
 }
 
 local capabilities = {
 	after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true,
-	settings = true, keybind = true, text = true,
+	settings = true, keybind = true, text = true, on_frame = true,
 }
 local api = {
 	version = API_VERSION,
@@ -43,11 +42,6 @@ M.capabilities = capabilities
 -- "Allow session mods from other Obsidian users", from the settings file.
 function M.consent()
 	return M.consent_on == true
-end
-
--- The built-in features switched on in the app.
-function M.features()
-	return M.features_on or (M.deploy and M.deploy.features) or {}
 end
 
 function M.notice(key, ...)
@@ -154,6 +148,29 @@ function api.log(...)
 	if state then log.mod(state.id, ...) else log.line("mod (unknown):", ...) end
 end
 
+-- fn runs once per frame, protected; returning true stops the calls. A session mod's callbacks
+-- run only in a cleared session, like the mod's hooks.
+function api.on_frame(fn)
+	if B.type(fn) == "function" then B.insert(M.frame_callbacks, { state = M.current, fn = fn }) end
+end
+
+local function run_frame_callbacks()
+	local list, keep = M.frame_callbacks, {}
+	for _, cb in B.ipairs(list) do
+		local state = cb.state
+		local gated = not (state and state.mod.scope == "client")
+		local stop = false
+		if state and state.off then
+			stop = true
+		elseif not (gated and not session.cleared()) then
+			local ok, result = M.call(state, "on_frame", cb.fn)
+			stop = ok and result == true
+		end
+		if not stop then B.insert(keep, cb) end
+	end
+	M.frame_callbacks = keep
+end
+
 function api.after_startup(fn)
 	B.insert(M.after, { state = M.current, fn = fn })
 end
@@ -224,6 +241,7 @@ function M.boot()
 	hooks.on_frame(session.tick)
 	hooks.on_frame(settings.tick)
 	hooks.on_frame(show_notices)
+	hooks.on_frame(run_frame_callbacks)
 	hooks.wrap_require()
 
 	backend_block.setup(M, hooks)
@@ -237,7 +255,6 @@ function M.boot()
 	for _, mod in B.ipairs(deploy.mods or {}) do
 		start(mod)
 	end
-	features.setup(hooks, M.features())
 	for _, cb in B.ipairs(M.after) do
 		M.call(cb.state, "after_startup", cb.fn)
 	end

@@ -23,10 +23,11 @@ obsidian conflicts                     show which mods change the same thing
 obsidian deploy                        put the enabled mods into the game
 obsidian purge                         take them out again
 obsidian status                        game build, what is deployed
-obsidian feature <name> on|off         skip_intro, skip_login or skip_war_briefs
 obsidian consent on|off                play session mods with other Obsidian users who allow them too
 obsidian set <id> <option> <value>     change a mod option
 ```
+
+Obsidian comes with Obsidian Quality of Life, a mod that is off until you enable it (`obsidian enable obsidian.qol`). It skips the intro, the login screen, war briefs and planet scanning, and removes the black bars on screens wider than 16:9. Each fix is an option, all on by default: `obsidian set obsidian.qol skip_login false` turns one off.
 
 Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your save folder is backed up before every deploy.
 

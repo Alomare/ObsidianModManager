@@ -13,7 +13,7 @@ local function engine(settings, over, source)
 	local mod = E.mod("a", { options = OPTIONS, keybinds = { { id = "toggle", default = "f8" } } })
 	for k, v in pairs(over or {}) do mod[k] = v end
 	local e = E.new({
-		deploy = E.deploy({ mods = { mod }, features = { "skip_intro" } }),
+		deploy = E.deploy({ mods = { mod } }),
 		settings = settings,
 		mods = { ["obsidian/mods/a/main"] = source or [[
 			local s = obsidian.settings
@@ -33,19 +33,15 @@ test("missing_settings_file_gives_defaults", function()
 	E.eq(got.cam, false, "cam")
 	E.eq(got.nope, nil, "unknown option")
 	E.eq(e:core().consent(), false, "consent")
-	E.eq(e:core().features()[1], "skip_intro", "features from the deploy table")
 end)
 
-test("settings_file_sets_values_consent_and_features", function()
-	local e = engine("# comment\nconsent\t1\nfeature\tskip_login\noption\ta\td\tnumber\t7.5\noption\ta\tsky\tchoice\tnight\noption\ta\tcam\ttoggle\t1\n")
+test("settings_file_sets_values_and_consent", function()
+	local e = engine("# comment\nconsent\t1\noption\ta\td\tnumber\t7.5\noption\ta\tsky\tchoice\tnight\noption\ta\tcam\ttoggle\t1\n")
 	local got = rawget(_G, "GOT")
 	E.eq(got.d, 7.5, "d")
 	E.eq(got.sky, "night", "sky")
 	E.eq(got.cam, true, "cam")
 	E.eq(e:core().consent(), true, "consent")
-	local f = e:core().features()
-	E.eq(#f, 1, "features")
-	E.eq(f[1], "skip_login", "feature")
 	E.lacks(e:log(), "settings: skipped")
 end)
 

@@ -1,0 +1,18 @@
+{
+  "obsidian": 1,
+  "id": "obsidian.qol",
+  "version": "1.0.0",
+  "name": { "en": "Obsidian Quality of Life" },
+  "description": { "en": "Small fixes for the game, each one an option." },
+  "authors": ["Obsidian"],
+  "scope": "client",
+  "entry": "main.lua",
+  "bundled": true,
+  "options": [
+    { "id": "skip_intro", "type": "toggle", "default": true, "label": { "en": "Skip intro" }, "description": { "en": "No logos or intro video at launch." } },
+    { "id": "skip_login", "type": "toggle", "default": true, "label": { "en": "Skip login screen" }, "description": { "en": "Straight to the ship, still online. Keyboard and mouse become player 1's controls." } },
+    { "id": "skip_war_briefs", "type": "toggle", "default": true, "label": { "en": "Skip war briefs" }, "description": { "en": "No war recap when you log in after a long time." } },
+    { "id": "skip_planet_scanning", "type": "toggle", "default": true, "label": { "en": "Skip planet scanning" }, "description": { "en": "No planet discovery animation after a liberation or a new sector." } },
+    { "id": "widescreen", "type": "toggle", "default": true, "label": { "en": "Widescreen fixes" }, "description": { "en": "No black bars on screens wider than 16:9." } }
+  ]
+}

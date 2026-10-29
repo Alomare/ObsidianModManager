@@ -4,6 +4,7 @@ obsidian.capabilities.after_startup boolean
 obsidian.capabilities.hook boolean
 obsidian.capabilities.keybind boolean
 obsidian.capabilities.log boolean
+obsidian.capabilities.on_frame boolean
 obsidian.capabilities.on_require boolean
 obsidian.capabilities.on_session boolean
 obsidian.capabilities.session boolean
@@ -12,6 +13,7 @@ obsidian.capabilities.text boolean
 obsidian.hook function
 obsidian.keybind function
 obsidian.log function
+obsidian.on_frame function
 obsidian.on_require function
 obsidian.on_session function
 obsidian.session table

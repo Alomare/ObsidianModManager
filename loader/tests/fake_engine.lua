@@ -25,7 +25,6 @@ function E.deploy(over)
 		hashes = { identical = "aaaaaaaaaaaa", consent = "bbbbbbbbbbbb" },
 		has_session = false,
 		mods = {},
-		features = {},
 		texts = { en = { mod_failed = "Obsidian: %s failed to start", build_unknown = "Obsidian: unknown game build" } },
 	}
 	for k, v in pairs(over or {}) do d[k] = v end

@@ -38,8 +38,6 @@ pub enum ObsidianError {
     ReservedResource { mod_id: String, name: String },
     #[error("Obsidian Loader files were not found (looked in {0})")]
     LoaderMissing(String),
-    #[error("unknown feature {0} (use skip_intro, skip_login or skip_war_briefs)")]
-    UnknownFeature(String),
     #[error("mod {mod_id} has no option {option}")]
     UnknownOption { mod_id: String, option: String },
     #[error("mod {mod_id}: every resource needs a bundle in this version")]

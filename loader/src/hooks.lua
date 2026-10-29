@@ -38,7 +38,7 @@ function M.hook(target, method, fn)
 	if not install(h) then B.insert(M.pending, h) end
 end
 
--- A hook owned by the loader itself (guardrails, built-in features).
+-- A hook owned by the loader itself (guardrails, game texts).
 function M.loader_hook(target, method, fn)
 	local h = { state = nil, loader = true, target = target, method = method, fn = fn }
 	if not install(h) then B.insert(M.pending, h) end

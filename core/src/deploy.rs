@@ -124,6 +124,9 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     }
     let previous = load_state(data_dir)?;
     let lib = Library::open(data_dir)?;
+    if let Some(dir) = loader::find_bundled_dir() {
+        lib.install_bundled(&dir)?;
+    }
     let mut profile = Profile::load(data_dir)?;
     profile.sync(&lib)?;
     let mut comp = compose(&lib, &profile)?;
@@ -132,7 +135,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
             Some(d) => d.clone(),
             None => loader::find_loader_dir()?,
         };
-        let planned = loader::build(&dir, &comp, &profile)?;
+        let planned = loader::build(&dir, &comp)?;
         let slot = comp.bundles.entry(loader::BUNDLE.to_string()).or_default();
         for p in planned {
             slot.retain(|q| (q.type_hash, q.name_hash) != (p.type_hash, p.name_hash));

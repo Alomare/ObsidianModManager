@@ -21,6 +21,22 @@ pub enum InstallOutcome {
 }
 
 /// Copies a folder tree.
+/// True when every file in `a` exists in `b` with the same bytes.
+fn same_files(a: &Path, b: &Path) -> Result<bool> {
+    if !b.is_dir() {
+        return Ok(false);
+    }
+    for e in std::fs::read_dir(a)? {
+        let e = e?;
+        let other = b.join(e.file_name());
+        let same = if e.file_type()?.is_dir() { same_files(&e.path(), &other)? } else { other.is_file() && std::fs::read(e.path())? == std::fs::read(&other)? };
+        if !same {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 pub(crate) fn copy_dir(from: &Path, to: &Path) -> Result<()> {
     std::fs::create_dir_all(to)?;
     for e in std::fs::read_dir(from)? {
@@ -44,6 +60,25 @@ impl Library {
     pub fn mod_dir(&self, id: &str) -> PathBuf {
         self.root.join(id)
     }
+    /// Installs every bundled mod (a subfolder of `dir` with `obsidian.json`) that is missing or
+    /// differs from the copy in the library. A new mod joins the profile switched off at sync.
+    pub fn install_bundled(&self, dir: &Path) -> Result<()> {
+        if !dir.is_dir() {
+            return Ok(());
+        }
+        for e in std::fs::read_dir(dir)? {
+            let src = e?.path();
+            if !src.join(crate::manifest::FILE).is_file() {
+                continue;
+            }
+            let id = crate::manifest::load_manifest(&src)?.id;
+            if !same_files(&src, &self.mod_dir(&id))? {
+                self.install(&src)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Copies a staged folder holding `obsidian.json` into `mods/<id>`, replacing an older copy.
     pub fn install(&self, staged: &Path) -> Result<InstallOutcome> {
         let m = load_manifest(staged)?;
@@ -87,9 +122,6 @@ pub struct ProfileEntry {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Profile {
     pub mods: Vec<ProfileEntry>,
-    /// Built-in features switched on (skip_intro, skip_login, skip_war_briefs).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub features: Vec<String>,
     /// "Allow session mods from other Obsidian users".
     #[serde(default)]
     pub consent: bool,

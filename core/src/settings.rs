@@ -1,4 +1,4 @@
-//! The game-side settings file the loader reads at boot: consent, built-in features, option values
+//! The game-side settings file the loader reads at boot: consent, option values
 //! and keys. A change applies at the next game launch, with no redeploy.
 
 use std::path::{Path, PathBuf};
@@ -10,7 +10,6 @@ pub const FILE: &str = "settings.txt";
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Settings {
     pub consent: bool,
-    pub features: Vec<String>,
     /// (mod id, option id, option type, value text)
     pub options: Vec<(String, String, String, String)>,
     /// (mod id, keybind id, key name)
@@ -25,9 +24,6 @@ pub fn game_side_dir(saves_dir: &Path) -> PathBuf {
 pub fn render(s: &Settings) -> String {
     let mut out = String::from("# Written by Obsidian. Changes made here are replaced at the next deploy.\n");
     out.push_str(&format!("consent\t{}\n", if s.consent { 1 } else { 0 }));
-    for f in &s.features {
-        out.push_str(&format!("feature\t{f}\n"));
-    }
     for (m, o, t, v) in &s.options {
         out.push_str(&format!("option\t{m}\t{o}\t{t}\t{v}\n"));
     }
@@ -44,7 +40,6 @@ pub fn parse(text: &str) -> Settings {
         let f: Vec<&str> = line.split('\t').collect();
         match f.as_slice() {
             ["consent", v] => s.consent = *v == "1",
-            ["feature", name] => s.features.push(name.to_string()),
             ["option", m, o, t, v] => s.options.push((m.to_string(), o.to_string(), t.to_string(), v.to_string())),
             ["key", m, k, key] => s.keys.push((m.to_string(), k.to_string(), key.to_string())),
             _ => {}
@@ -70,7 +65,6 @@ mod tests {
     fn settings_file_round_trips() {
         let s = Settings {
             consent: true,
-            features: vec!["skip_intro".into()],
             options: vec![("a.b".into(), "d".into(), "number".into(), "2.5".into())],
             keys: vec![("a.b".into(), "toggle".into(), "f8".into())],
         };

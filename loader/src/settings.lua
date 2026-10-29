@@ -1,6 +1,6 @@
--- The settings file the app writes beside the saves (consent, built-in features, option values and
--- keys), and obsidian.settings.get, obsidian.keybind and obsidian.text. Values are checked again
--- against the options in the deploy table, so a hand-edited file can't hand a mod a bad value.
+-- The settings file the app writes beside the saves (consent, option values and keys), and
+-- obsidian.settings.get, obsidian.keybind and obsidian.text. Values are checked again against the
+-- options in the deploy table, so a hand-edited file can't hand a mod a bad value.
 local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
 
@@ -47,8 +47,8 @@ local function find(list, id)
 	return nil
 end
 
--- Reads the file and fills core.consent_on, core.features_on and the option values. A missing file
--- leaves the defaults: no consent and the features in the deploy table.
+-- Reads the file and fills core.consent_on and the option values. A missing file leaves the
+-- defaults: no consent and every option at the default.
 function M.load(core, path)
 	M.core = core
 	local mods = {}
@@ -60,7 +60,7 @@ function M.load(core, path)
 	end
 	local text = f:read("*a") or ""
 	f:close()
-	local features, bad, first, n = {}, 0, nil, 0
+	local bad, first, n = 0, nil, 0
 	for line in B.gmatch(text, "([^\n]*)\n?") do
 		n = n + 1
 		line = B.gsub(line, "\r$", "")
@@ -70,8 +70,6 @@ function M.load(core, path)
 			-- blank or comment
 		elseif x[1] == "consent" and #x == 2 and (x[2] == "0" or x[2] == "1") then
 			core.consent_on = x[2] == "1"
-		elseif x[1] == "feature" and #x == 2 and x[2] ~= "" then
-			B.insert(features, x[2])
 		elseif x[1] == "option" and #x == 5 then
 			local opt = mods[x[2]] and find(mods[x[2]].options, x[3])
 			local v = nil
@@ -93,7 +91,6 @@ function M.load(core, path)
 			first = first or n
 		end
 	end
-	core.features_on = features
 	if bad > 0 then log.line("settings: skipped " .. bad .. " bad lines (first: line " .. first .. ")") end
 end
 

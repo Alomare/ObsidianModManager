@@ -23,24 +23,34 @@ pub const BUNDLE: &str = "9cf71054ea26dddf";
 pub const ENTRY: &str = "foundation/lua/build_date_information";
 /// The start of `BUILD_REVISION_INFORMATION` on the supported build.
 pub const REVISION: &str = "parent: 32148:3bd83d77c8ae";
-pub const FEATURES: [&str; 3] = ["skip_intro", "skip_login", "skip_war_briefs"];
 const LANGUAGES: [&str; 4] = ["en", "fr", "es", "pt-BR"];
+
+/// `rel` beside the exe, then in this workspace.
+fn candidates(rel: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
+        out.push(dir.join(rel));
+    }
+    out.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(rel));
+    out
+}
+
+/// The bundled mods folder (`bundled/` beside the exe, then in this workspace), if there is one.
+pub fn find_bundled_dir() -> Option<PathBuf> {
+    candidates("bundled").into_iter().find(|d| d.is_dir())
+}
 
 /// `loader/src` beside the exe, then the one in this workspace.
 pub fn find_loader_dir() -> Result<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
-        candidates.push(dir.join("loader").join("src"));
-    }
-    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("loader").join("src"));
+    let candidates = candidates("loader/src");
     candidates.iter().find(|d| d.join("boot.lua").is_file()).cloned().ok_or_else(|| {
         ObsidianError::LoaderMissing(candidates.iter().map(|d| d.display().to_string()).collect::<Vec<_>>().join(", "))
     })
 }
 
-/// The loader goes into the game whenever a mod is on, a built-in feature is on, or consent is on.
+/// The loader goes into the game whenever a mod is on or consent is on.
 pub fn needed(comp: &Composition, profile: &Profile) -> bool {
-    !comp.mods.is_empty() || profile.consent || !profile.features.is_empty()
+    !comp.mods.is_empty() || profile.consent
 }
 
 /// The resource name a mod entry runs from. Ids are already limited to `[a-z0-9._-]`.
@@ -86,9 +96,9 @@ fn scope_text(s: &Scope) -> &'static str {
     if *s == Scope::Client { "client" } else { "session" }
 }
 
-/// The deploy table as JSON: version, revision, pool hashes, features, shared texts and the mods
+/// The deploy table as JSON: version, revision, pool hashes, shared texts and the mods
 /// with an entry, in load order.
-pub fn deploy_table(comp: &Composition, profile: &Profile, texts: Value) -> Result<Value> {
+pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
     let mut session = Vec::new();
     let mut mods = Vec::new();
     let (mut has_session, mut has_static_session) = (false, false);
@@ -147,7 +157,6 @@ pub fn deploy_table(comp: &Composition, profile: &Profile, texts: Value) -> Resu
         "hashes": { "identical": tags.identical, "consent": tags.consent },
         "has_session": has_session,
         "has_static_session": has_static_session,
-        "features": profile.features,
         "texts": texts,
         "mods": mods,
     }))
@@ -180,7 +189,7 @@ pub fn to_lua(v: &Value) -> String {
 }
 
 /// Every loader module (`boot.lua` as the boot entry), every mod entry and `obsidian/deploy`.
-pub fn build(loader_dir: &Path, comp: &Composition, profile: &Profile) -> Result<Vec<Planned>> {
+pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
     let mut files: Vec<PathBuf> =
         std::fs::read_dir(loader_dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "lua")).collect();
     files.sort();
@@ -201,15 +210,15 @@ pub fn build(loader_dir: &Path, comp: &Composition, profile: &Profile) -> Result
         }
     }
     let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
-    let source = format!("return {}\n", to_lua(&deploy_table(comp, profile, texts)?));
+    let source = format!("return {}\n", to_lua(&deploy_table(comp, texts)?));
     out.push(lua_resource("obsidian/deploy", &compile(source.as_bytes(), "obsidian/deploy")?));
     Ok(out)
 }
 
-/// The settings file for this profile: consent, features, and the value of every option of each
+/// The settings file for this profile: consent and the value of every option of each
 /// enabled mod with an entry. Reads manifests only, so nothing is compiled.
 pub fn settings_for(lib: &Library, profile: &Profile) -> Result<Settings> {
-    let mut s = Settings { consent: profile.consent, features: profile.features.clone(), ..Default::default() };
+    let mut s = Settings { consent: profile.consent, ..Default::default() };
     for entry in profile.mods.iter().filter(|m| m.enabled) {
         let dir = lib.mod_dir(&entry.id);
         if !dir.join(crate::manifest::FILE).is_file() {
@@ -270,14 +279,14 @@ mod tests {
         let entry = |id: &str| ProfileEntry { id: id.into(), enabled: true };
         let profile = Profile { mods: vec![entry("b"), entry("a")], ..Default::default() };
         let comp = compose(&lib, &profile).unwrap();
-        let table = deploy_table(&comp, &profile, json!({})).unwrap();
+        let table = deploy_table(&comp, json!({})).unwrap();
         let ids: Vec<&str> = table["mods"].as_array().unwrap().iter().map(|m| m["id"].as_str().unwrap()).collect();
         assert_eq!(ids, ["b", "a"]);
         assert_eq!(table["mods"][0]["entry"], "obsidian/mods/b/main");
         assert_eq!(table["has_session"], true);
         assert_eq!(table["has_static_session"], false, "an entry can stop when the session isn't cleared");
         assert_eq!(table["modset"].as_str().unwrap().len(), 64);
-        let planned = build(&find_loader_dir().unwrap(), &comp, &profile).unwrap();
+        let planned = build(&find_loader_dir().unwrap(), &comp).unwrap();
         for name in [ENTRY, "obsidian/loader/core", "obsidian/mods/a/main", "obsidian/mods/b/main", "obsidian/deploy"] {
             assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
         }

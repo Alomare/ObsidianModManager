@@ -13,7 +13,7 @@ use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
-use obsidian_core::loader::{FEATURES, settings_for};
+use obsidian_core::loader::{find_bundled_dir, settings_for};
 use obsidian_core::options::validate;
 use obsidian_core::{ObsidianError, Result};
 
@@ -52,8 +52,6 @@ enum Command {
     Purge,
     /// Show the build check, what is deployed and patches from other tools
     Status,
-    /// Turn a built-in feature on or off: skip_intro, skip_login, skip_war_briefs
-    Feature { name: String, state: OnOff },
     /// Allow session mods from other Obsidian users (on or off)
     Consent { state: OnOff },
     /// Set a mod option, for example: obsidian set author.mod distance 7
@@ -86,10 +84,13 @@ fn run(cli: Cli) -> Result<()> {
     let uses_library = matches!(
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
-            | Command::Feature { .. } | Command::Consent { .. } | Command::Set { .. }
+            | Command::Consent { .. } | Command::Set { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
+        if let Some(dir) = find_bundled_dir() {
+            lib.install_bundled(&dir)?;
+        }
         profile = Profile::load(&data)?;
         profile.sync(&lib)?;
         profile.save(&data)?;
@@ -198,16 +199,6 @@ fn run(cli: Cli) -> Result<()> {
                 println!("The last game launch stopped while loading {id}. If the game crashed, disable that mod and deploy again.");
             }
         }
-        Command::Feature { name, state } => {
-            if !FEATURES.contains(&name.as_str()) {
-                return Err(ObsidianError::UnknownFeature(name));
-            }
-            profile.features.retain(|f| *f != name);
-            if matches!(state, OnOff::On) {
-                profile.features.push(name.clone());
-            }
-            live_change(&profile, &data, &lib, &game()?, &format!("{name} is now {}", on_off(state)))?;
-        }
         Command::Consent { state } => {
             profile.consent = matches!(state, OnOff::On);
             live_change(&profile, &data, &lib, &game()?, &format!("Session mods from other Obsidian users are now {}", if profile.consent { "allowed" } else { "not allowed" }))?;
@@ -230,10 +221,6 @@ fn run(cli: Cli) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn on_off(s: OnOff) -> &'static str {
-    if matches!(s, OnOff::On) { "on" } else { "off" }
 }
 
 /// Saves the profile and rewrites the settings file the loader reads at launch, so the change
