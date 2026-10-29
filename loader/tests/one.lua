@@ -1,6 +1,6 @@
 -- Runs one named test from one test file. Used by run.lua.
 package.path = "loader/tests/?.lua;" .. package.path
-math.randomseed(os.time() + os.clock() * 1e6)
+math.randomseed(os.time() + os.clock() * 1e6 + (tonumber(tostring({}):match("0x(%x+)"), 16) or 0) % 1e6)
 local file, name = arg[1], arg[2]
 local tests = assert(loadfile("loader/tests/" .. file))()
 for _, t in ipairs(tests) do

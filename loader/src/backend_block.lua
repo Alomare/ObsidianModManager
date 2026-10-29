@@ -5,30 +5,14 @@
 -- table back as the upload queue, so the results can't be sent later, not even after a purge.
 local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
+local game_text = require("obsidian/loader/game_text")
 
 local METHODS = {
 	"upload_mission_stats", "upload_leaderboard_stats", "upload_leaderboard_provinggrounds_stats",
 	"complete_planets", "complete_defend_event_mission", "complete_attack_event_mission",
 }
 
--- The two texts the mission end screen picks between for the Galactic Campaign line.
-local CAMPAIGN_TEXTS = { mission_end_galactic_campaign_progress = true, mission_end_galactic_campaign_no_progress = true }
-
 local M = {}
-
--- LocalizationManager.string runs for every text on screen, every frame, so this wrapper stays
--- lean instead of going through the protected hook path.
-local function wrap_campaign_text(core)
-	local lm = B.rawget(B.G, "LocalizationManager")
-	if B.type(lm) ~= "table" or B.type(lm.string) ~= "function" then return false end
-	local original = lm.string
-	lm.string = function(self, key, ...)
-		if CAMPAIGN_TEXTS[key] then return core.text("campaign_not_uploaded") end
-		return original(self, key, ...)
-	end
-	log.line("hook installed: LocalizationManager.string")
-	return true
-end
 
 local function empty(t)
 	local keys = {}
@@ -47,12 +31,9 @@ function M.setup(core, hooks)
 			log.limited("upload " .. name, "blocked upload: " .. name)
 		end)
 	end
-	if not wrap_campaign_text(core) then
-		local done = false
-		hooks.on_frame(function()
-			if not done then done = wrap_campaign_text(core) end
-		end)
-	end
+	-- The mission end screen picks one of these two for the Galactic Campaign line.
+	game_text.replace(core, hooks, "mission_end_galactic_campaign_progress", "campaign_not_uploaded")
+	game_text.replace(core, hooks, "mission_end_galactic_campaign_no_progress", "campaign_not_uploaded")
 	log.line("galactic war reporting blocked: session content is deployed")
 end
 

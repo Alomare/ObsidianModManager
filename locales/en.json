@@ -1,6 +1,8 @@
 {
   "build_unknown": "Obsidian: unknown game version, so no mods are running. Update Obsidian and deploy again.",
   "campaign_not_uploaded": "Progress was not uploaded to Galactic Campaign due to session mods",
+  "lobby_friends": "Friends (Obsidian only)",
+  "lobby_public": "Public (Obsidian only)",
   "mod_failed": "Obsidian: %s failed and is off until the game restarts.",
   "session_not_cleared": "Obsidian: other players here run different mods, and some of yours change game files that can't be paused. Consider leaving this game.",
   "uploads_blocked": "Obsidian: Galactic War and leaderboard results aren't sent while session mods are deployed."

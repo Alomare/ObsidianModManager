@@ -40,6 +40,8 @@ function E.new(opts)
 	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/obsidian"
 	mkdir(e.obsidian_dir .. "/logs")
 	-- opts.settings: the text of settings.txt; nil leaves the file missing.
+	-- Removed when not given: two tests started in the same second can share the folder.
+	os.remove(e.obsidian_dir .. "/settings.txt")
 	if opts.settings then
 		local f = assert(io.open(e.obsidian_dir .. "/settings.txt", "wb"))
 		f:write(opts.settings)

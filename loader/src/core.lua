@@ -7,6 +7,7 @@ local backend_block = require("obsidian/loader/backend_block")
 local pool = require("obsidian/loader/pool")
 local features = require("obsidian/loader/features")
 local settings = require("obsidian/loader/settings")
+local game_text = require("obsidian/loader/game_text")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -214,7 +215,7 @@ function M.boot()
 	end
 
 	settings.load(M, game_side and (game_side .. "/settings.txt"))
-	pool.apply(deploy, M.consent())
+	local tag = pool.apply(deploy, M.consent())
 
 	M.session = session
 	hooks.setup(M, session)
@@ -226,6 +227,11 @@ function M.boot()
 	hooks.wrap_require()
 
 	backend_block.setup(M, hooks)
+	-- The multiplayer terminal lists only lobbies with the same build hash, so the filter titles say so.
+	if tag then
+		game_text.replace(M, hooks, "campaign_public", "lobby_public")
+		game_text.replace(M, hooks, "campaign_friends", "lobby_friends")
+	end
 
 	B.rawset(B.G, "obsidian", api)
 	for _, mod in B.ipairs(deploy.mods or {}) do
