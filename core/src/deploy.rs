@@ -63,7 +63,9 @@ pub struct Status {
 
 /// `(bundle, N)` for a file named `<16 hex>.patch_<N>`.
 fn patch_name(name: &str) -> Option<(String, u32)> {
-    let (bundle, n) = name.split_once(".patch_")?;
+    // NTFS ignores case, so `...AA.patch_0` and `...aa.patch_0` are the same file.
+    let lower = name.to_ascii_lowercase();
+    let (bundle, n) = lower.split_once(".patch_")?;
     let hex = bundle.len() == 16 && bundle.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
     if !hex || n.is_empty() || !n.bytes().all(|b| b.is_ascii_digit()) {
         return None;
@@ -92,6 +94,12 @@ fn foreign_patches(contents: &Path, state: Option<&DeployState>) -> Result<Vec<(
     Ok(out)
 }
 
+fn remove_all<'a>(paths: impl Iterator<Item = &'a PathBuf>) {
+    for p in paths {
+        let _ = std::fs::remove_file(p);
+    }
+}
+
 fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
     match std::fs::read_to_string(data_dir.join(STATE)) {
         Ok(t) => Ok(Some(serde_json::from_str(&t)?)),
@@ -110,16 +118,14 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
             std::fs::remove_file(p)?;
         }
     }
-    if load_state(data_dir)?.is_some() {
-        purge(game, data_dir)?;
-    }
+    let previous = load_state(data_dir)?;
     let lib = Library::open(data_dir)?;
     let mut profile = Profile::load(data_dir)?;
     profile.sync(&lib)?;
     let comp = compose(&lib, &profile)?;
 
-    // Pick every slot before writing anything, so a refusal leaves the game untouched.
-    let foreign = foreign_patches(&contents, None)?;
+    // Plan every slot before changing anything, so a refusal leaves the previous deploy in place.
+    let foreign = foreign_patches(&contents, previous.as_ref())?;
     let mut plan = Vec::new();
     for bundle in comp.bundles.keys() {
         let base = contents.join(bundle);
@@ -147,31 +153,38 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
         }
         b.sort_entries();
         let tmp = target.with_extension(format!("{}.{TMP}", target.extension().unwrap().to_string_lossy()));
-        bundle::write_file(&tmp, &b)?;
-        temps.push((tmp, target.clone()));
+        temps.push((tmp.clone(), target.clone()));
+        if let Err(e) = bundle::write_file(&tmp, &b) {
+            remove_all(temps.iter().map(|(t, _)| t));
+            return Err(e);
+        }
     }
+    let files = temps
+        .iter()
+        .map(|(tmp, p)| Ok(DeployedFile { path: p.clone(), sha256: sha256_file(tmp)? }))
+        .collect::<Result<Vec<_>>>()?;
+    let mods = profile.mods.iter().filter(|m| m.enabled).map(|m| m.id.clone()).collect();
+    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339() };
+
+    // The old patches go only now, when the new set is ready. The state is recorded before
+    // any rename, so a crash midway still leaves every live patch listed for purge.
+    purge(game, data_dir)?;
+    std::fs::create_dir_all(data_dir)?;
+    let state_tmp = data_dir.join(format!("{STATE}.{TMP}"));
+    std::fs::write(&state_tmp, serde_json::to_string_pretty(&state)? + "\n")?;
+    std::fs::rename(&state_tmp, data_dir.join(STATE))?;
     let mut done: Vec<&PathBuf> = Vec::new();
     for (tmp, target) in &temps {
-        if let Err(e) = std::fs::rename(tmp, target) {
-            for d in &done {
-                let _ = std::fs::remove_file(d);
-            }
-            for (t, _) in &temps {
-                let _ = std::fs::remove_file(t);
-            }
+        let occupied = target.symlink_metadata().is_ok();
+        let renamed = if occupied { Err(std::io::Error::other("another file already has this name")) } else { std::fs::rename(tmp, target) };
+        if let Err(e) = renamed {
+            remove_all(done.iter().copied());
+            remove_all(temps.iter().map(|(t, _)| t));
+            let _ = std::fs::remove_file(data_dir.join(STATE));
             return Err(KeplerError::DeployFailed(format!("{}: {e}", target.display())));
         }
         done.push(target);
     }
-
-    let files = temps
-        .iter()
-        .map(|(_, p)| Ok(DeployedFile { path: p.clone(), sha256: sha256_file(p)? }))
-        .collect::<Result<Vec<_>>>()?;
-    let mods = profile.mods.iter().filter(|m| m.enabled).map(|m| m.id.clone()).collect();
-    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339() };
-    std::fs::create_dir_all(data_dir)?;
-    std::fs::write(data_dir.join(STATE), serde_json::to_string_pretty(&state)? + "\n")?;
     let foreign_paths = foreign.into_iter().filter(|(b, _, _)| comp.bundles.contains_key(b)).map(|(_, _, p)| p).collect();
     Ok(DeployReport { patches: state.files.into_iter().map(|f| f.path).collect(), conflicts: comp.conflicts, foreign: foreign_paths, backup })
 }
@@ -348,6 +361,38 @@ mod tests {
         deploy(&w.game, &w.data, &w.opts).unwrap();
         bundle::write_file(&w.game.contents().join("00000000000000aa"), &base(5)).unwrap();
         assert_eq!(purge(&w.game, &w.data).unwrap().removed.len(), 2);
+    }
+
+    #[test]
+    fn failed_redeploy_keeps_the_previous_deploy() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        std::fs::remove_file(w.data.join("mods/mod-bb/r.bin")).unwrap();
+        assert!(deploy(&w.game, &w.data, &w.opts).is_err());
+        assert!(patch(&w, "00000000000000aa.patch_0").exists() && patch(&w, "00000000000000bb.patch_0").exists());
+        assert!(w.data.join(STATE).exists());
+    }
+
+    #[test]
+    fn foreign_patch_in_upper_case_is_respected() {
+        let w = world();
+        bundle::write_file(&patch(&w, "00000000000000AA.patch_0"), &base(7)).unwrap();
+        let r = deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert!(r.patches.contains(&patch(&w, "00000000000000aa.patch_1")));
+        purge(&w.game, &w.data).unwrap();
+        assert_eq!(bundle::read_file(&patch(&w, "00000000000000AA.patch_0")).unwrap(), base(7));
+    }
+
+    #[test]
+    fn state_is_written_atomically_and_removed_on_rollback() {
+        let w = world();
+        put(&w.data, "deploy-state.json.kepler-tmp", b"torn");
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert!(!w.data.join("deploy-state.json.kepler-tmp").exists());
+        purge(&w.game, &w.data).unwrap();
+        put(&patch(&w, "00000000000000bb.patch_0"), "blocker", b"x");
+        assert!(deploy(&w.game, &w.data, &w.opts).is_err());
+        assert!(!w.data.join(STATE).exists());
     }
 
     #[test]

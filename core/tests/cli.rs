@@ -40,6 +40,17 @@ fn unknown_build_is_reported_and_blocks_deploy() {
 }
 
 #[test]
+fn purge_works_with_a_broken_mod_in_the_library() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let data = t.path().join("data");
+    std::fs::create_dir_all(data.join("mods/broken")).unwrap();
+    std::fs::write(data.join("mods/broken/kepler.json"), b"{ not json").unwrap();
+    kepler(&game, &data).arg("purge").assert().success();
+}
+
+#[test]
 fn legacy_folder_imports_and_lists() {
     let t = spaced();
     let game = t.path().join("game");

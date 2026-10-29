@@ -90,6 +90,13 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
             });
         }
     }
+    if changed + added == 0 {
+        // Usually the game files were already modded by hand, so there is nothing to compare against.
+        return Err(KeplerError::NothingToImport(format!(
+            "{} (the mod matches the game files exactly; if you installed the mod by hand before, verify the game files in Steam first)",
+            src.display()
+        )));
+    }
     let m = Manifest {
         kepler: 1,
         id: legacy_id(&stem),
@@ -232,6 +239,12 @@ mod tests {
         import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
         let again = import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
         assert!(matches!(again.outcome, InstallOutcome::Replaced { .. }));
+    }
+
+    #[test]
+    fn mod_identical_to_the_game_is_nothing_to_import() {
+        let f = fixture(vec![e(LUA, 1, 0, b"old"), e(LUA, 2, 0, b"keep")]);
+        assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(KeplerError::NothingToImport(_))));
     }
 
     #[test]

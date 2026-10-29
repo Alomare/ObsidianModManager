@@ -67,9 +67,18 @@ fn run(cli: Cli) -> Result<()> {
     let data = data_dir(cli.data_dir.as_deref());
     let game = || find_game(cli.game.as_deref());
     let lib = Library::open(&data)?;
-    let mut profile = Profile::load(&data)?;
-    profile.sync(&lib)?;
-    profile.save(&data)?;
+    // Purge and status must work even when a mod folder or the profile is damaged,
+    // so only the commands that use the library read and sync it.
+    let uses_library = matches!(
+        cli.command,
+        Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
+    );
+    let mut profile = Profile::default();
+    if uses_library {
+        profile = Profile::load(&data)?;
+        profile.sync(&lib)?;
+        profile.save(&data)?;
+    }
     match cli.command {
         Command::Game => {
             let g = game()?;
