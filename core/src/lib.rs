@@ -17,6 +17,7 @@ pub mod manifest;
 pub mod modset;
 pub mod options;
 pub mod paths;
+pub mod profiles;
 pub mod settings;
 #[cfg(test)]
 pub(crate) mod testutil;

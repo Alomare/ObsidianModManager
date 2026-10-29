@@ -38,6 +38,16 @@ pub enum ObsidianError {
     ReservedResource { mod_id: String, name: String },
     #[error("Obsidian Loader files were not found (looked in {0})")]
     LoaderMissing(String),
+    #[error("{mod_id} has no keybind {keybind}")]
+    UnknownKeybind { mod_id: String, keybind: String },
+    #[error("{0:?} can't be a profile name: use 1 to 40 characters, none of \\ / : * ? \" < > |")]
+    ProfileName(String),
+    #[error("a profile named {0} already exists")]
+    ProfileExists(String),
+    #[error("there is no profile named {0}")]
+    ProfileMissing(String),
+    #[error("the last profile can't be deleted")]
+    LastProfile,
     #[error("mod {mod_id} has no option {option}")]
     UnknownOption { mod_id: String, option: String },
     #[error("mod {mod_id}: every resource needs a bundle in this version")]

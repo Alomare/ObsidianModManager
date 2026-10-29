@@ -91,6 +91,31 @@ fn consent_and_set_write_settings_for_the_bundled_mod() {
 }
 
 #[test]
+fn profile_commands_switch_what_list_shows() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let (data, appdata) = (t.path().join("data"), t.path().join("appdata"));
+    let run = |args: &[&str]| {
+        let mut c = obsidian(&game, &data);
+        c.env("OBSIDIAN_APPDATA", &appdata).args(args);
+        c
+    };
+    let out = |args: &[&str]| String::from_utf8(run(args).assert().success().get_output().stdout.clone()).unwrap();
+    run(&["enable", "obsidian.qol"]).assert().success();
+    run(&["key", "obsidian.qol", "nope", "f9"]).assert().failure();
+    run(&["profile", "new", "Clean"]).assert().success();
+    run(&["profile", "new", "Copy", "--copy", "Default"]).assert().success();
+    assert!(out(&["profile", "list"]).contains("* Default"), "the active profile is marked");
+    run(&["profile", "use", "clean"]).assert().success();
+    assert!(out(&["list"]).contains("[off] obsidian.qol"));
+    run(&["profile", "use", "Copy"]).assert().success();
+    assert!(out(&["list"]).contains("[on ] obsidian.qol"));
+    run(&["profile", "use", "Missing"]).assert().failure();
+    run(&["profile", "new", "a/b"]).assert().failure();
+}
+
+#[test]
 fn status_names_the_crash_culprit() {
     let t = spaced();
     let game = t.path().join("game");

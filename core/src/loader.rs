@@ -233,6 +233,13 @@ pub fn settings_for(lib: &Library, profile: &Profile) -> Result<Settings> {
         for spec in &specs {
             s.options.push((m.id.clone(), spec.id.clone(), spec.kind.name().to_string(), value_text(&values[&spec.id])));
         }
+        // Only keybinds the manifest still declares, so a key set for an older version is dropped.
+        let set = profile.keys.get(&m.id);
+        for k in crate::options::parse_keybinds(&m.keybinds)? {
+            if let Some(key) = set.and_then(|s| s.get(&k.id)) {
+                s.keys.push((m.id.clone(), k.id, key.clone()));
+            }
+        }
     }
     Ok(s)
 }
@@ -290,6 +297,29 @@ mod tests {
         for name in [ENTRY, "obsidian/loader/core", "obsidian/mods/a/main", "obsidian/mods/b/main", "obsidian/deploy"] {
             assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
         }
+    }
+
+    #[test]
+    fn settings_for_writes_keys_of_enabled_mods() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        for id in ["k1", "k2"] {
+            let d = t.path().join(format!("stage-{id}"));
+            let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"1.0.0","name":{{"en":"{id}"}},"entry":"main.lua","keybinds":[{{"id":"toggle","default":"f8"}}]}}"#);
+            put(&d, "obsidian.json", json.as_bytes());
+            put(&d, "main.lua", b"return true\n");
+            lib.install(&d).unwrap();
+        }
+        let mut profile = Profile {
+            mods: vec![ProfileEntry { id: "k1".into(), enabled: true }, ProfileEntry { id: "k2".into(), enabled: false }],
+            ..Default::default()
+        };
+        for id in ["k1", "k2"] {
+            profile.keys.entry(id.into()).or_default().insert("toggle".into(), "f9".into());
+        }
+        profile.keys.get_mut("k1").unwrap().insert("gone".into(), "f10".into());
+        let s = settings_for(&lib, &profile).unwrap();
+        assert_eq!(s.keys, vec![("k1".to_string(), "toggle".to_string(), "f9".to_string())]);
     }
 
     #[test]

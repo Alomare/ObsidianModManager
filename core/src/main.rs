@@ -14,7 +14,8 @@ use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
 use obsidian_core::loader::{find_bundled_dir, settings_for};
-use obsidian_core::options::validate;
+use obsidian_core::options::{parse_keybinds, validate};
+use obsidian_core::profiles;
 use obsidian_core::{ObsidianError, Result};
 
 #[derive(Parser)]
@@ -56,6 +57,27 @@ enum Command {
     Consent { state: OnOff },
     /// Set a mod option, for example: obsidian set author.mod distance 7
     Set { id: String, option: String, value: String },
+    /// Set a mod key, for example: obsidian key author.mod toggle f9
+    Key { id: String, keybind: String, key: String },
+    /// List, switch or create profiles
+    Profile {
+        #[command(subcommand)]
+        action: ProfileAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProfileAction {
+    /// List the profiles; the active one is marked with *
+    List,
+    /// Make a profile active
+    Use { name: String },
+    /// Create a profile, empty or a copy of another
+    New {
+        name: String,
+        #[arg(long)]
+        copy: Option<String>,
+    },
 }
 
 #[derive(Clone, Copy, clap::ValueEnum)]
@@ -84,7 +106,7 @@ fn run(cli: Cli) -> Result<()> {
     let uses_library = matches!(
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
-            | Command::Consent { .. } | Command::Set { .. }
+            | Command::Consent { .. } | Command::Set { .. } | Command::Key { .. } | Command::Profile { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
@@ -219,6 +241,32 @@ fn run(cli: Cli) -> Result<()> {
                 live_change(&profile, &data, &lib, &game()?, &format!("{id} {option} is now {v}"))?;
             }
         }
+        Command::Key { id, keybind, key } => {
+            let m = lib.list()?.into_iter().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;
+            if !parse_keybinds(&m.keybinds)?.iter().any(|k| k.id == keybind) {
+                return Err(ObsidianError::UnknownKeybind { mod_id: id, keybind });
+            }
+            profile.keys.entry(id.clone()).or_default().insert(keybind.clone(), key.clone());
+            live_change(&profile, &data, &lib, &game()?, &format!("{id} {keybind} is now {key}"))?;
+        }
+        Command::Profile { action } => match action {
+            ProfileAction::List => {
+                let active = profiles::active(&data)?;
+                for name in profiles::list(&data)? {
+                    println!("{} {name}", if name == active { "*" } else { " " });
+                }
+            }
+            ProfileAction::Use { name } => {
+                profiles::use_profile(&data, &name)?;
+                let mut p = Profile::load(&data)?;
+                p.sync(&lib)?;
+                live_change(&p, &data, &lib, &game()?, &format!("Profile {} is active", profiles::active(&data)?))?;
+            }
+            ProfileAction::New { name, copy } => {
+                profiles::create(&data, &name, copy.as_deref())?;
+                println!("Created profile {name}. Switch to it with: obsidian profile use {name}");
+            }
+        },
     }
     Ok(())
 }

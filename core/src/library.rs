@@ -1,4 +1,4 @@
-//! The mod library (`<data>/mods/<id>/`) and the load-order profile (`<data>/profile.json`).
+//! The mod library (`<data>/mods/<id>/`) and the load-order profile (the active one in `<data>/profiles/`).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::manifest::{Manifest, load_manifest};
 use crate::{ObsidianError, Result};
-
-const PROFILE: &str = "profile.json";
 
 pub struct Library {
     root: PathBuf,
@@ -128,19 +126,28 @@ pub struct Profile {
     /// Option values per mod id, as set by the player.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub options: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    /// Keys per mod id and keybind id, as set by the player.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub keys: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl Profile {
+    /// The active profile.
     pub fn load(data_dir: &Path) -> Result<Profile> {
-        match std::fs::read_to_string(data_dir.join(PROFILE)) {
+        Profile::load_named(data_dir, &crate::profiles::active(data_dir)?)
+    }
+    pub fn load_named(data_dir: &Path, name: &str) -> Result<Profile> {
+        match std::fs::read_to_string(crate::profiles::path(data_dir, name)) {
             Ok(text) => Ok(serde_json::from_str(&text)?),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Profile::default()),
             Err(e) => Err(e.into()),
         }
     }
+    /// Saves as the active profile.
     pub fn save(&self, data_dir: &Path) -> Result<()> {
-        std::fs::create_dir_all(data_dir)?;
-        std::fs::write(data_dir.join(PROFILE), serde_json::to_string_pretty(self)? + "\n")?;
+        let path = crate::profiles::path(data_dir, &crate::profiles::active(data_dir)?);
+        std::fs::create_dir_all(path.parent().expect("profiles folder"))?;
+        std::fs::write(path, serde_json::to_string_pretty(self)? + "\n")?;
         Ok(())
     }
     /// Puts `ids` first, in that order; mods not named keep their order after them.
