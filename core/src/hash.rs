@@ -19,16 +19,15 @@ const TYPE_NAMES: &[&str] = &[
 /// MurmurHash64A with seed 0, as the engine hashes resource names.
 pub fn murmur64(data: &[u8]) -> u64 {
     let mut h = (data.len() as u64).wrapping_mul(M);
-    let mut blocks = data.chunks_exact(8);
-    for block in &mut blocks {
-        let mut k = u64::from_le_bytes(block.try_into().unwrap());
+    let (blocks, tail) = data.as_chunks::<8>();
+    for block in blocks {
+        let mut k = u64::from_le_bytes(*block);
         k = k.wrapping_mul(M);
         k ^= k >> R;
         k = k.wrapping_mul(M);
         h ^= k;
         h = h.wrapping_mul(M);
     }
-    let tail = blocks.remainder();
     if !tail.is_empty() {
         let mut buf = [0u8; 8];
         buf[..tail.len()].copy_from_slice(tail);

@@ -75,6 +75,9 @@ fn patch_name(name: &str) -> Option<(String, u32)> {
 fn foreign_patches(contents: &Path, state: Option<&DeployState>) -> Result<Vec<(String, u32, PathBuf)>> {
     let ours: Vec<&PathBuf> = state.map(|s| s.files.iter().map(|f| &f.path).collect()).unwrap_or_default();
     let mut out = Vec::new();
+    if !contents.is_dir() {
+        return Ok(out);
+    }
     for e in std::fs::read_dir(contents)? {
         let e = e?;
         let p = e.path();
@@ -99,14 +102,14 @@ fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
 
 pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Result<DeployReport> {
     let contents = game.contents();
+    let gate = check_build(&game.root, opts.known_builds)?;
+    let build = gate.build.clone().ok_or_else(|| KeplerError::UnsupportedBuild(gate.clone()))?;
     for e in std::fs::read_dir(&contents)? {
         let p = e?.path();
         if p.is_file() && p.extension().is_some_and(|x| x == TMP) {
             std::fs::remove_file(p)?;
         }
     }
-    let gate = check_build(&game.root, opts.known_builds)?;
-    let build = gate.build.clone().ok_or_else(|| KeplerError::UnsupportedBuild(gate.clone()))?;
     if load_state(data_dir)?.is_some() {
         purge(game, data_dir)?;
     }
