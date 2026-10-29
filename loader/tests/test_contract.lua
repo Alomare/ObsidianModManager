@@ -22,7 +22,7 @@ local function current()
 	keys("obsidian.settings", api.settings, out)
 	keys("obsidian.capabilities", e:core().capabilities, out)
 	table.sort(out)
-	for line in e:log():gmatch("[^\n]+") do out[#out + 1] = "log: " .. line:gsub("^%d%d:%d%d:%d%d ", "") end
+	for line in e:log():gmatch("[^\r\n]+") do out[#out + 1] = "log: " .. line:gsub("^%d%d:%d%d:%d%d ", "") end
 	return out
 end
 
@@ -30,11 +30,12 @@ test("api_matches_contract", function()
 	local want = {}
 	for line in (E.read("loader/tests/contract.txt") or ""):gmatch("[^\r\n]+") do want[#want + 1] = line end
 	local got = current()
-	local same = #want == #got
 	for i = 1, math.max(#want, #got) do
-		if want[i] ~= got[i] then same = false end
+		if want[i] ~= got[i] then
+			error("contract changed at line " .. i .. ": expected " .. tostring(want[i]) .. ", got " .. tostring(got[i])
+				.. "\nthe loader now gives:\n" .. table.concat(got, "\n"))
+		end
 	end
-	if not same then error("contract changed; the loader now gives:\n" .. table.concat(got, "\n")) end
 end)
 
 return T
