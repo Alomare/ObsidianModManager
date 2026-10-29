@@ -116,6 +116,35 @@ fn profile_commands_switch_what_list_shows() {
 }
 
 #[test]
+fn removed_mod_leaves_every_profile() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    bundle::write_file(&game.join("contents/00000000000000aa"), &bundle_with(b"old")).unwrap();
+    let m = t.path().join("My Mod (v2)");
+    std::fs::create_dir_all(&m).unwrap();
+    bundle::write_file(&m.join("00000000000000aa"), &bundle_with(b"new")).unwrap();
+    let (data, appdata) = (t.path().join("data"), t.path().join("appdata"));
+    let run = |args: &[&str]| {
+        let mut c = obsidian(&game, &data);
+        c.env("OBSIDIAN_APPDATA", &appdata).args(args);
+        c
+    };
+    run(&["import", m.to_str().unwrap()]).assert().success();
+    run(&["enable", "legacy.my-mod-v2"]).assert().success();
+    run(&["profile", "new", "Other", "--copy", "Default"]).assert().success();
+    run(&["remove", "obsidian.qol"]).assert().failure();
+    run(&["remove", "legacy.my-mod-v2"]).assert().success();
+    for name in ["Default", "Other"] {
+        run(&["profile", "use", name]).assert().success();
+        let list = String::from_utf8(run(&["list"]).assert().success().get_output().stdout.clone()).unwrap();
+        assert!(!list.contains("my-mod"), "{name}: {list}");
+        let saved = std::fs::read_to_string(data.join(format!("profiles/{name}.json"))).unwrap();
+        assert!(!saved.contains("my-mod"), "{name}: {saved}");
+    }
+}
+
+#[test]
 fn status_names_the_crash_culprit() {
     let t = spaced();
     let game = t.path().join("game");

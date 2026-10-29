@@ -57,6 +57,8 @@ enum Command {
     Consent { state: OnOff },
     /// Set a mod option, for example: obsidian set author.mod distance 7
     Set { id: String, option: String, value: String },
+    /// Delete a mod from the library (bundled mods can only be turned off)
+    Remove { id: String },
     /// Set a mod key, for example: obsidian key author.mod toggle f9
     Key { id: String, keybind: String, key: String },
     /// List, switch or create profiles
@@ -107,6 +109,7 @@ fn run(cli: Cli) -> Result<()> {
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
             | Command::Consent { .. } | Command::Set { .. } | Command::Key { .. } | Command::Profile { .. }
+            | Command::Remove { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
@@ -240,6 +243,11 @@ fn run(cli: Cli) -> Result<()> {
             } else {
                 live_change(&profile, &data, &lib, &game()?, &format!("{id} {option} is now {v}"))?;
             }
+        }
+        Command::Remove { id } => {
+            lib.remove(&id)?;
+            profile.sync(&lib)?;
+            live_change(&profile, &data, &lib, &game()?, &format!("Removed {id}"))?;
         }
         Command::Key { id, keybind, key } => {
             let m = lib.list()?.into_iter().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;

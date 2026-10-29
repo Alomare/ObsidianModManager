@@ -12,6 +12,17 @@ pub struct Library {
     root: PathBuf,
 }
 
+/// Where a legacy mod came from, kept as `import.json` in the mod folder.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ImportInfo {
+    /// RFC 3339.
+    pub date: String,
+    /// The folder or file name the mod was imported from.
+    pub file: String,
+}
+
+pub const IMPORT_INFO: &str = "import.json";
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum InstallOutcome {
     Added,
@@ -95,6 +106,20 @@ impl Library {
         }
         std::fs::rename(&tmp, &target)?;
         Ok(outcome)
+    }
+    pub fn import_info(&self, id: &str) -> Option<ImportInfo> {
+        let text = std::fs::read_to_string(self.mod_dir(id).join(IMPORT_INFO)).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+    /// Deletes a mod from the library. Profiles drop it at their next sync.
+    pub fn remove(&self, id: &str) -> Result<()> {
+        let dir = self.mod_dir(id);
+        let m = load_manifest(&dir).map_err(|_| ObsidianError::ModMissing(id.to_string()))?;
+        if m.is_bundled() {
+            return Err(ObsidianError::BundledMod(id.to_string()));
+        }
+        std::fs::remove_dir_all(dir)?;
+        Ok(())
     }
     pub fn list(&self) -> Result<Vec<Manifest>> {
         let mut out = Vec::new();
@@ -184,6 +209,28 @@ mod tests {
         let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"{version}","name":{{"en":"{id}"}}}}"#);
         put(&d, "obsidian.json", json.as_bytes());
         d
+    }
+
+    #[test]
+    fn remove_deletes_the_folder() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        lib.install(&staged(t.path(), "a", "1.0.0")).unwrap();
+        lib.remove("a").unwrap();
+        assert!(lib.list().unwrap().is_empty());
+        assert!(!lib.mod_dir("a").exists());
+        assert!(matches!(lib.remove("a"), Err(ObsidianError::ModMissing(_))));
+    }
+
+    #[test]
+    fn remove_refuses_bundled() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let d = t.path().join("stage-b");
+        put(&d, "obsidian.json", br#"{"obsidian":1,"id":"b","version":"1.0.0","name":{"en":"b"},"bundled":true}"#);
+        lib.install(&d).unwrap();
+        assert!(matches!(lib.remove("b"), Err(ObsidianError::BundledMod(_))));
+        assert!(lib.mod_dir("b").exists());
     }
 
     #[test]

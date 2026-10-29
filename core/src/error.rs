@@ -38,6 +38,8 @@ pub enum ObsidianError {
     ReservedResource { mod_id: String, name: String },
     #[error("Obsidian Loader files were not found (looked in {0})")]
     LoaderMissing(String),
+    #[error("{0} comes with Obsidian and can't be removed; turn it off instead")]
+    BundledMod(String),
     #[error("{mod_id} has no keybind {keybind}")]
     UnknownKeybind { mod_id: String, keybind: String },
     #[error("{0:?} can't be a profile name: use 1 to 40 characters, none of \\ / : * ? \" < > |")]

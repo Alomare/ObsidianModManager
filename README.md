@@ -25,7 +25,8 @@ obsidian purge                         take them out again
 obsidian status                        game build, what is deployed
 obsidian consent on|off                play session mods with other Obsidian users who allow them too
 obsidian set <id> <option> <value>     change a mod option
-obsidian key <id> <keybind> <key>       change a mod key
+obsidian remove <id>                   delete a mod from the library
+obsidian key <id> <keybind> <key>      change a mod key
 obsidian profile list|use|new <name>   switch between named sets of mods and settings
 ```
 

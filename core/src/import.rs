@@ -15,6 +15,8 @@ pub struct ImportReport {
     pub id: String,
     pub legacy: bool,
     pub outcome: InstallOutcome,
+    /// The version now in the library.
+    pub version: semver::Version,
     pub changed: usize,
     pub added: usize,
     pub removed_ignored: usize,
@@ -43,8 +45,8 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     if let Some(m) = shallowest_manifest {
         let dir = m.parent().unwrap();
         let outcome = lib.install(dir)?;
-        let id = manifest::load_manifest(dir)?.id;
-        return Ok(ImportReport { id, legacy: false, outcome, changed: 0, added: 0, removed_ignored: 0 });
+        let m = manifest::load_manifest(dir)?;
+        return Ok(ImportReport { id: m.id, legacy: false, outcome, version: m.version, changed: 0, added: 0, removed_ignored: 0 });
     }
 
     let bundles: Vec<&PathBuf> = files.iter().filter(|p| p.file_name().is_some_and(|n| is_bundle_name(&n.to_string_lossy()))).collect();
@@ -124,8 +126,12 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         extra: [("legacy".to_string(), serde_json::Value::Bool(true))].into(),
     };
     write_manifest(staged.path(), &m)?;
+    let file = src.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let info = crate::library::ImportInfo { date: chrono::Local::now().to_rfc3339(), file };
+    std::fs::write(staged.path().join(crate::library::IMPORT_INFO), serde_json::to_string_pretty(&info)? + "
+")?;
     let outcome = lib.install(staged.path())?;
-    Ok(ImportReport { id: m.id, legacy: true, outcome, changed, added, removed_ignored })
+    Ok(ImportReport { id: m.id, legacy: true, outcome, version: m.version, changed, added, removed_ignored })
 }
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
@@ -207,6 +213,7 @@ mod tests {
         let f = fixture(standard());
         let r = import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
         assert_eq!((r.id.as_str(), r.legacy, r.changed, r.added, r.removed_ignored), ("legacy.my-mod-v2", true, 1, 1, 0));
+        assert_eq!(r.version, semver::Version::new(0, 0, 0));
         let m = &f.lib.list().unwrap()[0];
         assert_eq!(m.scope, Scope::Session);
         assert_eq!(m.resources.len(), 2);
@@ -261,7 +268,17 @@ mod tests {
         let k = f.mod_dir.join("kmod");
         crate::testutil::put(&k, "obsidian.json", br#"{"obsidian":1,"id":"me.kmod","version":"1.0.0","name":{"en":"K"}}"#);
         let r = import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
-        assert_eq!((r.id.as_str(), r.legacy), ("me.kmod", false));
+        assert_eq!((r.id.as_str(), r.legacy, r.version.to_string()), ("me.kmod", false, "1.0.0".to_string()));
+        assert_eq!(f.lib.import_info("me.kmod"), None);
+    }
+
+    #[test]
+    fn legacy_import_writes_import_info() {
+        let f = fixture(standard());
+        let r = import_path(&f.mod_dir, &f.game, &f.lib).unwrap();
+        let info = f.lib.import_info(&r.id).expect("import info");
+        assert_eq!(info.file, f.mod_dir.file_name().unwrap().to_string_lossy());
+        assert!(chrono::DateTime::parse_from_rfc3339(&info.date).is_ok(), "{}", info.date);
     }
 
     #[test]
