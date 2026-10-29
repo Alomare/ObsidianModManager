@@ -26,21 +26,29 @@ local function skip_intro(hooks)
 	end)
 end
 
--- StateMainMenu.on_enter goes straight to the ship (wanted_state "menu") when ARGUMENTS.autohost
--- is set. autohost also changes drop zones and mission start elsewhere, so the flag exists only
--- during that one call, and only the first time the game reaches the main menu.
+-- Takes the steps the main menu takes for a Steam invite: once the menu shows and network setup
+-- reaches the login step, ask for the ship with the Steam backend. The menu then finishes the
+-- online setup (backend, campaign) before it leaves, so the Galactic Campaign is online.
+-- ARGUMENTS.autohost would also skip the login but picks the LAN backend, which stays offline.
+-- Only the first visit to the main menu, so quitting to the main menu works.
 local function skip_login(hooks)
 	local done = false
-	hooks.loader_hook("StateMainMenu", "on_enter", function(original, self, ...)
-		local a = arguments()
-		if done or not a then return original(self, ...) end
+	hooks.loader_hook("StateMainMenu", "update", function(original, self, ...)
+		local r = { original(self, ...) }
+		if done or B.type(self) ~= "table" or not self.showing_menu or self.wants_exit then return B.unpack(r) end
+		if self.network_setup_state == nil or self.network_setup_state ~= self.NETWORK_SETUP_LOGIN then return B.unpack(r) end
 		done = true
-		local was = a.autohost
-		a.autohost = true
-		local ok, err = B.pcall(original, self, ...)
-		a.autohost = was
-		log.line("skip login: main menu wants " .. B.tostring(self and self.wanted_state))
-		if not ok then B.error(err, 0) end
+		self.wants_exit = true
+		self.wanted_state = "menu"
+		self.exit_timer = 0
+		self.backend_type = "STEAM"
+		local sm = self.state_machine
+		if B.type(sm) == "table" and not sm:is_prepared("menu") and not sm:is_preparing("menu") then
+			if sm:is_any_preparing() then sm:unprepare() end
+			sm:prepare("menu")
+		end
+		log.line("skip login: going online to the ship")
+		return B.unpack(r)
 	end)
 end
 
