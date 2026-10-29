@@ -5,6 +5,7 @@ local hooks = require("kepler/loader/hooks")
 local session = require("kepler/loader/session")
 local backend_block = require("kepler/loader/backend_block")
 local pool = require("kepler/loader/pool")
+local features = require("kepler/loader/features")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -34,6 +35,11 @@ M.capabilities = capabilities
 -- "Allow session mods from other Kepler users", from the settings file.
 function M.consent()
 	return M.consent_on == true
+end
+
+-- The built-in features switched on in the app.
+function M.features()
+	return M.features_on or (M.deploy and M.deploy.features) or {}
 end
 
 function M.notice(key, ...)
@@ -214,6 +220,7 @@ function M.boot()
 	for _, mod in B.ipairs(deploy.mods or {}) do
 		start(mod)
 	end
+	features.setup(hooks, M.features())
 	for _, cb in B.ipairs(M.after) do
 		M.call(cb.state, "after_startup", cb.fn)
 	end
