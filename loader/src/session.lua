@@ -44,6 +44,7 @@ function M.evaluate()
 	local value = "1;" .. B.tostring(deploy.modset) .. ";" .. (own_consent and "1" or "0")
 	if M.published ~= value or M.published_lobby ~= l then
 		l:set_member_data("obsidian", value)
+		log.line("session: published member data " .. value)
 		M.published, M.published_lobby = value, l
 	end
 	local me, list, signature = l.my_id, {}, {}

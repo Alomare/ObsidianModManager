@@ -188,8 +188,8 @@ fn run(cli: Cli) -> Result<()> {
             print_gate(&g)?;
             let s = status(&g, &data, KNOWN_BUILDS)?;
             match &s.deployed {
-                Some(d) => println!("Deployed: {} ({} patches, {})", d.mods.join(", "), d.files.len(), d.time),
-                None => println!("Deployed: nothing"),
+                Some(d) if !d.files.is_empty() => println!("Deployed: {} ({} patches, {})", d.mods.join(", "), d.files.len(), d.time),
+                _ => println!("Deployed: nothing, the game is vanilla"),
             }
             for p in &s.foreign {
                 println!("Patch from another tool: {}", p.display());
@@ -241,7 +241,11 @@ fn on_off(s: OnOff) -> &'static str {
 fn live_change(profile: &Profile, data: &std::path::Path, lib: &Library, g: &GameInstall, what: &str) -> Result<()> {
     profile.save(data)?;
     obsidian_core::settings::write(&obsidian_core::settings::game_side_dir(&g.saves_dir), &settings_for(lib, profile)?)?;
-    let loader_deployed = status(g, data, KNOWN_BUILDS).ok().and_then(|s| s.deployed).is_some();
+    // The loader lives in the boot bundle patch, so a deploy that wrote none has no loader in the game.
+    let loader_deployed = status(g, data, KNOWN_BUILDS)
+        .ok()
+        .and_then(|s| s.deployed)
+        .is_some_and(|d| d.files.iter().any(|f| f.path.file_name().is_some_and(|n| n.to_string_lossy().starts_with(obsidian_core::loader::BUNDLE))));
     if loader_deployed {
         println!("{what}. Applies at the next game launch.");
     } else {

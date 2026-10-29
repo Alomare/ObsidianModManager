@@ -108,3 +108,33 @@ fn status_names_the_crash_culprit() {
     let text = String::from_utf8(out).unwrap();
     assert!(text.contains("The last game launch stopped while loading c.d"), "{text}");
 }
+
+/// A deploy that wrote nothing, as after `obsidian deploy` with every mod off.
+fn empty_deploy(data: &std::path::Path) {
+    std::fs::create_dir_all(data).unwrap();
+    std::fs::write(data.join("deploy-state.json"), r#"{"build":"Steam 6001293","files":[],"mods":[],"time":"t"}"#).unwrap();
+}
+
+#[test]
+fn status_says_vanilla_when_the_deploy_wrote_nothing() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let data = t.path().join("data");
+    empty_deploy(&data);
+    let out = obsidian(&game, &data).env("OBSIDIAN_APPDATA", t.path().join("appdata")).arg("status").assert().success().get_output().stdout.clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("Deployed: nothing, the game is vanilla"), "{text}");
+}
+
+#[test]
+fn feature_asks_for_a_deploy_when_the_loader_is_not_in_the_game() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let data = t.path().join("data");
+    empty_deploy(&data);
+    let out = obsidian(&game, &data).env("OBSIDIAN_APPDATA", t.path().join("appdata")).args(["feature", "skip_intro", "on"]).assert().success().get_output().stdout.clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("Run obsidian deploy to apply."), "{text}");
+}

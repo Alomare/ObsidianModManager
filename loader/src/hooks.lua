@@ -28,6 +28,8 @@ local function install(h)
 		if r[1] then return B.unpack(r, 2, r.n) end
 		return original(...)
 	end
+	local where = B.type(h.target) == "string" and h.target or "table"
+	log.line("hook installed: " .. where .. "." .. B.tostring(h.method) .. (state and (" by " .. state.id) or ""))
 	return true
 end
 

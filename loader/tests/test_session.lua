@@ -165,4 +165,10 @@ test("frame_hook_runs_after_the_game_update", function()
 	E.eq(e:core().frame_count, 5)
 end)
 
+test("publishing_member_data_is_logged_once_per_lobby", function()
+	local e = engine({ my_id = "me", members = { "me" }, data = {} })
+	e:frames(91)
+	E.eq(E.count(e:log(), "session: published member data"), 1)
+end)
+
 return T
