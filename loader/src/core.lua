@@ -1,16 +1,25 @@
 -- Kepler Loader core: the boot sequence, starting mods, error isolation and the `kepler` API.
 local B = require("kepler/loader/builtins")
 local log = require("kepler/loader/log")
+local hooks = require("kepler/loader/hooks")
+local session = require("kepler/loader/session")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
 local STDLIB = { "string", "table", "math", "io", "os", "coroutine", "debug", "package", "bit", "jit" }
 
-local M = { mods = {}, mods_by_id = {}, notices = {}, after = {}, current = nil, deploy = nil }
+local M = {
+	mods = {}, mods_by_id = {}, notices = {}, notices_shown = {}, after = {},
+	current = nil, deploy = nil, consent_on = false, frame_count = 0,
+}
 
-local capabilities = { after_startup = true, log = true }
+local capabilities = { after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true }
 local api = {
 	version = API_VERSION,
+	hook = hooks.hook,
+	on_require = hooks.on_require,
+	on_session = session.on_session,
+	session = session.api(),
 	capabilities = B.setmetatable({}, {
 		__index = capabilities,
 		__newindex = function() B.error("kepler.capabilities is read-only", 2) end,
@@ -20,13 +29,38 @@ local api = {
 M.api = api
 M.capabilities = capabilities
 
--- "Allow session mods from other Kepler users", from the settings file (Task 8 reads the file).
+-- "Allow session mods from other Kepler users", from the settings file.
 function M.consent()
-	return false
+	return M.consent_on == true
 end
 
 function M.notice(key, ...)
 	B.insert(M.notices, { key = key, args = { ... } })
+end
+
+local LANGUAGES = { en = "en", fr = "fr", es = "es", bp = "pt-BR" }
+
+local function language()
+	local lm = B.rawget(B.G, "LocalizationManager")
+	local code = B.type(lm) == "table" and lm.current_language or nil
+	return LANGUAGES[code] or "en"
+end
+
+-- A loader text in the game language, English when the language or the key is missing.
+function M.text(key, ...)
+	local texts = (M.deploy and M.deploy.texts) or {}
+	local t = (texts[language()] or {})[key] or (texts.en or {})[key] or key
+	local ok, s = B.pcall(B.format, t, ...)
+	return ok and s or t
+end
+
+-- Notices are queued anywhere and shown from the frame hook, where the game UI exists.
+local function show_notices()
+	while #M.notices > 0 do
+		local n = B.remove(M.notices, 1)
+		B.insert(M.notices_shown, n)
+		log.line("notice: " .. n.key .. ": " .. M.text(n.key, B.unpack(n.args)))
+	end
 end
 
 local function traceback(err)
@@ -164,6 +198,13 @@ function M.boot()
 	end
 
 	B.require("kepler/loader/pool").apply(deploy, M.consent())
+
+	hooks.setup(M, session)
+	session.setup(M)
+	hooks.on_frame(function() M.frame_count = M.frame_count + 1 end)
+	hooks.on_frame(session.tick)
+	hooks.on_frame(show_notices)
+	hooks.wrap_require()
 
 	B.rawset(B.G, "kepler", api)
 	for _, mod in B.ipairs(deploy.mods or {}) do

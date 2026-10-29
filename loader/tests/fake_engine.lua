@@ -82,8 +82,35 @@ function E.new(opts)
 		__index = function(_, k) error("Undeclared global " .. tostring(k), 2) end,
 	})
 
+	-- opts.lobby: { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;..." } }
+	if opts.lobby then
+		local l = opts.lobby
+		l.published = {}
+		rawset(_G, "NetworkGlobal", {
+			lobby = {
+				my_id = l.my_id,
+				members = function() return l.members end,
+				member_data = function(_, peer, key) return key == "kepler" and l.data[peer] or nil end,
+				set_member_data = function(_, key, value) l.published[key] = value end,
+			},
+		})
+	end
+
 	function e:boot()
 		assert(loadfile(SRC .. "boot.lua"))("foundation/lua/build_date_information")
+	end
+
+	-- What the boot script does after the loader: define update, then require game modules during init.
+	function e:start_frames()
+		rawset(_G, "FRAMES", 0)
+		rawset(_G, "update", function() rawset(_G, "FRAMES", rawget(_G, "FRAMES") + 1) end)
+		opts.modules = opts.modules or {}
+		opts.modules["lua/network/network_global"] = true
+		rawget(_G, "require")("lua/network/network_global")
+	end
+
+	function e:frames(n)
+		for _ = 1, n do rawget(_G, "update")(0.016) end
 	end
 
 	function e:log(name)
