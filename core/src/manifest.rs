@@ -62,6 +62,8 @@ pub struct ResourceSpec {
     pub bundle: Option<String>,
     pub flags: u32,
     pub payload: Payload,
+    /// Deploy options: the resource joins only when every listed option has the listed value.
+    pub when: BTreeMap<String, Value>,
 }
 
 impl ResourceSpec {
@@ -85,6 +87,8 @@ struct RawResource {
     bytecode: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     data: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    when: BTreeMap<String, Value>,
 }
 
 fn is_zero(v: &u32) -> bool {
@@ -108,6 +112,7 @@ impl TryFrom<RawResource> for ResourceSpec {
             bundle: r.bundle,
             flags: r.flags,
             payload,
+            when: r.when,
         })
     }
 }
@@ -120,7 +125,7 @@ impl From<ResourceSpec> for RawResource {
             Payload::Bytecode(p) => bytecode = Some(p),
             Payload::Data(p) => data = Some(p),
         }
-        RawResource { type_: s.type_text, name: s.name_text, bundle: s.bundle, flags: s.flags, source, bytecode, data }
+        RawResource { type_: s.type_text, name: s.name_text, bundle: s.bundle, flags: s.flags, source, bytecode, data, when: s.when }
     }
 }
 
@@ -199,14 +204,24 @@ impl Manifest {
         if let Some(entry) = &self.entry {
             check_path(mod_dir, entry, "entry")?;
         }
+        let options = self.option_specs()?;
+        crate::options::parse_keybinds(&self.keybinds)?;
         for (i, r) in self.resources.iter().enumerate() {
             let field = format!("resources[{i}]");
             if r.bundle.as_deref().is_some_and(|b| !is_hex16(b)) {
                 return Err(bad(field, "bundle must be 16 lowercase hex digits"));
             }
             check_path(mod_dir, r.data_path(), &field)?;
+            for (id, value) in &r.when {
+                let spec = options.iter().find(|o| o.id == *id).ok_or_else(|| bad(&field, format!("when names {id}, which is not an option")))?;
+                crate::options::validate(spec, value).map_err(|_| bad(&field, format!("when: {value} is not a value of {id}")))?;
+            }
         }
         Ok(())
+    }
+
+    pub fn option_specs(&self) -> Result<Vec<crate::options::OptionSpec>> {
+        crate::options::parse_options(&self.options)
     }
 }
 
@@ -300,6 +315,24 @@ mod tests {
     fn payload_outside_the_mod_is_rejected() {
         let out = EXAMPLE.replace("res/bar.texture", "../x");
         assert_eq!(field_of(load_manifest(mod_with(&out).path())), "resources[1]");
+    }
+
+    #[test]
+    fn options_and_keybinds_are_checked() {
+        let bad_default = EXAMPLE.replace(r#""default": 5"#, r#""default": "far""#);
+        assert_eq!(field_of(load_manifest(mod_with(&bad_default).path())), "options[0]");
+        let bad_key = EXAMPLE.replace(r#""default": "f8""#, r#""default": "F 8""#);
+        assert_eq!(field_of(load_manifest(mod_with(&bad_key).path())), "keybinds[0]");
+    }
+
+    #[test]
+    fn when_needs_a_declared_option_and_a_valid_value() {
+        let unknown = EXAMPLE.replace(r#""data": "res/bar.texture""#, r#""data": "res/bar.texture", "when": {"sky": "day"}"#);
+        assert_eq!(field_of(load_manifest(mod_with(&unknown).path())), "resources[1]");
+        let invalid = EXAMPLE.replace(r#""data": "res/bar.texture""#, r#""data": "res/bar.texture", "when": {"distance": "far"}"#);
+        assert_eq!(field_of(load_manifest(mod_with(&invalid).path())), "resources[1]");
+        let good = EXAMPLE.replace(r#""data": "res/bar.texture""#, r#""data": "res/bar.texture", "when": {"distance": 5}"#);
+        assert!(load_manifest(mod_with(&good).path()).is_ok());
     }
 
     #[test]

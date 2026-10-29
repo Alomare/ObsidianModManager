@@ -14,7 +14,9 @@ pub mod lua;
 pub mod luajit;
 pub mod manifest;
 pub mod modset;
+pub mod options;
 pub mod paths;
+pub mod settings;
 #[cfg(test)]
 pub(crate) mod testutil;
 pub mod vdf;

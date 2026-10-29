@@ -32,6 +32,8 @@ pub enum ObsidianError {
     CompilerUnavailable(String),
     #[error("Lua error in {chunk}: {message}")]
     CompileFailed { chunk: String, message: String },
+    #[error("option {option}: {value} is not an allowed value")]
+    BadOptionValue { option: String, value: String },
     #[error("mod {mod_id}: every resource needs a bundle in this version")]
     BundleRequired { mod_id: String },
     #[error("game build not recognised: {}", .0.mismatches.join(", "))]

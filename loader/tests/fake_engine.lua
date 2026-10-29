@@ -39,6 +39,12 @@ function E.new(opts)
 	e.root = (os.getenv("TEMP") or ".") .. "/obsidian-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
 	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/obsidian"
 	mkdir(e.obsidian_dir .. "/logs")
+	-- opts.settings: the text of settings.txt; nil leaves the file missing.
+	if opts.settings then
+		local f = assert(io.open(e.obsidian_dir .. "/settings.txt", "wb"))
+		f:write(opts.settings)
+		f:close()
+	end
 
 	local real_getenv = os.getenv
 	os.getenv = function(k)
@@ -96,6 +102,19 @@ function E.new(opts)
 			},
 		})
 	end
+
+	-- Keys held down, by name; pressed() stays true while a key is held, the worst case for keybinds.
+	e.held = {}
+	local names = { "f8", "f9", "g" }
+	rawset(_G, "Keyboard", {
+		button_index = function(name)
+			for i, n in ipairs(names) do
+				if n == name then return i end
+			end
+			return nil
+		end,
+		pressed = function(i) return e.held[names[i]] == true end,
+	})
 
 	function e:boot()
 		assert(loadfile(SRC .. "boot.lua"))("foundation/lua/build_date_information")

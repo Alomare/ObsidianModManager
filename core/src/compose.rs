@@ -6,6 +6,7 @@ use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, wrap_resource};
 use crate::luajit::compile;
 use crate::manifest::{Payload, load_manifest};
+use crate::options::{effective_values, when_matches};
 use crate::{ObsidianError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +42,8 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
             return Err(ObsidianError::ModMissing(entry.id.clone()));
         }
         let m = load_manifest(&dir)?;
-        for r in &m.resources {
+        let values = effective_values(&m.option_specs()?, profile.options.get(&m.id));
+        for r in m.resources.iter().filter(|r| when_matches(&r.when, &values)) {
             let bundle = r.bundle.clone().ok_or_else(|| ObsidianError::BundleRequired { mod_id: m.id.clone() })?;
             let bytes = std::fs::read(dir.join(r.data_path()))?;
             let data = match &r.payload {
@@ -98,7 +100,7 @@ mod tests {
     }
 
     fn profile(ids: &[(&str, bool)]) -> Profile {
-        Profile { mods: ids.iter().map(|(id, on)| ProfileEntry { id: id.to_string(), enabled: *on }).collect() }
+        Profile { mods: ids.iter().map(|(id, on)| ProfileEntry { id: id.to_string(), enabled: *on }).collect(), ..Default::default() }
     }
 
     fn hex(s: &str) -> Vec<u8> {
@@ -155,6 +157,27 @@ mod tests {
             Err(ObsidianError::CompileFailed { chunk, .. }) => assert_eq!(chunk, "src/r.bin"),
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn deploy_options_filter_resources() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let d = t.path().join("stage");
+        put(&d, "obsidian.json", br##"{"obsidian":1,"id":"opt","version":"1.0.0","name":{"en":"o"},
+            "options":[{"id":"sky","type":"choice","default":"day","choices":["day","night"]}],
+            "resources":[
+              {"type":"lua","name":"#0000000000000001","bundle":"00000000000000aa","data":"day.bin","when":{"sky":"day"}},
+              {"type":"lua","name":"#0000000000000001","bundle":"00000000000000aa","data":"night.bin","when":{"sky":"night"}}]}"##);
+        put(&d, "day.bin", b"day");
+        put(&d, "night.bin", b"night");
+        lib.install(&d).unwrap();
+        let mut p = profile(&[("opt", true)]);
+        let c = compose(&lib, &p).unwrap();
+        assert_eq!(c.bundles["00000000000000aa"].iter().map(|r| r.data.as_slice()).collect::<Vec<_>>(), vec![b"day".as_slice()]);
+        assert!(c.conflicts.is_empty(), "an option switched off never reports a conflict");
+        p.options.insert("opt".into(), [("sky".to_string(), serde_json::json!("night"))].into());
+        assert_eq!(compose(&lib, &p).unwrap().bundles["00000000000000aa"][0].data, b"night");
     }
 
     #[test]

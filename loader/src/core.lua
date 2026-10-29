@@ -6,6 +6,7 @@ local session = require("obsidian/loader/session")
 local backend_block = require("obsidian/loader/backend_block")
 local pool = require("obsidian/loader/pool")
 local features = require("obsidian/loader/features")
+local settings = require("obsidian/loader/settings")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -16,13 +17,19 @@ local M = {
 	current = nil, deploy = nil, consent_on = false, frame_count = 0,
 }
 
-local capabilities = { after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true }
+local capabilities = {
+	after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true,
+	settings = true, keybind = true, text = true,
+}
 local api = {
 	version = API_VERSION,
 	hook = hooks.hook,
 	on_require = hooks.on_require,
 	on_session = session.on_session,
 	session = session.api(),
+	settings = { get = settings.get },
+	keybind = settings.keybind,
+	text = settings.text,
 	capabilities = B.setmetatable({}, {
 		__index = capabilities,
 		__newindex = function() B.error("obsidian.capabilities is read-only", 2) end,
@@ -48,7 +55,7 @@ end
 
 local LANGUAGES = { en = "en", fr = "fr", es = "es", bp = "pt-BR" }
 
-local function language()
+function M.language()
 	local lm = B.rawget(B.G, "LocalizationManager")
 	local code = B.type(lm) == "table" and lm.current_language or nil
 	return LANGUAGES[code] or "en"
@@ -57,7 +64,7 @@ end
 -- A loader text in the game language, English when the language or the key is missing.
 function M.text(key, ...)
 	local texts = (M.deploy and M.deploy.texts) or {}
-	local t = (texts[language()] or {})[key] or (texts.en or {})[key] or key
+	local t = (texts[M.language()] or {})[key] or (texts.en or {})[key] or key
 	local ok, s = B.pcall(B.format, t, ...)
 	return ok and s or t
 end
@@ -186,7 +193,8 @@ function M.boot()
 	end
 
 	local appdata = B.getenv("APPDATA")
-	if appdata then log.setup(appdata .. "/Arrowhead/Helldivers/obsidian/logs") end
+	local game_side = appdata and (appdata .. "/Arrowhead/Helldivers/obsidian")
+	if game_side then log.setup(game_side .. "/logs") end
 	log.line("Obsidian Loader, API " .. API_VERSION .. ", jit " .. (B.type(jit) == "table" and "available" or "missing"))
 
 	local ok, deploy = B.pcall(B.require, "obsidian/deploy")
@@ -205,12 +213,15 @@ function M.boot()
 		return
 	end
 
+	settings.load(M, game_side and (game_side .. "/settings.txt"))
 	pool.apply(deploy, M.consent())
 
+	M.session = session
 	hooks.setup(M, session)
 	session.setup(M)
 	hooks.on_frame(function() M.frame_count = M.frame_count + 1 end)
 	hooks.on_frame(session.tick)
+	hooks.on_frame(settings.tick)
 	hooks.on_frame(show_notices)
 	hooks.wrap_require()
 

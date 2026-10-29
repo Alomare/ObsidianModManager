@@ -87,6 +87,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
                 bundle: Some(name.clone()),
                 flags: e.flags,
                 payload: Payload::Data(rel),
+                when: BTreeMap::new(),
             });
         }
     }

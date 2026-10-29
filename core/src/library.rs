@@ -1,5 +1,6 @@
 //! The mod library (`<data>/mods/<id>/`) and the load-order profile (`<data>/profile.json`).
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -86,6 +87,15 @@ pub struct ProfileEntry {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Profile {
     pub mods: Vec<ProfileEntry>,
+    /// Built-in features switched on (skip_intro, skip_login, skip_war_briefs).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
+    /// "Allow session mods from other Obsidian users".
+    #[serde(default)]
+    pub consent: bool,
+    /// Option values per mod id, as set by the player.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub options: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
 }
 
 impl Profile {

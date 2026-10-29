@@ -1,0 +1,6 @@
+{
+  "build_unknown": "Obsidian: versão do jogo desconhecida, então nenhum mod está rodando. Atualize o Obsidian e faça o deploy de novo.",
+  "mod_failed": "Obsidian: %s falhou e fica desligado até o jogo reiniciar.",
+  "session_not_cleared": "Obsidian: outros jogadores aqui usam mods diferentes, e alguns dos seus mudam arquivos do jogo que não podem ser pausados. Considere sair desta partida.",
+  "uploads_blocked": "Obsidian: resultados da Guerra Galáctica e dos placares não são enviados enquanto houver mods de sessão instalados."
+}
