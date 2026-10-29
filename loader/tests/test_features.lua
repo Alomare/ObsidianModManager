@@ -76,6 +76,53 @@ test("skip_login_waits_for_the_login_step", function()
 	E.eq(early.backend_type, "STEAM", "once the login step comes")
 end)
 
+-- The login click: the menu's own handle_input with select from keyboard and mouse, until the menu
+-- takes the input (showing_menu), the same as a player's click once the logo is done.
+local function clicking_menu(ready)
+	rawset(_G, "KEYBOARD_MOUSE_PAD_NUMBER", 7)
+	local menu = main_menu(false, 1)
+	menu.ready = ready
+	function menu:handle_input(input, inputs)
+		self.inputs_seen = (self.inputs_seen or 0) + 1
+		if self.ready and input.select then
+			self.showing_menu = true
+			self.main_pad = inputs[1].pad_number
+		end
+	end
+	return menu
+end
+
+test("skip_login_clicks_for_the_player_once_the_menu_takes_input", function()
+	local e = engine({ "skip_login" })
+	local seen = load_states(e)
+	local menu = clicking_menu(false)
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	E.eq(menu.showing_menu, false, "logo still showing")
+	menu.ready = true
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	E.eq(menu.showing_menu, true, "menu took the click")
+	E.eq(menu.main_pad, 7, "keyboard and mouse")
+	local count = menu.inputs_seen
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	E.eq(menu.inputs_seen, count, "no more clicks once the menu shows")
+	E.eq(seen.updates, 3, "original update once per frame")
+	menu.network_setup_state = 3
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	E.eq(menu.backend_type, "STEAM", "then online to the ship")
+	E.has(e:log(), "skip login: clicked for keyboard and mouse")
+end)
+
+test("skip_login_click_error_is_logged_and_left_to_the_player", function()
+	local e = engine({ "skip_login" })
+	local seen = load_states(e)
+	local menu = clicking_menu(true)
+	function menu:handle_input() error("boom") end
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	rawget(_G, "StateMainMenu").update(menu, 0.016)
+	E.eq(seen.updates, 2, "original update once per frame")
+	E.eq(E.count(e:log(), "skip login: click failed"), 1, "logged once")
+end)
+
 test("skip_war_briefs_skips_the_recap", function()
 	local e = engine({ "skip_war_briefs" })
 	local seen = load_states(e)

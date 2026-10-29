@@ -26,16 +26,35 @@ local function skip_intro(hooks)
 	end)
 end
 
--- Takes the steps the main menu takes for a Steam invite: once the menu shows and network setup
--- reaches the login step, ask for the ship with the Steam backend. The menu then finishes the
--- online setup (backend, campaign) before it leaves, so the Galactic Campaign is online.
--- ARGUMENTS.autohost would also skip the login but picks the LAN backend, which stays offline.
--- Only the first visit to the main menu, so quitting to the main menu works.
+-- Two steps, the first visit to the main menu only, so quitting to the main menu works:
+-- 1. The login click: the menu's own handle_input gets select from keyboard and mouse every frame
+--    until the menu takes the input (showing_menu), so the game's own checks (logo done, fades)
+--    still decide when. That also makes keyboard and mouse the main pad, as a click would.
+-- 2. At the login step, the steps the menu takes for a Steam invite: ask for the ship with the
+--    Steam backend. The menu finishes the online setup (backend, campaign) before it leaves.
+-- ARGUMENTS.autohost would skip both but picks the LAN backend, which stays offline.
 local function skip_login(hooks)
-	local done = false
+	local clicked, done = false, false
+	local function click(self)
+		local pad = B.rawget(B.G, "KEYBOARD_MOUSE_PAD_NUMBER")
+		if pad == nil or B.type(self.handle_input) ~= "function" then return end
+		local input = { select = true }
+		local ok, err = B.pcall(self.handle_input, self, input, { { pad_number = pad, input_data = input } })
+		if not ok then
+			clicked = true
+			log.line("skip login: click failed, left to the player: " .. B.tostring(err))
+		elseif self.showing_menu then
+			clicked = true
+			log.line("skip login: clicked for keyboard and mouse")
+		end
+	end
 	hooks.loader_hook("StateMainMenu", "update", function(original, self, ...)
 		local r = { original(self, ...) }
-		if done or B.type(self) ~= "table" or not self.showing_menu or self.wants_exit then return B.unpack(r) end
+		if done or B.type(self) ~= "table" or self.wants_exit then return B.unpack(r) end
+		if not self.showing_menu then
+			if not clicked then click(self) end
+			return B.unpack(r)
+		end
 		if self.network_setup_state == nil or self.network_setup_state ~= self.NETWORK_SETUP_LOGIN then return B.unpack(r) end
 		done = true
 		self.wants_exit = true
