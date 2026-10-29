@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use obsidian_core::compose::compose;
-use obsidian_core::deploy::{DeployOptions, deploy, purge, status};
+use obsidian_core::deploy::{ChangesWaiting, DeployOptions, changes_waiting, deploy, purge, status};
 use obsidian_core::game::{GameInstall, find_game};
 use obsidian_core::gate::KNOWN_BUILDS;
 use obsidian_core::hash::{format_name, format_type};
@@ -216,6 +216,13 @@ fn run(cli: Cli) -> Result<()> {
             match &s.deployed {
                 Some(d) if !d.files.is_empty() => println!("Deployed: {} ({} patches, {})", d.mods.join(", "), d.files.len(), d.time),
                 _ => println!("Deployed: nothing, the game is vanilla"),
+            }
+            // Status must work with a damaged library, so a failure here only skips the line.
+            if let Ok(w) = Profile::load(&data).and_then(|p| changes_waiting(&lib, &p, &data)) {
+                println!("Changes waiting: {}", if w == ChangesWaiting::Waiting { "yes (run obsidian deploy)" } else { "no" });
+            }
+            if obsidian_core::game::is_running() {
+                println!("The game is running.");
             }
             for p in &s.foreign {
                 println!("Patch from another tool: {}", p.display());

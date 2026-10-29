@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::backup::backup_saves;
 use crate::bundle::{self, Bundle, Entry, Variant};
-use crate::compose::{Conflict, compose};
+use crate::compose::{Composition, Conflict, compose};
 use crate::game::GameInstall;
 use crate::gate::{GateReport, KNOWN_BUILDS, KnownBuild, check_build, sha256_file};
 use crate::library::{Library, Profile};
@@ -27,6 +27,18 @@ pub struct DeployState {
     pub files: Vec<DeployedFile>,
     pub mods: Vec<String>,
     pub time: String,
+    /// `fingerprint` of what was deployed; missing in states written before it existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
+}
+
+/// Whether the game holds what the active profile would deploy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum ChangesWaiting {
+    UpToDate,
+    Waiting,
+    /// Nothing deployed and nothing to deploy.
+    Vanilla,
 }
 
 pub struct DeployOptions<'a> {
@@ -112,6 +124,43 @@ fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
     }
 }
 
+/// One hash of what a deploy of `comp` writes: every planned resource and, when the loader goes
+/// in, the loader's inputs. Live option values and keys reach the game through `settings.txt`, so
+/// they are not part of it.
+pub fn fingerprint(comp: &Composition, profile: &Profile, loader_dir: &Path) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    for (bundle, planned) in &comp.bundles {
+        for p in planned {
+            h.update(format!("{bundle} {:016x} {:016x} {} {}
+", p.type_hash, p.name_hash, p.flags, p.owner).as_bytes());
+            h.update(Sha256::digest(&p.data));
+        }
+    }
+    if loader::needed(comp, profile) {
+        h.update(b"loader
+");
+        h.update(loader::build_inputs(loader_dir, comp)?);
+    }
+    Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
+}
+
+pub fn changes_waiting(lib: &Library, profile: &Profile, data_dir: &Path) -> Result<ChangesWaiting> {
+    let mut profile = profile.clone();
+    profile.sync(lib)?;
+    let comp = compose(lib, &profile)?;
+    let state = load_state(data_dir)?;
+    let deployed_nothing = state.as_ref().is_none_or(|s| s.files.is_empty());
+    if comp.bundles.is_empty() && !loader::needed(&comp, &profile) {
+        return Ok(if deployed_nothing { ChangesWaiting::Vanilla } else { ChangesWaiting::Waiting });
+    }
+    let now = fingerprint(&comp, &profile, &loader::find_loader_dir()?)?;
+    Ok(match state.and_then(|s| s.fingerprint) {
+        Some(f) if f == now => ChangesWaiting::UpToDate,
+        _ => ChangesWaiting::Waiting,
+    })
+}
+
 pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Result<DeployReport> {
     let contents = game.contents();
     let gate = check_build(&game.root, opts.known_builds)?;
@@ -130,12 +179,14 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     let mut profile = Profile::load(data_dir)?;
     profile.sync(&lib)?;
     let mut comp = compose(&lib, &profile)?;
+    let loader_dir = match &opts.loader_dir {
+        Some(d) => d.clone(),
+        None => loader::find_loader_dir()?,
+    };
+    let fingerprint = fingerprint(&comp, &profile, &loader_dir)?;
     if loader::needed(&comp, &profile) {
-        let dir = match &opts.loader_dir {
-            Some(d) => d.clone(),
-            None => loader::find_loader_dir()?,
-        };
-        let planned = loader::build(&dir, &comp)?;
+        let dir = &loader_dir;
+        let planned = loader::build(dir, &comp)?;
         let slot = comp.bundles.entry(loader::BUNDLE.to_string()).or_default();
         for p in planned {
             slot.retain(|q| (q.type_hash, q.name_hash) != (p.type_hash, p.name_hash));
@@ -184,7 +235,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
         .map(|(tmp, p)| Ok(DeployedFile { path: p.clone(), sha256: sha256_file(tmp)? }))
         .collect::<Result<Vec<_>>>()?;
     let mods = profile.mods.iter().filter(|m| m.enabled).map(|m| m.id.clone()).collect();
-    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339() };
+    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339(), fingerprint: Some(fingerprint) };
 
     // The old patches go only now, when the new set is ready. The state is recorded before
     // any rename, so a crash midway still leaves every live patch listed for purge.
@@ -452,6 +503,113 @@ mod tests {
         put(&patch(&w, "00000000000000bb.patch_0"), "blocker", b"x");
         assert!(deploy(&w.game, &w.data, &w.opts).is_err());
         assert!(!w.data.join(STATE).exists());
+    }
+
+    /// Adds client mod `opt` (on, last): an entry, a live toggle `fast`, a deploy choice `sky`, and
+    /// the resource `mod-aa` changes too.
+    fn add_option_mod(w: &World) {
+        let d = w.data.join("..").join("stage-opt");
+        put(&d, "obsidian.json", br##"{"obsidian":1,"id":"opt","version":"1.0.0","name":{"en":"o"},"entry":"main.lua","scope":"client",
+            "options":[{"id":"fast","type":"toggle","default":false},{"id":"sky","type":"choice","default":"day","choices":["day","night"]}],
+            "resources":[
+              {"type":"#0000000000000001","name":"#00000000000000f0","bundle":"00000000000000aa","data":"day.bin","when":{"sky":"day"}},
+              {"type":"#0000000000000001","name":"#00000000000000f0","bundle":"00000000000000aa","data":"night.bin","when":{"sky":"night"}}]}"##);
+        put(&d, "main.lua", b"return true\n");
+        put(&d, "day.bin", b"day");
+        put(&d, "night.bin", b"night");
+        let lib = Library::open(&w.data).unwrap();
+        lib.install(&d).unwrap();
+        let mut p = Profile::load(&w.data).unwrap();
+        p.sync(&lib).unwrap();
+        p.set_enabled("opt", true).unwrap();
+        p.save(&w.data).unwrap();
+    }
+
+    fn waiting(w: &World) -> ChangesWaiting {
+        let lib = Library::open(&w.data).unwrap();
+        changes_waiting(&lib, &Profile::load(&w.data).unwrap(), &w.data).unwrap()
+    }
+
+    fn change(w: &World, f: impl FnOnce(&mut Profile)) {
+        let mut p = Profile::load(&w.data).unwrap();
+        f(&mut p);
+        p.save(&w.data).unwrap();
+    }
+
+    #[test]
+    fn fresh_deploy_is_up_to_date() {
+        let w = world();
+        add_option_mod(&w);
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting, "never deployed");
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::UpToDate);
+    }
+
+    #[test]
+    fn toggling_a_mod_is_waiting() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        change(&w, |p| p.set_enabled("mod-bb", false).unwrap());
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
+        change(&w, |p| p.set_enabled("mod-bb", true).unwrap());
+        assert_eq!(waiting(&w), ChangesWaiting::UpToDate, "back as deployed");
+    }
+
+    #[test]
+    fn changing_a_live_option_is_not_waiting() {
+        let w = world();
+        add_option_mod(&w);
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        change(&w, |p| {
+            p.options.entry("opt".into()).or_default().insert("fast".into(), serde_json::json!(true));
+            p.keys.entry("opt".into()).or_default().insert("toggle".into(), "f9".into());
+        });
+        assert_eq!(waiting(&w), ChangesWaiting::UpToDate);
+    }
+
+    #[test]
+    fn changing_a_deploy_option_is_waiting() {
+        let w = world();
+        add_option_mod(&w);
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        change(&w, |p| {
+            p.options.entry("opt".into()).or_default().insert("sky".into(), serde_json::json!("night"));
+        });
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
+    }
+
+    #[test]
+    fn reordering_conflicting_mods_is_waiting() {
+        let w = world();
+        add_option_mod(&w);
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        change(&w, |p| p.set_order(&["opt".to_string()]));
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
+    }
+
+    #[test]
+    fn nothing_on_and_nothing_deployed_is_vanilla() {
+        let w = world();
+        change(&w, |p| {
+            p.set_enabled("mod-aa", false).unwrap();
+            p.set_enabled("mod-bb", false).unwrap();
+        });
+        assert_eq!(waiting(&w), ChangesWaiting::Vanilla);
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::Vanilla, "a deploy that wrote nothing");
+        change(&w, |p| p.consent = true);
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting, "consent alone needs the loader");
+    }
+
+    #[test]
+    fn old_state_without_fingerprint_is_waiting() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        let path = w.data.join(STATE);
+        let mut state: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        state.as_object_mut().unwrap().remove("fingerprint");
+        std::fs::write(&path, state.to_string()).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
     }
 
     #[test]

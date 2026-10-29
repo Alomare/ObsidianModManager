@@ -75,6 +75,23 @@ fn steam_libraries() -> Vec<PathBuf> {
     libs
 }
 
+/// The game's process name.
+pub const EXE: &str = "helldivers.exe";
+
+/// Whether HELLDIVERS is running.
+pub fn is_running() -> bool {
+    is_running_named(EXE)
+}
+
+/// Whether a process with this file name runs, ignoring case.
+pub fn is_running_named(name: &str) -> bool {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    // A system that can't list processes counts as "not running", so deploys stay possible.
+    let Ok(mut s) = System::new() else { return false };
+    s.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    s.processes().values().any(|p| p.name().to_string_lossy().eq_ignore_ascii_case(name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,5 +111,12 @@ mod tests {
     fn explicit_folder_is_used_as_is() {
         let g = spaced_tempdir();
         assert_eq!(find_game(Some(g.path())).unwrap().root, g.path());
+    }
+    #[test]
+    fn running_process_is_found_by_name() {
+        let me = std::env::current_exe().unwrap();
+        let name = me.file_name().unwrap().to_string_lossy().to_uppercase();
+        assert!(is_running_named(&name));
+        assert!(!is_running_named("no-such-process-obsidian.exe"));
     }
 }

@@ -215,6 +215,28 @@ pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
     Ok(out)
 }
 
+/// What `build` compiles, uncompiled: the loader sources, each mod entry and the deploy table.
+/// Equal inputs build equal resources, so this stands in for `build` where nothing is written.
+pub fn build_inputs(loader_dir: &Path, comp: &Composition) -> Result<Vec<u8>> {
+    let mut files: Vec<PathBuf> =
+        std::fs::read_dir(loader_dir)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "lua")).collect();
+    files.sort();
+    let mut out = Vec::new();
+    for p in files {
+        out.extend(p.file_name().unwrap().to_string_lossy().as_bytes());
+        out.extend(std::fs::read(&p)?);
+    }
+    for c in &comp.mods {
+        if let Some(entry) = &c.manifest.entry {
+            out.extend(c.manifest.id.as_bytes());
+            out.extend(std::fs::read(c.dir.join(entry))?);
+        }
+    }
+    let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
+    out.extend(deploy_table(comp, texts)?.to_string().as_bytes());
+    Ok(out)
+}
+
 /// The settings file for this profile: consent and the value of every option of each
 /// enabled mod with an entry. Reads manifests only, so nothing is compiled.
 pub fn settings_for(lib: &Library, profile: &Profile) -> Result<Settings> {
