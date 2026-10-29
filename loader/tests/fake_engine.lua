@@ -1,0 +1,131 @@
+-- A stand-in for the parts of the game the loader touches, so loader tests run under plain LuaJIT 2.0.
+-- Each test runs in a fresh process (see run.lua), so the fake can change globals freely.
+
+local E = {}
+local SRC = "loader/src/"
+
+local function mkdir(path)
+	os.execute('mkdir "' .. path:gsub("/", "\\") .. '" >nul 2>nul')
+end
+
+local function read(path)
+	local f = io.open(path, "rb")
+	if not f then return nil end
+	local s = f:read("*a")
+	f:close()
+	return s
+end
+
+E.read = read
+
+function E.deploy(over)
+	local d = {
+		version = 1,
+		revision = "parent: 32148:3bd83d77c8ae",
+		hashes = { identical = "aaaaaaaaaaaa", consent = "bbbbbbbbbbbb" },
+		has_session = false,
+		mods = {},
+		features = {},
+		texts = { en = { mod_failed = "Kepler: %s failed to start", build_unknown = "Kepler: unknown game build" } },
+	}
+	for k, v in pairs(over or {}) do d[k] = v end
+	return d
+end
+
+-- opts: deploy (table), mods ({ [resource name] = source }), modules ({ [name] = value }), revision (string)
+function E.new(opts)
+	opts = opts or {}
+	local e = { opts = opts, loaded = {} }
+	e.root = (os.getenv("TEMP") or ".") .. "/kepler-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
+	e.kepler_dir = e.root .. "/Arrowhead/Helldivers/kepler"
+	mkdir(e.kepler_dir .. "/logs")
+
+	local real_getenv = os.getenv
+	os.getenv = function(k)
+		if k == "APPDATA" then return e.root end
+		return real_getenv(k)
+	end
+
+	local deploy = opts.deploy or E.deploy()
+	rawset(_G, "BUILD_REVISION_INFORMATION", opts.revision or "parent: 32148:3bd83d77c8ae tip\n [code] ok")
+	rawset(_G, "Application", { platform = function() return "win32" end })
+	rawset(_G, "ARGUMENTS", {})
+	rawset(_G, "Boot", {})
+
+	rawset(_G, "require", function(name)
+		if e.loaded[name] ~= nil then return e.loaded[name] end
+		local value
+		local rest = name:match("^kepler/loader/(.+)$")
+		if rest then
+			value = assert(loadfile(SRC .. rest .. ".lua"))(name)
+		elseif name == "kepler/deploy" then
+			value = deploy
+		elseif opts.mods and opts.mods[name] then
+			value = assert(loadstring(opts.mods[name], name))(name)
+		elseif opts.modules and opts.modules[name] ~= nil then
+			value = opts.modules[name]
+		else
+			error("module '" .. name .. "' not found", 2)
+		end
+		if value == nil then value = true end
+		e.loaded[name] = value
+		return value
+	end)
+
+	-- foundation/lua/util/strict: new globals only from a main chunk or C, undeclared reads are errors.
+	setmetatable(_G, {
+		__newindex = function(t, k, v)
+			local w = debug.getinfo(2, "S").what
+			if w ~= "main" and w ~= "C" then error("Undeclared global " .. tostring(k), 2) end
+			rawset(t, k, v)
+		end,
+		__index = function(_, k) error("Undeclared global " .. tostring(k), 2) end,
+	})
+
+	function e:boot()
+		assert(loadfile(SRC .. "boot.lua"))("foundation/lua/build_date_information")
+	end
+
+	function e:log(name)
+		return read(e.kepler_dir .. "/logs/" .. (name or "loader") .. ".log") or ""
+	end
+
+	function e:core()
+		return e.loaded["kepler/loader/core"]
+	end
+
+	return e
+end
+
+function E.eq(a, b, what)
+	if a ~= b then error((what or "value") .. ": expected " .. tostring(b) .. ", got " .. tostring(a), 2) end
+end
+
+function E.has(text, needle, what)
+	if not string.find(text, needle, 1, true) then
+		error((what or "text") .. " lacks " .. needle .. "\n--- text ---\n" .. tostring(text), 2)
+	end
+end
+
+function E.lacks(text, needle, what)
+	if string.find(text, needle, 1, true) then
+		error((what or "text") .. " should not contain " .. needle .. "\n--- text ---\n" .. tostring(text), 2)
+	end
+end
+
+function E.count(text, needle)
+	local n, pos = 0, 1
+	while true do
+		local s, f = string.find(text, needle, pos, true)
+		if not s then return n end
+		n, pos = n + 1, f + 1
+	end
+end
+
+function E.mod(id, over)
+	local m = { id = id, version = "1.0.0", scope = "client", entry = "kepler/mods/" .. id .. "/main", loader_api = 1 }
+	for k, v in pairs(over or {}) do m[k] = v end
+	return m
+end
+
+return E
