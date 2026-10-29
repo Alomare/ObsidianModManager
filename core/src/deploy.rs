@@ -10,7 +10,7 @@ use crate::compose::{Conflict, compose};
 use crate::game::GameInstall;
 use crate::gate::{GateReport, KNOWN_BUILDS, KnownBuild, check_build, sha256_file};
 use crate::library::{Library, Profile};
-use crate::{ObsidianError, Result};
+use crate::{ObsidianError, Result, loader, settings};
 
 pub const STATE: &str = "deploy-state.json";
 const TMP: &str = "obsidian-tmp";
@@ -32,11 +32,13 @@ pub struct DeployState {
 pub struct DeployOptions<'a> {
     pub known_builds: &'a [KnownBuild],
     pub keep_backups: usize,
+    /// The loader sources; `None` finds them with `loader::find_loader_dir`.
+    pub loader_dir: Option<PathBuf>,
 }
 
 impl Default for DeployOptions<'static> {
     fn default() -> Self {
-        DeployOptions { known_builds: KNOWN_BUILDS, keep_backups: 10 }
+        DeployOptions { known_builds: KNOWN_BUILDS, keep_backups: 10, loader_dir: None }
     }
 }
 
@@ -59,6 +61,8 @@ pub struct Status {
     pub gate: GateReport,
     pub deployed: Option<DeployState>,
     pub foreign: Vec<PathBuf>,
+    /// The mod that was starting when the game last closed or crashed, from the loader log.
+    pub crash_culprit: Option<String>,
 }
 
 /// `(bundle, N)` for a file named `<16 hex>.patch_<N>`.
@@ -122,7 +126,20 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     let lib = Library::open(data_dir)?;
     let mut profile = Profile::load(data_dir)?;
     profile.sync(&lib)?;
-    let comp = compose(&lib, &profile)?;
+    let mut comp = compose(&lib, &profile)?;
+    if loader::needed(&comp, &profile) {
+        let dir = match &opts.loader_dir {
+            Some(d) => d.clone(),
+            None => loader::find_loader_dir()?,
+        };
+        let planned = loader::build(&dir, &comp, &profile)?;
+        let slot = comp.bundles.entry(loader::BUNDLE.to_string()).or_default();
+        for p in planned {
+            slot.retain(|q| (q.type_hash, q.name_hash) != (p.type_hash, p.name_hash));
+            slot.push(p);
+        }
+    }
+    let settings = loader::settings_for(&lib, &profile)?;
 
     // Plan every slot before changing anything, so a refusal leaves the previous deploy in place.
     let foreign = foreign_patches(&contents, previous.as_ref())?;
@@ -185,6 +202,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
         }
         done.push(target);
     }
+    settings::write(&settings::game_side_dir(&game.saves_dir), &settings)?;
     let foreign_paths = foreign.into_iter().filter(|(b, _, _)| comp.bundles.contains_key(b)).map(|(_, _, p)| p).collect();
     Ok(DeployReport { patches: state.files.into_iter().map(|f| f.path).collect(), conflicts: comp.conflicts, foreign: foreign_paths, backup })
 }
@@ -211,7 +229,9 @@ pub fn purge(_game: &GameInstall, data_dir: &Path) -> Result<PurgeReport> {
 pub fn status(game: &GameInstall, data_dir: &Path, known: &[KnownBuild]) -> Result<Status> {
     let deployed = load_state(data_dir)?;
     let foreign = foreign_patches(&game.contents(), deployed.as_ref())?.into_iter().map(|(_, _, p)| p).collect();
-    Ok(Status { gate: check_build(&game.root, known)?, deployed, foreign })
+    let log = settings::game_side_dir(&game.saves_dir).join("logs").join("loader.log");
+    let crash_culprit = std::fs::read_to_string(log).ok().and_then(|t| loader::crash_culprit(&t));
+    Ok(Status { gate: check_build(&game.root, known)?, deployed, foreign, crash_culprit })
 }
 
 #[cfg(test)]
@@ -244,7 +264,8 @@ mod tests {
         std::fs::create_dir_all(game.contents()).unwrap();
         bundle::write_file(&game.contents().join("00000000000000aa"), &base(1)).unwrap();
         bundle::write_file(&game.contents().join("00000000000000bb"), &base(2)).unwrap();
-        let known = fake_build(&game.root, &["contents/00000000000000aa", "contents/00000000000000bb"]);
+        bundle::write_file(&game.contents().join(crate::loader::BUNDLE), &base(3)).unwrap();
+        let known = fake_build(&game.root, &["contents/00000000000000aa", "contents/00000000000000bb", "contents/9cf71054ea26dddf"]);
         let data = t.path().join("data");
         let lib = Library::open(&data).unwrap();
         for b in ["aa", "bb"] {
@@ -262,7 +283,7 @@ mod tests {
         p.set_enabled("mod-aa", true).unwrap();
         p.set_enabled("mod-bb", true).unwrap();
         p.save(&data).unwrap();
-        World { _t: t, game, data, opts: DeployOptions { known_builds: known, keep_backups: 10 } }
+        World { _t: t, game, data, opts: DeployOptions { known_builds: known, keep_backups: 10, loader_dir: None } }
     }
 
     fn snapshot(dir: &Path) -> BTreeMap<String, String> {
@@ -283,7 +304,7 @@ mod tests {
         let w = world();
         let before = snapshot(&w.game.contents());
         let r = deploy(&w.game, &w.data, &w.opts).unwrap();
-        assert_eq!(r.patches.len(), 2);
+        assert_eq!(r.patches.len(), 3, "two mod patches and the loader");
         let p = bundle::read_file(&patch(&w, "00000000000000aa.patch_0")).unwrap();
         assert_eq!(p.props, [9u8; 256]);
         assert_eq!(p.entries[0].variants[0].data, b"modded");
@@ -292,6 +313,41 @@ mod tests {
         purge(&w.game, &w.data).unwrap();
         assert_eq!(snapshot(&w.game.contents()), before);
         assert!(status(&w.game, &w.data, w.opts.known_builds).unwrap().deployed.is_none());
+    }
+
+    fn settings_text(w: &World) -> String {
+        std::fs::read_to_string(crate::settings::game_side_dir(&w.game.saves_dir).join(crate::settings::FILE)).unwrap()
+    }
+
+    #[test]
+    fn loader_ships_with_any_enabled_mod() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        let b = bundle::read_file(&patch(&w, "9cf71054ea26dddf.patch_0")).unwrap();
+        let names: Vec<u64> = b.entries.iter().map(|e| e.name_hash).collect();
+        for n in [crate::loader::ENTRY, "obsidian/loader/core", "obsidian/loader/settings", "obsidian/deploy"] {
+            assert!(names.contains(&crate::hash::hash_name(n)), "{n}");
+        }
+        assert!(settings_text(&w).contains("consent	0
+"));
+        purge(&w.game, &w.data).unwrap();
+        assert!(!patch(&w, "9cf71054ea26dddf.patch_0").exists());
+        assert!(settings_text(&w).contains("consent"), "purge leaves settings.txt");
+    }
+
+    #[test]
+    fn consent_alone_deploys_the_loader() {
+        let w = world();
+        let mut p = Profile::load(&w.data).unwrap();
+        p.set_enabled("mod-aa", false).unwrap();
+        p.set_enabled("mod-bb", false).unwrap();
+        p.save(&w.data).unwrap();
+        assert!(deploy(&w.game, &w.data, &w.opts).unwrap().patches.is_empty(), "nothing on, nothing written");
+        p.consent = true;
+        p.save(&w.data).unwrap();
+        assert_eq!(deploy(&w.game, &w.data, &w.opts).unwrap().patches, vec![patch(&w, "9cf71054ea26dddf.patch_0")]);
+        assert!(settings_text(&w).contains("consent	1
+"));
     }
 
     #[test]
@@ -323,7 +379,7 @@ mod tests {
         p.set_enabled("mod-bb", false).unwrap();
         p.save(&w.data).unwrap();
         let r = deploy(&w.game, &w.data, &w.opts).unwrap();
-        assert_eq!(r.patches, vec![patch(&w, "00000000000000aa.patch_0")]);
+        assert_eq!(r.patches, vec![patch(&w, "00000000000000aa.patch_0"), patch(&w, "9cf71054ea26dddf.patch_0")]);
         assert!(!patch(&w, "00000000000000bb.patch_0").exists());
     }
 
@@ -360,7 +416,7 @@ mod tests {
         let w = world();
         deploy(&w.game, &w.data, &w.opts).unwrap();
         bundle::write_file(&w.game.contents().join("00000000000000aa"), &base(5)).unwrap();
-        assert_eq!(purge(&w.game, &w.data).unwrap().removed.len(), 2);
+        assert_eq!(purge(&w.game, &w.data).unwrap().removed.len(), 3);
     }
 
     #[test]

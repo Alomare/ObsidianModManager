@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::bundle::{self, Entry};
 use crate::game::GameInstall;
-use crate::hash::{format_name, format_type};
+use crate::hash::{format_name, format_type, hash_name};
 use crate::library::{InstallOutcome, Library};
 use crate::manifest::{self, Manifest, Payload, ResourceSpec, Scope, write_manifest};
 use crate::{ObsidianError, Result};
@@ -54,6 +54,8 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     let staged = tempfile::tempdir()?;
     let (mut changed, mut added, mut removed_ignored) = (0, 0, 0);
     let mut resources = Vec::new();
+    let entry_key = (hash_name("lua"), hash_name(crate::loader::ENTRY));
+    let mut entry_file = None;
     for path in bundles {
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         let vanilla_path = game.contents().join(&name);
@@ -76,6 +78,12 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
                 [v] if v.lang == 0 && v.stream_size == 0 => v,
                 _ => return Err(ObsidianError::UnsupportedLegacyEntry { bundle: name.clone(), entry }),
             };
+            if name == crate::loader::BUNDLE && (e.type_hash, e.name_hash) == entry_key {
+                // Obsidian Loader takes the place of this resource, so the mod's version runs as the entry.
+                std::fs::write(staged.path().join("entry.bin"), &v.data)?;
+                entry_file = Some(PathBuf::from("entry.bin"));
+                continue;
+            }
             let rel = PathBuf::from("res").join(&name).join(format!("{entry}.bin"));
             std::fs::create_dir_all(staged.path().join(rel.parent().unwrap()))?;
             std::fs::write(staged.path().join(&rel), &v.data)?;
@@ -106,7 +114,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         description: None,
         authors: Vec::new(),
         scope: Scope::Session,
-        entry: None,
+        entry: entry_file,
         resources,
         options: Vec::new(),
         keybinds: Vec::new(),
@@ -205,6 +213,28 @@ mod tests {
         let tex = m.resources.iter().find(|r| r.flags == 7).unwrap();
         assert_eq!(tex.type_text, "texture");
         assert_eq!(std::fs::read(f.lib.mod_dir(&r.id).join(tex.data_path())).unwrap(), b"add");
+    }
+
+    #[test]
+    fn legacy_build_date_information_becomes_entry() {
+        let t = spaced_tempdir();
+        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves") };
+        let entry = hash_name(crate::loader::ENTRY);
+        let mod_dir = t.path().join("HD2CAM");
+        std::fs::create_dir_all(game.contents()).unwrap();
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        let vanilla = Bundle { props: [9; 256], entries: vec![e(LUA, entry, 0, b"vanilla"), e(LUA, 5, 0, b"old")] };
+        bundle::write_file(&game.contents().join(crate::loader::BUNDLE), &vanilla).unwrap();
+        let modded = Bundle { props: [9; 256], entries: vec![e(LUA, entry, 0, b"camera"), e(LUA, 5, 0, b"new")] };
+        bundle::write_file(&mod_dir.join(crate::loader::BUNDLE), &modded).unwrap();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let r = import_path(&mod_dir, &game, &lib).unwrap();
+        assert_eq!((r.changed, r.added), (2, 0));
+        let m = &lib.list().unwrap()[0];
+        let path = m.entry.clone().expect("entry");
+        assert_eq!(std::fs::read(lib.mod_dir(&r.id).join(path)).unwrap(), b"camera");
+        assert_eq!(m.resources.len(), 1);
+        assert_eq!(m.resources[0].name_hash, 5);
     }
 
     #[test]

@@ -1,11 +1,15 @@
 //! Turning the enabled mods of a profile into one resource set per game bundle.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+use serde_json::Value;
 
 use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, wrap_resource};
 use crate::luajit::compile;
-use crate::manifest::{Payload, load_manifest};
+use crate::hash::hash_name;
+use crate::manifest::{Manifest, Payload, load_manifest};
 use crate::options::{effective_values, when_matches};
 use crate::{ObsidianError, Result};
 
@@ -27,15 +31,27 @@ pub struct Conflict {
     pub losers: Vec<String>,
 }
 
+/// An enabled mod, in load order, with the option values in force and how many resources joined.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComposedMod {
+    pub manifest: Manifest,
+    pub dir: PathBuf,
+    pub values: BTreeMap<String, Value>,
+    pub resources: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Composition {
     pub bundles: BTreeMap<String, Vec<Planned>>,
     pub conflicts: Vec<Conflict>,
+    pub mods: Vec<ComposedMod>,
 }
 
 pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
     // (bundle, type, name) -> (winning resource, earlier owners it replaced)
     let mut slots: BTreeMap<(String, u64, u64), (Planned, Vec<String>)> = BTreeMap::new();
+    let mut mods = Vec::new();
+    let reserved = (hash_name("lua"), hash_name(crate::loader::ENTRY));
     for entry in profile.mods.iter().filter(|m| m.enabled) {
         let dir = lib.mod_dir(&entry.id);
         if !dir.join(crate::manifest::FILE).is_file() {
@@ -43,7 +59,11 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
         }
         let m = load_manifest(&dir)?;
         let values = effective_values(&m.option_specs()?, profile.options.get(&m.id));
-        for r in m.resources.iter().filter(|r| when_matches(&r.when, &values)) {
+        if m.resources.iter().any(|r| (r.type_hash, r.name_hash) == reserved) {
+            return Err(ObsidianError::ReservedResource { mod_id: m.id.clone(), name: crate::loader::ENTRY.into() });
+        }
+        let chosen: Vec<_> = m.resources.iter().filter(|r| when_matches(&r.when, &values)).collect();
+        for r in &chosen {
             let bundle = r.bundle.clone().ok_or_else(|| ObsidianError::BundleRequired { mod_id: m.id.clone() })?;
             let bytes = std::fs::read(dir.join(r.data_path()))?;
             let data = match &r.payload {
@@ -68,8 +88,10 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
             };
             slots.insert(key, (planned, losers));
         }
+        let resources = chosen.len();
+        mods.push(ComposedMod { manifest: m, dir, values, resources });
     }
-    let mut out = Composition::default();
+    let mut out = Composition { mods, ..Default::default() };
     for ((bundle, type_hash, name_hash), (planned, losers)) in slots {
         if !losers.is_empty() {
             out.conflicts.push(Conflict { bundle: bundle.clone(), type_hash, name_hash, winner: planned.owner.clone(), losers });
@@ -178,6 +200,19 @@ mod tests {
         assert!(c.conflicts.is_empty(), "an option switched off never reports a conflict");
         p.options.insert("opt".into(), [("sky".to_string(), serde_json::json!("night"))].into());
         assert_eq!(compose(&lib, &p).unwrap().bundles["00000000000000aa"][0].data, b"night");
+    }
+
+    #[test]
+    fn reserved_resource_is_refused() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let d = t.path().join("stage");
+        put(&d, "obsidian.json", br##"{"obsidian":1,"id":"grab","version":"1.0.0","name":{"en":"g"},
+            "resources":[{"type":"lua","name":"foundation/lua/build_date_information","bundle":"9cf71054ea26dddf","data":"r.bin"}]}"##);
+        put(&d, "r.bin", b"x");
+        lib.install(&d).unwrap();
+        let e = compose(&lib, &profile(&[("grab", true)])).unwrap_err();
+        assert!(matches!(e, ObsidianError::ReservedResource { ref mod_id, .. } if mod_id == "grab"), "{e}");
     }
 
     #[test]

@@ -64,3 +64,47 @@ fn legacy_folder_imports_and_lists() {
     let out = obsidian(&game, &data).arg("list").assert().success().get_output().stdout.clone();
     assert!(String::from_utf8(out).unwrap().contains("legacy.my-mod-v2"));
 }
+
+fn settings_path(appdata: &std::path::Path) -> std::path::PathBuf {
+    appdata.join("Arrowhead/Helldivers/obsidian/settings.txt")
+}
+
+#[test]
+fn feature_and_consent_commands_write_settings() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let (data, appdata) = (t.path().join("data"), t.path().join("appdata"));
+    let run = |args: &[&str]| {
+        let mut c = obsidian(&game, &data);
+        c.env("OBSIDIAN_APPDATA", &appdata).args(args);
+        c
+    };
+    run(&["feature", "skip_intro", "on"]).assert().success();
+    run(&["consent", "on"]).assert().success();
+    let s = std::fs::read_to_string(settings_path(&appdata)).unwrap();
+    assert!(s.contains("consent	1
+") && s.contains("feature	skip_intro
+"), "{s}");
+    run(&["feature", "fly", "on"]).assert().failure();
+    run(&["feature", "skip_intro", "off"]).assert().success();
+    assert!(!std::fs::read_to_string(settings_path(&appdata)).unwrap().contains("skip_intro"));
+}
+
+#[test]
+fn status_names_the_crash_culprit() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("binaries/x64")).unwrap();
+    std::fs::write(game.join("binaries/x64/helldivers.exe"), b"not the real game").unwrap();
+    let appdata = t.path().join("appdata");
+    let logs = appdata.join("Arrowhead/Helldivers/obsidian/logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(logs.join("loader.log"), "10:00:00 loading a.b
+10:00:01 started a.b
+10:00:01 loading c.d
+").unwrap();
+    let out = obsidian(&game, &t.path().join("data")).env("OBSIDIAN_APPDATA", &appdata).arg("status").assert().success().get_output().stdout.clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(text.contains("The last game launch stopped while loading c.d"), "{text}");
+}

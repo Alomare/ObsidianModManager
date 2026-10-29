@@ -34,6 +34,14 @@ pub enum ObsidianError {
     CompileFailed { chunk: String, message: String },
     #[error("option {option}: {value} is not an allowed value")]
     BadOptionValue { option: String, value: String },
+    #[error("mod {mod_id}: {name} belongs to Obsidian Loader; use \"entry\" to run a script at boot")]
+    ReservedResource { mod_id: String, name: String },
+    #[error("Obsidian Loader files were not found (looked in {0})")]
+    LoaderMissing(String),
+    #[error("unknown feature {0} (use skip_intro, skip_login or skip_war_briefs)")]
+    UnknownFeature(String),
+    #[error("mod {mod_id} has no option {option}")]
+    UnknownOption { mod_id: String, option: String },
     #[error("mod {mod_id}: every resource needs a bundle in this version")]
     BundleRequired { mod_id: String },
     #[error("game build not recognised: {}", .0.mismatches.join(", "))]

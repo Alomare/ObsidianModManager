@@ -23,6 +23,9 @@ obsidian conflicts                     show which mods change the same thing
 obsidian deploy                        put the enabled mods into the game
 obsidian purge                         take them out again
 obsidian status                        game build, what is deployed
+obsidian feature <name> on|off         skip_intro, skip_login or skip_war_briefs
+obsidian consent on|off                play session mods with other Obsidian users who allow them too
+obsidian set <id> <option> <value>     change a mod option
 ```
 
 Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your save folder is backed up before every deploy.

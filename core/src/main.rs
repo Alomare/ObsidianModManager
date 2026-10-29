@@ -13,6 +13,8 @@ use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
+use obsidian_core::loader::{FEATURES, settings_for};
+use obsidian_core::options::validate;
 use obsidian_core::{ObsidianError, Result};
 
 #[derive(Parser)]
@@ -50,6 +52,18 @@ enum Command {
     Purge,
     /// Show the build check, what is deployed and patches from other tools
     Status,
+    /// Turn a built-in feature on or off: skip_intro, skip_login, skip_war_briefs
+    Feature { name: String, state: OnOff },
+    /// Allow session mods from other Obsidian users (on or off)
+    Consent { state: OnOff },
+    /// Set a mod option, for example: obsidian set author.mod distance 7
+    Set { id: String, option: String, value: String },
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum OnOff {
+    On,
+    Off,
 }
 
 fn main() -> ExitCode {
@@ -72,6 +86,7 @@ fn run(cli: Cli) -> Result<()> {
     let uses_library = matches!(
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
+            | Command::Feature { .. } | Command::Consent { .. } | Command::Set { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
@@ -179,7 +194,58 @@ fn run(cli: Cli) -> Result<()> {
             for p in &s.foreign {
                 println!("Patch from another tool: {}", p.display());
             }
+            if let Some(id) = &s.crash_culprit {
+                println!("The last game launch stopped while loading {id}. If the game crashed, disable that mod and deploy again.");
+            }
         }
+        Command::Feature { name, state } => {
+            if !FEATURES.contains(&name.as_str()) {
+                return Err(ObsidianError::UnknownFeature(name));
+            }
+            profile.features.retain(|f| *f != name);
+            if matches!(state, OnOff::On) {
+                profile.features.push(name.clone());
+            }
+            live_change(&profile, &data, &lib, &game()?, &format!("{name} is now {}", on_off(state)))?;
+        }
+        Command::Consent { state } => {
+            profile.consent = matches!(state, OnOff::On);
+            live_change(&profile, &data, &lib, &game()?, &format!("Session mods from other Obsidian users are now {}", if profile.consent { "allowed" } else { "not allowed" }))?;
+        }
+        Command::Set { id, option, value } => {
+            let m = lib.list()?.into_iter().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;
+            let specs = m.option_specs()?;
+            let spec = specs.iter().find(|s| s.id == option).ok_or_else(|| ObsidianError::UnknownOption { mod_id: id.clone(), option: option.clone() })?;
+            // 7, true and "night" all work; anything that isn't JSON is taken as text.
+            let parsed = serde_json::from_str(&value).unwrap_or(serde_json::Value::String(value.clone()));
+            let v = validate(spec, &parsed)?;
+            profile.options.entry(id.clone()).or_default().insert(option.clone(), v.clone());
+            let redeploy = m.resources.iter().any(|r| r.when.contains_key(&option)) || (m.scope == Scope::Session && !spec.client) || m.entry.is_none();
+            if redeploy {
+                profile.save(&data)?;
+                println!("{id} {option} is now {v}. Run obsidian deploy to apply.");
+            } else {
+                live_change(&profile, &data, &lib, &game()?, &format!("{id} {option} is now {v}"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn on_off(s: OnOff) -> &'static str {
+    if matches!(s, OnOff::On) { "on" } else { "off" }
+}
+
+/// Saves the profile and rewrites the settings file the loader reads at launch, so the change
+/// needs no redeploy once the loader is in the game.
+fn live_change(profile: &Profile, data: &std::path::Path, lib: &Library, g: &GameInstall, what: &str) -> Result<()> {
+    profile.save(data)?;
+    obsidian_core::settings::write(&obsidian_core::settings::game_side_dir(&g.saves_dir), &settings_for(lib, profile)?)?;
+    let loader_deployed = status(g, data, KNOWN_BUILDS).ok().and_then(|s| s.deployed).is_some();
+    if loader_deployed {
+        println!("{what}. Applies at the next game launch.");
+    } else {
+        println!("{what}. Run obsidian deploy to apply.");
     }
     Ok(())
 }

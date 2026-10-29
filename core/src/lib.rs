@@ -10,6 +10,7 @@ pub mod gate;
 pub mod hash;
 pub mod import;
 pub mod library;
+pub mod loader;
 pub mod lua;
 pub mod luajit;
 pub mod manifest;
