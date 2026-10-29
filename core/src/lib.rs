@@ -5,6 +5,7 @@ pub mod error;
 pub mod game;
 pub mod gate;
 pub mod hash;
+pub mod import;
 pub mod library;
 pub mod lua;
 pub mod manifest;
