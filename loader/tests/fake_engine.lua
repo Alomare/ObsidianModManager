@@ -51,6 +51,7 @@ function E.new(opts)
 	rawset(_G, "Application", { platform = function() return "win32" end })
 	rawset(_G, "ARGUMENTS", {})
 	rawset(_G, "Boot", {})
+	rawset(_G, "update", nil)
 
 	rawset(_G, "require", function(name)
 		if e.loaded[name] ~= nil then return e.loaded[name] end

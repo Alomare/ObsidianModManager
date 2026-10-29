@@ -3,6 +3,8 @@ local B = require("kepler/loader/builtins")
 local log = require("kepler/loader/log")
 local hooks = require("kepler/loader/hooks")
 local session = require("kepler/loader/session")
+local backend_block = require("kepler/loader/backend_block")
+local pool = require("kepler/loader/pool")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -197,7 +199,7 @@ function M.boot()
 		return
 	end
 
-	B.require("kepler/loader/pool").apply(deploy, M.consent())
+	pool.apply(deploy, M.consent())
 
 	hooks.setup(M, session)
 	session.setup(M)
@@ -205,6 +207,8 @@ function M.boot()
 	hooks.on_frame(session.tick)
 	hooks.on_frame(show_notices)
 	hooks.wrap_require()
+
+	backend_block.setup(M, hooks)
 
 	B.rawset(B.G, "kepler", api)
 	for _, mod in B.ipairs(deploy.mods or {}) do
