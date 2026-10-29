@@ -11,12 +11,16 @@ pub fn backup_saves(saves_dir: &Path, backups_dir: &Path, keep: usize) -> Result
     }
     std::fs::create_dir_all(backups_dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let mut target = backups_dir.join(&stamp);
-    let mut n = 1;
-    while target.exists() {
-        n += 1;
-        target = backups_dir.join(format!("{stamp}-{n}"));
-    }
+    // Number above every existing backup of this second: reusing a pruned name would sort the new copy as the oldest.
+    let highest = std::fs::read_dir(backups_dir)?
+        .filter_map(|e| e.ok().and_then(|e| order_key(&e.path())))
+        .filter(|(s, _)| *s == stamp)
+        .map(|(_, n)| n)
+        .max();
+    let target = match highest {
+        None => backups_dir.join(&stamp),
+        Some(n) => backups_dir.join(format!("{stamp}-{}", n + 1)),
+    };
     crate::library::copy_dir(saves_dir, &target)?;
     let mut all: Vec<(String, u32, PathBuf)> = std::fs::read_dir(backups_dir)?
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -57,7 +61,7 @@ mod tests {
         let made: Vec<PathBuf> = (0..12).map(|_| backup_saves(&saves, &backups, 10).unwrap().unwrap()).collect();
         let left: Vec<PathBuf> = std::fs::read_dir(&backups).unwrap().map(|e| e.unwrap().path()).collect();
         assert_eq!(left.len(), 10);
-        assert!(!made[0].exists() && !made[1].exists() && made[11].exists());
+        assert!(!made[0].exists() && !made[1].exists() && made[11].exists(), "made {made:?} left {left:?}");
         assert_eq!(std::fs::read(made[11].join("profile.sav")).unwrap(), b"save");
     }
 
