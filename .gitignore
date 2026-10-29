@@ -9,3 +9,6 @@ Thumbs.db
 target/
 node_modules/
 dist/
+
+# Tauri
+app/src-tauri/gen/

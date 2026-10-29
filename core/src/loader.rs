@@ -85,8 +85,12 @@ fn read_texts(dir: &Path) -> Result<Value> {
         if !path.is_file() {
             continue;
         }
-        let v: Value = serde_json::from_str(&std::fs::read_to_string(&path)?)
+        let mut v: Value = serde_json::from_str(&std::fs::read_to_string(&path)?)
             .map_err(|e| ObsidianError::BadManifest { field: path.display().to_string(), reason: e.to_string() })?;
+        // The shared catalog also holds the app's texts, which the game never shows.
+        if let Value::Object(m) = &mut v {
+            m.retain(|k, _| !k.starts_with("app."));
+        }
         out.insert(lang.to_string(), v);
     }
     Ok(Value::Object(out))
@@ -342,6 +346,14 @@ mod tests {
         profile.keys.get_mut("k1").unwrap().insert("gone".into(), "f10".into());
         let s = settings_for(&lib, &profile).unwrap();
         assert_eq!(s.keys, vec![("k1".to_string(), "toggle".to_string(), "f9".to_string())]);
+    }
+
+    #[test]
+    fn shared_texts_leave_out_app_keys() {
+        let texts = read_texts(&find_loader_dir().unwrap().join("..").join("..").join("locales")).unwrap();
+        let en = texts["en"].as_object().unwrap();
+        assert!(en.contains_key("mod_failed"));
+        assert!(en.keys().all(|k| !k.starts_with("app.")), "{:?}", en.keys().collect::<Vec<_>>());
     }
 
     #[test]

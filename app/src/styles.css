@@ -1,0 +1,99 @@
+/* Obsidian: layout C in the HD1 concept style (spec section 6). Sizes in rem follow the UI scale. */
+
+:root {
+  --bg1: #262a30; --bg2: #121417;
+  --p1: rgba(70, 74, 80, 0.92); --p2: rgba(44, 47, 52, 0.92);
+  --bar: rgba(0, 0, 0, 0.32);
+  --tx: #ecebe7; --mu: #a7a8a6; --ln: rgba(255, 255, 255, 0.09); --row: rgba(255, 255, 255, 0.04);
+  --gold: #f0b429; --goldtx: #f0b429; --on: #1b1b1b;
+  --warn: #ff9b5e; --client: #2fb889; --session: #e8891c; --go: #2fb889;
+  --scale: 1; --text: 1;
+  --fast: 120ms;
+  color-scheme: dark;
+  font-size: calc(16px * var(--scale));
+}
+:root[data-theme="dark"] {
+  --bg1: #121316; --bg2: #060708;
+  --p1: rgba(32, 34, 37, 0.95); --p2: rgba(22, 23, 26, 0.95);
+  --bar: rgba(0, 0, 0, 0.45);
+  --mu: #9b9c9a; --ln: rgba(255, 255, 255, 0.07); --row: rgba(255, 255, 255, 0.03);
+}
+:root[data-theme="light"] {
+  --bg1: #e6e7e9; --bg2: #c9cbce;
+  --p1: rgba(250, 250, 249, 0.95); --p2: rgba(234, 235, 236, 0.95);
+  --bar: rgba(255, 255, 255, 0.55);
+  --tx: #1d1f22; --mu: #53575c; --ln: rgba(0, 0, 0, 0.1); --row: rgba(0, 0, 0, 0.035);
+  --goldtx: #8a5d00; --warn: #a54300; --go: #1d8a64;
+  color-scheme: light;
+}
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after {
+  transition: none !important; animation: none !important;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: Barlow, "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: calc(1rem * var(--text));
+  color: var(--tx);
+  background: radial-gradient(circle at 70% 20%, var(--bg1), var(--bg2) 80%) fixed;
+  overflow: hidden;
+  user-select: none;
+}
+input, textarea { user-select: text; }
+button, input, select { font: inherit; color: inherit; }
+.cap { font-family: Saira, "Microsoft YaHei", sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button.bare { background: none; border: 0; padding: 0.25rem; cursor: pointer; color: var(--mu); display: inline-flex; }
+button.bare:hover { color: var(--tx); }
+
+/* Window: the bar on top (default) or on the left. */
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+:root[data-nav="left"] .app { grid-template-rows: none; grid-template-columns: 14rem 1fr; }
+.page { min-height: 0; min-width: 0; overflow: auto; padding: 1.25rem 1.5rem; }
+
+.nav { display: flex; align-items: center; gap: 0.4rem; padding: 0 1.25rem; height: 4rem; background: var(--bar); border-bottom: 1px solid var(--ln); }
+.brand { display: flex; align-items: center; gap: 0.75rem; padding-right: 1.5rem; }
+.brand-logo { width: 1.75rem; height: 1.75rem; color: var(--gold); }
+.brand span { font-size: 1.1rem; }
+.tabs { display: flex; height: 100%; }
+.tab { display: flex; align-items: center; gap: 0.6rem; height: 100%; padding: 0 1rem; background: none; border: 0; color: var(--mu); cursor: pointer; font-size: 0.8rem; transition: color var(--fast); }
+.tab:hover { color: var(--tx); }
+.tab.cur { color: var(--tx); background: linear-gradient(0deg, rgba(240, 180, 41, 0.18), transparent); box-shadow: inset 0 -3px 0 var(--gold); }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 0.9rem; }
+.state { font-size: 0.75rem; color: var(--mu); text-align: right; display: flex; flex-direction: column; }
+.state b { color: var(--goldtx); font-family: Saira, sans-serif; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+.state b.waiting { color: var(--go); }
+.actions { display: flex; gap: 0.5rem; }
+
+:root[data-nav="left"] .nav { flex-direction: column; align-items: stretch; height: auto; padding: 1.4rem 0; border-bottom: 0; border-right: 1px solid var(--ln); }
+:root[data-nav="left"] .brand { padding: 0 1.4rem 1.4rem; }
+:root[data-nav="left"] .tabs { flex-direction: column; height: auto; }
+:root[data-nav="left"] .tab { height: auto; padding: 0.75rem 1.4rem; }
+:root[data-nav="left"] .tab.cur { background: linear-gradient(90deg, rgba(240, 180, 41, 0.18), transparent); box-shadow: inset 3px 0 0 var(--gold); }
+:root[data-nav="left"] .nav-end { margin: auto 0 0; flex-direction: column; align-items: stretch; padding: 0 1.1rem; }
+:root[data-nav="left"] .state { text-align: left; }
+:root[data-nav="left"] .actions { flex-wrap: wrap; }
+:root[data-nav="left"] .btn.play { flex-basis: 100%; }
+
+/* Buttons with angled ends, as in the concept. */
+.btn {
+  height: 2.5rem; padding: 0 1.4rem; border: 1px solid var(--ln); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: linear-gradient(180deg, var(--p1), var(--p2)); color: var(--tx);
+  font-family: Saira, sans-serif; font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase;
+  clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 50%, calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 50%);
+  transition: filter var(--fast), background var(--fast);
+}
+.btn:hover:not(:disabled) { filter: brightness(1.15); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.icon { width: 3.2rem; padding: 0; }
+.btn.go { background: linear-gradient(180deg, #3fcf9c, #239a70); color: #0d1f18; border: 0; }
+.btn.play { background: linear-gradient(180deg, #f7c548, #e0a215); color: #1b1b1b; border: 0; font-weight: 700; min-width: 9rem; }
+
+/* Notices */
+.notices { position: fixed; right: 1.25rem; bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 50; max-width: 28rem; }
+.notice { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 0.9rem; background: linear-gradient(160deg, var(--p1), var(--p2)); border-left: 3px solid var(--gold); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); font-size: 0.9rem; animation: rise 160ms ease-out; }
+.notice.error { border-left-color: var(--warn); }
+.notice span { flex: 1; }
+@keyframes rise { from { transform: translateY(0.5rem); opacity: 0; } }
