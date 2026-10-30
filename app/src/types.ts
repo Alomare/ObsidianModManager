@@ -13,7 +13,7 @@ export type ImportInfo = { date: string; file: string };
 export type ModRow = {
   id: string; name: Localized; description: Localized; authors: string[];
   version: string | null; scope: "client" | "session"; bundled: boolean; on: boolean;
-  options: OptionRow[]; keybinds: KeyRow[]; files: string[]; overlaps: string[];
+  options: OptionRow[]; keybinds: KeyRow[]; files: string[];
   import: ImportInfo | null; source: string | null;
 };
 export type ConflictRow = { resource: string; mods: string[]; winner: string };
@@ -27,7 +27,7 @@ export type Snapshot = {
 };
 
 export type AppSettings = {
-  theme: "default" | "dark" | "light"; nav: "top" | "left"; scale: 90 | 100 | 110 | 125;
+  theme: "default" | "dark" | "light"; scale: 90 | 100 | 110 | 125;
   text: "small" | "normal" | "large"; motion: boolean | null; language: string | null;
   updates: "manual" | "prompt" | "auto"; gameDir: string | null;
 };

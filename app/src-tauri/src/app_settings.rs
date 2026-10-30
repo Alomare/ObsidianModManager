@@ -20,14 +20,6 @@ pub enum Theme {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Nav {
-    #[default]
-    Top,
-    Left,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
 pub enum TextSize {
     Small,
     #[default]
@@ -49,7 +41,6 @@ pub enum UpdateMode {
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub theme: Theme,
-    pub nav: Nav,
     /// UI scale in percent, one of `SCALES`.
     pub scale: u32,
     pub text: TextSize,
@@ -66,7 +57,6 @@ impl Default for AppSettings {
     fn default() -> Self {
         AppSettings {
             theme: Theme::Default,
-            nav: Nav::Top,
             scale: 100,
             text: TextSize::Normal,
             motion: None,
@@ -102,7 +92,7 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let d = AppSettings::load(t.path());
         assert_eq!(d, AppSettings::default());
-        assert_eq!((d.updates, d.scale, d.nav), (UpdateMode::Prompt, 100, Nav::Top));
+        assert_eq!((d.updates, d.scale), (UpdateMode::Prompt, 100));
         std::fs::write(t.path().join(FILE), "{ not json").unwrap();
         assert_eq!(AppSettings::load(t.path()), AppSettings::default());
     }
@@ -110,11 +100,13 @@ mod tests {
     #[test]
     fn round_trip_and_partial_files() {
         let t = tempfile::tempdir().unwrap();
-        let s = AppSettings { theme: Theme::Light, nav: Nav::Left, scale: 125, motion: Some(false), language: Some("pt-BR".into()), ..Default::default() };
+        let s = AppSettings { theme: Theme::Light, scale: 125, motion: Some(false), language: Some("pt-BR".into()), ..Default::default() };
         s.save(t.path()).unwrap();
         assert_eq!(AppSettings::load(t.path()), s);
         std::fs::write(t.path().join(FILE), r#"{"theme":"dark"}"#).unwrap();
         assert_eq!(AppSettings::load(t.path()).theme, Theme::Dark, "missing keys take defaults");
+        std::fs::write(t.path().join(FILE), r#"{"theme":"light","nav":"left"}"#).unwrap();
+        assert_eq!(AppSettings::load(t.path()).theme, Theme::Light, "keys from older versions are ignored");
     }
 
     #[test]

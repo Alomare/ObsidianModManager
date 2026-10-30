@@ -211,7 +211,7 @@ function M.boot()
 	end
 
 	local appdata = B.getenv("APPDATA")
-	local game_side = appdata and (appdata .. "/Arrowhead/Helldivers/obsidian")
+	local game_side = appdata and (appdata .. "/Arrowhead/Helldivers/ObsidianModManager")
 	if game_side then log.setup(game_side .. "/logs") end
 	log.line("Obsidian Loader, API " .. API_VERSION .. ", jit " .. (B.type(jit) == "table" and "available" or "missing"))
 

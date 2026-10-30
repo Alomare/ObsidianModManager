@@ -51,7 +51,10 @@ export function Select<T extends string>({ value, options, onChange, prefix, lab
       <button type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open} aria-controls={list}
         aria-label={`${label}: ${current?.label ?? ""}`} data-tip-title={open || !tip ? undefined : label} data-tip={open ? undefined : tip} onClick={() => setOpen((o) => !o)}>
         {prefix && <span className="select-prefix">{prefix}</span>}
-        <span className="select-value">{current?.label}</span>
+        {/* Every label sits in the same grid cell, so the button keeps the width of the widest. */}
+        <span className="select-value">
+          {options.map((o) => <span key={o.value} aria-hidden={o.value !== value || undefined}>{o.label}</span>)}
+        </span>
         <ChevronIcon />
       </button>
       {open && (

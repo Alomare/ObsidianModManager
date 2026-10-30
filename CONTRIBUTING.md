@@ -24,7 +24,7 @@ Some tests read your own game files and are skipped unless you point them at the
 
 ## Bug reports
 
-Include the output of `obsidian status`, the file `%APPDATA%\Arrowhead\Helldivers\obsidian\logs\loader.log` if one exists, and the mods you had enabled.
+Include the output of `obsidian status`, the file `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs\loader.log` if one exists, and the mods you had enabled.
 
 ## License
 

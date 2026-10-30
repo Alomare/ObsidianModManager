@@ -1,5 +1,5 @@
-// Conflicts for an order that is not saved yet (a drag under way), so the view shows the winner
-// change as rows move.
+// Conflicts as people read them: who overrides whom. `winners` works them out for an order that
+// is not saved yet (a drag under way), so the view follows the rows as they move.
 import type { ConflictRow } from "../types";
 
 /** Each conflict with its mods in `order` and the last one as the winner. */
@@ -11,16 +11,29 @@ export function winners(rows: ConflictRow[], order: string[]): ConflictRow[] {
   });
 }
 
-export type ConflictGroup = { mods: string[]; winner: string; resources: string[] };
+export type Override = { winner: string; loser: string; resources: string[] };
 
-/** Conflicts between the same mods, with the same winner, as one entry listing the files. */
-export function groupConflicts(rows: ConflictRow[]): ConflictGroup[] {
-  const groups = new Map<string, ConflictGroup>();
+/** Who overrides whom: one entry per winner and loser, with the files the winner takes. */
+export function overrides(rows: ConflictRow[]): Override[] {
+  const pairs = new Map<string, Override>();
   for (const r of rows) {
-    const k = `${r.mods.join("\n")}\n${r.winner}`;
-    const g = groups.get(k) ?? { mods: r.mods, winner: r.winner, resources: [] };
-    g.resources.push(r.resource);
-    groups.set(k, g);
+    for (const loser of r.mods) {
+      if (loser === r.winner) continue;
+      const k = `${r.winner}
+${loser}`;
+      const o = pairs.get(k) ?? { winner: r.winner, loser, resources: [] };
+      o.resources.push(r.resource);
+      pairs.set(k, o);
+    }
   }
-  return [...groups.values()];
+  return [...pairs.values()];
+}
+
+/** For one mod: the mods it overrides and the mods that override it, each with a file count. */
+export function conflictsOf(id: string, rows: ConflictRow[]) {
+  const all = overrides(rows);
+  return {
+    overrides: all.filter((o) => o.winner === id).map((o): [string, number] => [o.loser, o.resources.length]),
+    overriddenBy: all.filter((o) => o.loser === id).map((o): [string, number] => [o.winner, o.resources.length]),
+  };
 }

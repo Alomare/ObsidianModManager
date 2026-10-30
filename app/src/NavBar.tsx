@@ -1,12 +1,13 @@
-// The navigation bar: tabs, then the "prepare to play" area: the multiplayer consent of the active
+// The navigation bar: Home (the logo), the tabs, then the "prepare to play" area: the multiplayer consent of the active
 // profile, and Purge, Deploy and Play (spec section 3). Deploy turns green while changes wait.
 import type { ComponentType } from "react";
 import { run } from "./api";
 import { CogIcon, DeployIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
 import { t } from "./i18n";
+import logo from "./assets/logo-shaded.png";
 import type { Snapshot } from "./types";
 
-export type Tab = "mods" | "settings";
+export type Tab = "home" | "mods" | "settings";
 
 type Props = {
   tab: Tab;
@@ -31,6 +32,10 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
   return (
     <nav className="nav">
       <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "home"} aria-label={t("app.nav.home")} data-tip-title={t("app.nav.home")}
+          className={tab === "home" ? "tab home cur" : "tab home"} onClick={() => onTab("home")}>
+          <img src={logo} alt="" draggable={false} />
+        </button>
         {TABS.map(([id, Icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "tab cur" : "tab"} onClick={() => onTab(id)}>
             <Icon />
@@ -46,7 +51,7 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
           </span>
         )}
         {snap && (
-          <label className="consent" data-tip-title={t("app.nav.consentTitle", snap.profile)} data-tip={t("app.settings.consentHint")}>
+          <label className="consent" data-tip-title={t("app.nav.consentTitle", snap.profile)} data-tip={t("app.nav.consentHint")}>
             <span>{t("app.nav.consent")}</span>
             <button role="switch" aria-checked={snap.consent} aria-label={t("app.nav.consentTitle", snap.profile)} className={snap.consent ? "sw on" : "sw"}
               onClick={() => run("set_consent", { on: !snap.consent })} />

@@ -36,7 +36,7 @@ function E.new(opts)
 	opts = opts or {}
 	local e = { opts = opts, loaded = {} }
 	e.root = (os.getenv("TEMP") or ".") .. "/obsidian-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
-	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/obsidian"
+	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/ObsidianModManager"
 	mkdir(e.obsidian_dir .. "/logs")
 	-- opts.settings: the text of settings.txt; nil leaves the file missing.
 	-- Removed when not given: two tests started in the same second can share the folder.

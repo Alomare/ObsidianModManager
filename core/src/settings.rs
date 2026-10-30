@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::Result;
 
 pub const FILE: &str = "settings.txt";
+/// The name of every folder Obsidian makes on the PC.
+pub const DIR: &str = "ObsidianModManager";
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Settings {
@@ -16,9 +18,10 @@ pub struct Settings {
     pub keys: Vec<(String, String, String)>,
 }
 
-/// `%APPDATA%\Arrowhead\Helldivers\obsidian`, beside the game's own save folder.
+/// `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager`, beside the game's own save folder. Folders
+/// are named ObsidianModManager, not Obsidian, which is the name of other software.
 pub fn game_side_dir(saves_dir: &Path) -> PathBuf {
-    saves_dir.parent().map(|p| p.join("obsidian")).unwrap_or_else(|| saves_dir.join("obsidian"))
+    saves_dir.parent().map(|p| p.join(DIR)).unwrap_or_else(|| saves_dir.join(DIR))
 }
 
 pub fn render(s: &Settings) -> String {
@@ -76,6 +79,6 @@ mod tests {
 
     #[test]
     fn game_side_dir_is_beside_the_saves() {
-        assert_eq!(game_side_dir(Path::new("C:/x/Arrowhead/Helldivers/saves")), Path::new("C:/x/Arrowhead/Helldivers/obsidian"));
+        assert_eq!(game_side_dir(Path::new("C:/x/Arrowhead/Helldivers/saves")), Path::new("C:/x/Arrowhead/Helldivers/ObsidianModManager"));
     }
 }

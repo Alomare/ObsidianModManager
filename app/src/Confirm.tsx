@@ -20,7 +20,7 @@ export function Confirm({ title, text, confirm, onConfirm, onCancel, tone = "war
         <p>{text}</p>
         <div className="modal-foot">
           <button className="btn" onClick={onCancel}>{t("app.cancel")}</button>
-          <button className={tone === "go" ? "btn play" : "btn warn"} ref={ok} onClick={onConfirm}>{confirm}</button>
+          <button className={tone === "go" ? "btn play" : "btn danger"} ref={ok} onClick={onConfirm}>{confirm}</button>
         </div>
       </div>
     </div>

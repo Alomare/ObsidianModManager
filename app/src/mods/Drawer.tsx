@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
-import { CloseIcon, ExternalIcon, ResetIcon } from "../Icons";
+import { ArrowIcon, CloseIcon, ExternalIcon, ResetIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Select } from "../Select";
 import type { ConflictRow, KeyRow, ModRow, OptionRow } from "../types";
-import { groupConflicts, type ConflictGroup } from "./conflicts";
+import { overrides, type Override } from "./conflicts";
 import { keyName } from "./keyCapture";
 import type { DrawerView } from "./ModsPage";
 import { clampNumber } from "./optionValue";
@@ -26,7 +26,7 @@ type Props = {
 export function Drawer({ view, mods, conflicts, order, names, onClose }: Props) {
   const mod = view?.kind === "mod" ? mods.find((m) => m.id === view.id) : undefined;
   if (mod) return <ModDrawer key={mod.id} mod={mod} conflicts={conflicts} names={names} onClose={onClose} />;
-  if (view?.kind === "conflicts" || conflicts.length) return <ConflictsView conflicts={conflicts} order={order} names={names} onClose={view ? onClose : undefined} />;
+  if (view?.kind === "conflicts" || conflicts.length) return <ConflictsView conflicts={conflicts} order={order} names={names} focus={view?.kind === "conflicts" ? view.focus : undefined} onClose={view ? onClose : undefined} />;
   return (
     <aside className="drawer idle">
       <p className="muted">{t("app.drawer.hint")}</p>
@@ -204,7 +204,7 @@ function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
         {mod.source && <><dt>{t("app.drawer.source")}</dt><dd><button className="link" onClick={() => openUrl(mod.source!).catch(() => {})}>{mod.source} <ExternalIcon /></button></dd></>}
         {mod.import && <><dt>{t("app.drawer.imported")}</dt><dd>{date}</dd><dt>{t("app.drawer.file")}</dt><dd className="mono">{mod.import.file}</dd></>}
       </dl>
-      {!mod.bundled && <button className="btn small warn-outline" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>}
+      {!mod.bundled && <button className="btn small danger" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>}
       {ask && (
         <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
           onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mod", { id: mod.id })) onRemoved(); }} />
@@ -213,24 +213,29 @@ function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
   );
 }
 
-function ConflictEntry({ g, at, names }: { g: ConflictGroup; at: (id: string) => number; names: Map<string, string> }) {
+/** One line: the mod that wins, an arrow, the mod it overrides; the files fold out below. */
+function OverrideEntry({ o, at, names, focus }: { o: Override; at: (id: string) => number; names: Map<string, string>; focus: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="cf">
-      <div className="w">{t("app.drawer.wins")} <b>{names.get(g.winner) ?? g.winner}</b> <span className="muted">({at(g.winner)})</span></div>
-      {g.mods.filter((id) => id !== g.winner).reverse().map((id) => (
-        <div key={id} className="l">{names.get(id) ?? id} ({at(id)})</div>
-      ))}
-      <button className="link small" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        {t(g.resources.length === 1 ? "app.drawer.oneFile" : "app.drawer.files_n", g.resources.length)}
+    <div className={focus ? "ov focus" : "ov"}>
+      <div className="ov-line">
+        <span className="ov-mod win"><span className="num">{at(o.winner)}</span>{names.get(o.winner) ?? o.winner}</span>
+        <span className="ov-arrow" role="img" aria-label={t("app.drawer.overrides")} data-tip={t("app.drawer.overrides")}><ArrowIcon /></span>
+        <span className="ov-mod"><span className="num">{at(o.loser)}</span>{names.get(o.loser) ?? o.loser}</span>
+      </div>
+      <button className="link small" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {t(o.resources.length === 1 ? "app.drawer.oneFile" : "app.drawer.files_n", o.resources.length)}
       </button>
-      {open && <ul className="files">{g.resources.map((r) => <li key={r}><span className="f">{r}</span></li>)}</ul>}
+      {open && <ul className="files">{o.resources.map((r) => <li key={r}><span className="f">{r}</span></li>)}</ul>}
     </div>
   );
 }
 
-function ConflictsView({ conflicts, order, names, onClose }: { conflicts: ConflictRow[]; order: string[]; names: Map<string, string>; onClose?: () => void }) {
+function ConflictsView({ conflicts, order, names, focus, onClose }: { conflicts: ConflictRow[]; order: string[]; names: Map<string, string>; focus?: string; onClose?: () => void }) {
   const at = (id: string) => order.indexOf(id) + 1;
+  const involves = (o: Override) => o.winner === focus || o.loser === focus;
+  // Those of the mod the panel was opened for come first.
+  const list = overrides(conflicts).sort((a, b) => Number(involves(b)) - Number(involves(a)));
   return (
     <aside className="drawer conflicts" aria-label={t("app.drawer.conflicts")}>
       <div className="dh">
@@ -241,11 +246,8 @@ function ConflictsView({ conflicts, order, names, onClose }: { conflicts: Confli
         {onClose && <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>}
       </div>
       <div className="dbody">
-        {conflicts.length === 0 && <p className="muted pad">{t("app.drawer.noConflicts")}</p>}
-        {groupConflicts(conflicts).map((g) => (
-          <ConflictEntry key={g.mods.join("+") + g.winner} g={g} at={at} names={names} />
-        ))}
-        {conflicts.length > 0 && <p className="muted pad">{t("app.drawer.conflictsNote")}</p>}
+        {list.length === 0 && <p className="muted pad">{t("app.drawer.noConflicts")}</p>}
+        {list.map((o) => <OverrideEntry key={o.winner + "\n" + o.loser} o={o} at={at} names={names} focus={!!focus && involves(o)} />)}
       </div>
     </aside>
   );

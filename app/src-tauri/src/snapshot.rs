@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use obsidian_core::compose::compose;
-use obsidian_core::deploy::{ChangesWaiting, changes_waiting, status};
+use obsidian_core::deploy::{ChangesWaiting, changes_waiting, crash_culprit};
 use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
 use obsidian_core::hash::{display_name, display_text};
@@ -73,8 +73,6 @@ pub struct ModRow {
     pub keybinds: Vec<KeyRow>,
     /// The game resources the mod changes, as `bundle/name`.
     pub files: Vec<String>,
-    /// Enabled mods that change a resource this mod changes too.
-    pub overlaps: Vec<String>,
     pub import: Option<ImportInfo>,
     pub source: Option<String>,
 }
@@ -241,9 +239,6 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
                 KeyRow { id: k.id, label: localized(raw.get("label")), default: k.default, key, clash }
             })
             .collect();
-        let mut overlaps: Vec<String> = conflicts.iter().filter(|c| c.mods.contains(&m.id)).flat_map(|c| c.mods.iter().filter(|id| **id != m.id).cloned()).collect();
-        overlaps.sort();
-        overlaps.dedup();
         // An imported legacy mod has no version of its own unless its Nexus file name gave one.
         let unversioned = m.extra.get("legacy") == Some(&Value::Bool(true)) && m.version == semver::Version::new(0, 0, 0);
         mods.push(ModRow {
@@ -258,7 +253,6 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             options: option_rows(m, &profile)?,
             keybinds,
             files: m.resources.iter().map(|r| resource_label(r.bundle.as_deref().unwrap_or_default(), &display_text(&r.name_text))).collect(),
-            overlaps,
             import: lib.import_info(&m.id),
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),
         });
@@ -271,7 +265,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         Some(g) if gate.supported(&g.root) => GameState::Supported,
         Some(_) => GameState::Unknown,
     };
-    let crash_culprit = game_install.as_ref().and_then(|g| status(g, data, KNOWN_BUILDS).ok()).and_then(|s| s.crash_culprit);
+    let crash_culprit = game_install.as_ref().and_then(crash_culprit);
     let portable = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("portable.txt").is_file())).unwrap_or(false);
 
     Ok(Snapshot {
@@ -340,7 +334,6 @@ mod tests {
         assert_eq!(two.version, None, "imports show no version");
         assert_eq!((a.options[0].value.clone(), a.options[0].label["en"].as_str(), a.options[0].deploy), (Value::Bool(true), "Fast", false));
         assert_eq!(a.keybinds[0].clash, vec!["legacy.two"], "both use f8");
-        assert_eq!(a.overlaps, vec!["legacy.two"]);
         assert_eq!(s.conflicts.len(), 1);
         assert_eq!((s.conflicts[0].mods.clone(), s.conflicts[0].winner.as_str()), (vec!["legacy.two".to_string(), "a.one".to_string()], "a.one"));
         let order: Vec<&str> = s.mods.iter().map(|m| m.id.as_str()).filter(|id| *id != "obsidian.qol").collect();

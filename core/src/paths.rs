@@ -19,5 +19,5 @@ pub fn data_dir(explicit: Option<&Path>) -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
-    base.unwrap_or_default().join(if cfg!(windows) { "Obsidian" } else { "obsidian" })
+    base.unwrap_or_default().join(crate::settings::DIR)
 }

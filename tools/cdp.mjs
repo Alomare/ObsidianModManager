@@ -1,6 +1,7 @@
 // Drives the Obsidian dev window through WebView2's DevTools port (9222), without focus or mouse.
 //   node cdp.mjs eval "<js expression>"   prints the result (awaited, as JSON)
 //   node cdp.mjs shot out.png [x y w h]   saves an image of the page (CSS pixels)
+//   node cdp.mjs drag x1 y1 x2 y2 [out.png] drags with the mouse (image taken before release)
 //   node cdp.mjs wait [after-ms]          returns once the window is up and the app has rendered;
 //                                         with after-ms, first waits for a page newer than that
 //                                         (a restart), and reloads a page that stays blank
@@ -60,5 +61,21 @@ if (cmd === "eval") {
   const r = await send("Page.captureScreenshot", { format: "png", ...(clip ? { clip } : {}) });
   (await import("node:fs")).writeFileSync(out, Buffer.from(r.result.data, "base64"));
   console.log("saved", out);
+} else if (cmd === "drag") {
+  // drag x1 y1 x2 y2 [shot.png]: a real mouse drag in 12 steps; the image is taken before release.
+  const [x1, y1, x2, y2, out] = rest.map((v, i) => (i < 4 ? +v : v));
+  const mouse = (type, x, y) => send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1 });
+  await mouse("mousePressed", x1, y1);
+  for (let i = 1; i <= 12; i++) {
+    await mouse("mouseMoved", x1 + ((x2 - x1) * i) / 12, y1 + ((y2 - y1) * i) / 12);
+    await sleep(16);
+  }
+  if (out) {
+    await sleep(80);
+    const r = await send("Page.captureScreenshot", { format: "png" });
+    (await import("node:fs")).writeFileSync(out, Buffer.from(r.result.data, "base64"));
+  }
+  await mouse("mouseReleased", x2, y2);
+  console.log("dragged");
 }
 ws.close();

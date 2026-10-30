@@ -283,9 +283,14 @@ pub fn purge(_game: &GameInstall, data_dir: &Path) -> Result<PurgeReport> {
 pub fn status(game: &GameInstall, data_dir: &Path, known: &[KnownBuild]) -> Result<Status> {
     let deployed = load_state(data_dir)?;
     let foreign = foreign_patches(&game.contents(), deployed.as_ref())?.into_iter().map(|(_, _, p)| p).collect();
+    Ok(Status { gate: check_build(&game.root, known)?, deployed, foreign, crash_culprit: crash_culprit(game) })
+}
+
+/// The mod the loader was starting when the game last stopped, read from the loader log. Cheap,
+/// unlike `status`, which also hashes the game files.
+pub fn crash_culprit(game: &GameInstall) -> Option<String> {
     let log = settings::game_side_dir(&game.saves_dir).join("logs").join("loader.log");
-    let crash_culprit = std::fs::read_to_string(log).ok().and_then(|t| loader::crash_culprit(&t));
-    Ok(Status { gate: check_build(&game.root, known)?, deployed, foreign, crash_culprit })
+    std::fs::read_to_string(log).ok().and_then(|t| loader::crash_culprit(&t))
 }
 
 #[cfg(test)]

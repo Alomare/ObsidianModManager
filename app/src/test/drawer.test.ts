@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupConflicts, winners } from "../mods/conflicts";
+import { conflictsOf, overrides, winners } from "../mods/conflicts";
 import { keyName } from "../mods/keyCapture";
 import { clampNumber } from "../mods/optionValue";
 
@@ -45,16 +45,22 @@ describe("winners", () => {
   });
 });
 
-describe("groupConflicts", () => {
-  it("puts conflicts between the same mods with the same winner together", () => {
-    const g = groupConflicts([
-      { resource: "a/1", mods: ["x", "y"], winner: "y" },
-      { resource: "a/2", mods: ["x", "y"], winner: "y" },
-      { resource: "a/3", mods: ["x", "y", "z"], winner: "z" },
+describe("overrides", () => {
+  const rows = [
+    { resource: "a/1", mods: ["x", "y"], winner: "y" },
+    { resource: "a/2", mods: ["x", "y"], winner: "y" },
+    { resource: "a/3", mods: ["x", "y", "z"], winner: "z" },
+  ];
+  it("gives one entry per winner and loser, with the files the winner takes", () => {
+    expect(overrides(rows)).toEqual([
+      { winner: "y", loser: "x", resources: ["a/1", "a/2"] },
+      { winner: "z", loser: "x", resources: ["a/3"] },
+      { winner: "z", loser: "y", resources: ["a/3"] },
     ]);
-    expect(g).toEqual([
-      { mods: ["x", "y"], winner: "y", resources: ["a/1", "a/2"] },
-      { mods: ["x", "y", "z"], winner: "z", resources: ["a/3"] },
-    ]);
+  });
+  it("tells one mod which mods it overrides and which override it", () => {
+    expect(conflictsOf("y", rows)).toEqual({ overrides: [["x", 2]], overriddenBy: [["z", 1]] });
+    expect(conflictsOf("z", rows)).toEqual({ overrides: [["x", 1], ["y", 1]], overriddenBy: [] });
+    expect(conflictsOf("q", rows)).toEqual({ overrides: [], overriddenBy: [] });
   });
 });

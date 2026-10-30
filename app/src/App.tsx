@@ -53,6 +53,7 @@ export default function App() {
       <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => setAskPurge(true)} onDeploy={deploy} onPlay={play} />
       <main className="page">
         <div className="view" key={tab}>
+          {tab === "home" && <div className="home" />}
           {snap && tab === "mods" && <ModsPage snap={snap} />}
           {snap && tab === "settings" && <SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} />}
         </div>

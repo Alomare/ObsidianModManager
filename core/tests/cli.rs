@@ -66,7 +66,7 @@ fn legacy_folder_imports_and_lists() {
 }
 
 fn settings_path(appdata: &std::path::Path) -> std::path::PathBuf {
-    appdata.join("Arrowhead/Helldivers/obsidian/settings.txt")
+    appdata.join("Arrowhead/Helldivers/ObsidianModManager/settings.txt")
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn status_names_the_crash_culprit() {
     std::fs::create_dir_all(game.join("binaries/x64")).unwrap();
     std::fs::write(game.join("binaries/x64/helldivers.exe"), b"not the real game").unwrap();
     let appdata = t.path().join("appdata");
-    let logs = appdata.join("Arrowhead/Helldivers/obsidian/logs");
+    let logs = appdata.join("Arrowhead/Helldivers/ObsidianModManager/logs");
     std::fs::create_dir_all(&logs).unwrap();
     std::fs::write(logs.join("loader.log"), "10:00:00 loading a.b
 10:00:01 started a.b

@@ -1,5 +1,5 @@
-// Settings (spec 4.4): System (game, multiplayer, language, updates, data) and Theme (colours,
-// navigation bar, size, animations). App settings save to app.json at once.
+// Settings (spec 4.4): System (game, language, updates, data) and Theme (colours, size,
+// animations). App settings save to app.json at once. The subtab scrolls; its header stays.
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
@@ -25,13 +25,13 @@ export function SettingsPage({ snap, tab, onTab }: { snap: Snapshot; tab: Settin
         <h1 className="cap">{t("app.nav.settings")}</h1>
         <div className="subtabs" role="tablist">
           {(["system", "theme"] as const).map((id) => (
-            <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "cur" : undefined} onClick={() => onTab(id)}>
+            <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "cap cur" : "cap"} onClick={() => onTab(id)}>
               {t(`app.settings.${id}`)}
             </button>
           ))}
         </div>
       </div>
-      <div className="view" key={tab}>{tab === "system" ? <SystemTab snap={snap} /> : <ThemeTab />}</div>
+      <div className="view settings-body" key={tab}>{tab === "system" ? <SystemTab snap={snap} /> : <ThemeTab />}</div>
     </div>
   );
 }
@@ -178,10 +178,6 @@ function ThemeTab() {
       <Row label={t("app.settings.colours")}>
         <Segmented label={t("app.settings.colours")} value={s.theme} onChange={(theme) => updateSettings({ theme })}
           options={[["default", t("app.settings.theme.default")], ["dark", t("app.settings.theme.dark")], ["light", t("app.settings.theme.light")]]} />
-      </Row>
-      <Row label={t("app.settings.navBar")} hint={t("app.settings.navHint")}>
-        <Segmented label={t("app.settings.navBar")} value={s.nav} onChange={(nav) => updateSettings({ nav })}
-          options={[["top", t("app.settings.nav.top")], ["left", t("app.settings.nav.left")]]} />
       </Row>
       <Row label={t("app.settings.scale")}>
         <Segmented label={t("app.settings.scale")} value={s.scale} onChange={(scale) => updateSettings({ scale })}

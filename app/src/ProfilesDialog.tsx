@@ -52,7 +52,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
                 {!active && <button className="btn small play" onClick={() => run("use_profile", { name: p.name })}>{t("app.profiles.use")}</button>}
                 <button className="btn small" onClick={() => setAsk({ kind: "duplicate", name: p.name })}>{t("app.profiles.duplicate")}</button>
                 <button className="btn small" onClick={() => setAsk({ kind: "rename", name: p.name })}>{t("app.profiles.rename")}</button>
-                <button className="btn small warn-outline" disabled={last} data-tip={last ? t("app.error.LastProfile") : undefined}
+                <button className="btn small danger" disabled={last} data-tip={last ? t("app.error.LastProfile") : undefined}
                   onClick={() => setAsk({ kind: "delete", name: p.name })}>{t("app.profiles.delete")}</button>
               </div>
             </li>

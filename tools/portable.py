@@ -2,7 +2,7 @@
 sources, the bundled mods, the locales and the LuaJIT compiler) and portable.txt, which keeps the
 data folder beside the app. Run after `npx tauri build` in app/.
 
-Usage: python tools/portable.py   ->  target/release/bundle/portable/Obsidian-<version>-portable.zip
+Usage: python tools/portable.py   ->  target/release/bundle/portable/ObsidianModManager-<version>-portable.zip
 """
 import json
 import zipfile
@@ -23,10 +23,10 @@ RESOURCES = [
 
 exe = RELEASE / "Obsidian.exe"
 assert exe.is_file(), f"build the app first: {exe} is missing"
-out = RELEASE / "bundle" / "portable" / f"Obsidian-{version}-portable.zip"
+out = RELEASE / "bundle" / "portable" / f"ObsidianModManager-{version}-portable.zip"
 out.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-    base = "Obsidian"
+    base = "ObsidianModManager"
     z.write(exe, f"{base}/Obsidian.exe")
     z.writestr(f"{base}/portable.txt", "This copy of Obsidian is portable: its data folder sits beside it.\n")
     for src, dest in RESOURCES:

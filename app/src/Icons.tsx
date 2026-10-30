@@ -22,6 +22,7 @@ export const DeployIcon = () => <Icon width="21" height="21" strokeWidth="2"><pa
 export const PlayIcon = () => <Icon fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z" /></Icon>;
 export const WarnIcon = () => <Icon><path d="M12 3l10 18H2zM12 10v5M12 17.5v.5" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></Icon>;
+export const ArrowIcon = () => <Icon><path d="M4 12h15M13 6l6 6-6 6" /></Icon>;
 export const ChevronIcon = () => <Icon><path d="M6 9l6 6 6-6" /></Icon>;
 export const GripIcon = () => <Icon><path d="M5 8h14M5 12h14M5 16h14" /></Icon>;
 export const CloseIcon = () => <Icon><path d="M6 6l12 12M18 6L6 18" /></Icon>;
