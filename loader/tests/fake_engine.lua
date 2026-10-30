@@ -22,7 +22,7 @@ function E.deploy(over)
 	local d = {
 		version = 1,
 		revision = "parent: 32148:3bd83d77c8ae",
-		hashes = { identical = "aaaaaaaaaaaa" },
+		hashes = { open = "aaaaaaaaaaaa" },
 		has_session = false,
 		mods = {},
 		texts = { en = { mod_failed = "Obsidian: %s failed to start", build_unknown = "Obsidian: unknown game build" } },

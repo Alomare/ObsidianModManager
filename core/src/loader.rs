@@ -12,7 +12,7 @@ use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, unwrap_resource, wrap_resource};
 use crate::luajit::compile;
 use crate::manifest::{Scope, load_manifest};
-use crate::modset::{SessionMod, modset_hash, pool_tags};
+use crate::modset::{SessionMod, modset_hash, open_pool_tag};
 use crate::options::{effective_values, value_text};
 use crate::settings::Settings;
 use crate::{ObsidianError, Result};
@@ -153,12 +153,11 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
         }));
     }
     let modset = modset_hash(&session);
-    let tags = pool_tags(&modset);
     Ok(json!({
         "version": 1,
         "revision": REVISION,
         "modset": modset,
-        "hashes": { "identical": tags.identical },
+        "hashes": { "open": open_pool_tag() },
         "has_session": has_session,
         "has_static_session": has_static_session,
         "texts": texts,

@@ -1,4 +1,4 @@
-//! The mod-set hash (spec 6.2) and the matchmaking pool tags derived from the hash (spec 6.3).
+//! The mod-set hash (spec 6.2) and the tag of the shared Obsidian matchmaking pool (spec 6.3).
 
 use sha2::{Digest, Sha256};
 
@@ -9,11 +9,6 @@ pub struct SessionMod {
     pub version: semver::Version,
     /// (option id, value, marked `"scope": "client"`)
     pub options: Vec<(String, serde_json::Value, bool)>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PoolTags {
-    pub identical: String,
 }
 
 fn sha256_hex(text: &str) -> String {
@@ -35,9 +30,10 @@ pub fn modset_hash(mods: &[SessionMod]) -> String {
     sha256_hex(&lines.join("\n"))
 }
 
-/// The tag appended to the vanilla build hash for players with session content: 12 lowercase hex digits.
-pub fn pool_tags(modset: &str) -> PoolTags {
-    PoolTags { identical: sha256_hex(&format!("obsidian:{modset}"))[..12].to_string() }
+/// The tag appended to the vanilla build hash for players who run session content or allow other
+/// players' session mods: 12 lowercase hex digits, the same for everyone.
+pub fn open_pool_tag() -> String {
+    sha256_hex("obsidian:open:1")[..12].to_string()
 }
 
 #[cfg(test)]
@@ -72,10 +68,9 @@ mod tests {
     }
 
     #[test]
-    fn tags_are_12_lowercase_hex() {
-        let t = pool_tags(&modset_hash(&[m("a", vec![])]));
-        assert_eq!(t.identical.len(), 12);
-        assert!(t.identical.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
-        assert_ne!(t.identical, pool_tags("other").identical);
+    fn pool_tag_is_12_lowercase_hex() {
+        let t = open_pool_tag();
+        assert_eq!(t.len(), 12);
+        assert!(t.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
     }
 }
