@@ -180,6 +180,7 @@ fn run(cli: Cli) -> Result<()> {
             }
         }
         Command::Deploy => {
+            obsidian_core::game::ensure_closed()?;
             let r = deploy(&game()?, &data, &DeployOptions::default())?;
             for p in &r.patches {
                 println!("Wrote {}", p.display());
@@ -198,6 +199,7 @@ fn run(cli: Cli) -> Result<()> {
             }
         }
         Command::Purge => {
+            obsidian_core::game::ensure_closed()?;
             let r = purge(&game()?, &data)?;
             for p in &r.removed {
                 println!("Removed {}", p.display());

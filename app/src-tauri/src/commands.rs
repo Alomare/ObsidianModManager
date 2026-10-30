@@ -4,7 +4,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use obsidian_core::game::GameInstall;
+use obsidian_core::deploy::{ChangesWaiting, DeployOptions, changes_waiting, deploy as core_deploy, purge as core_purge};
+use obsidian_core::game::{GameInstall, ensure_closed};
 use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::{Localized, load_manifest};
@@ -174,6 +175,73 @@ pub async fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult
     Ok(ImportBatch { snapshot: fresh(&ctx)?, results })
 }
 
+const STEAM_LAUNCH: &str = "steam://rungameid/394510";
+
+fn game_of(ctx: &Ctx) -> CmdResult<GameInstall> {
+    Ok(find(&AppSettings::load(&ctx.data)).ok_or_else(|| ObsidianError::GameNotFound(String::new()))?)
+}
+
+/// Deploys when changes are waiting, then calls `launch`. A failed deploy launches nothing.
+pub fn play_with(data: &Path, game: Option<&GameInstall>, launch: impl FnOnce() -> CmdResult<()>) -> CmdResult<()> {
+    let game = game.ok_or_else(|| ObsidianError::GameNotFound(String::new()))?;
+    ensure_closed()?;
+    let lib = Library::open(data)?;
+    let mut p = Profile::load(data)?;
+    p.sync(&lib)?;
+    if changes_waiting(&lib, &p, data)? == ChangesWaiting::Waiting {
+        core_deploy(game, data, &DeployOptions::default())?;
+    }
+    launch()
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeployDone {
+    pub snapshot: Snapshot,
+    /// Mods written into the game.
+    pub mods: usize,
+    pub backup: bool,
+}
+
+#[tauri::command]
+pub async fn deploy(ctx: State<'_, Ctx>) -> CmdResult<DeployDone> {
+    let _turn = ctx.turn();
+    let game = game_of(&ctx)?;
+    ensure_closed()?;
+    let r = core_deploy(&game, &ctx.data, &DeployOptions::default())?;
+    let snapshot = fresh(&ctx)?;
+    Ok(DeployDone { mods: if r.patches.is_empty() { 0 } else { snapshot.mods.iter().filter(|m| m.on).count() }, backup: r.backup.is_some(), snapshot })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeDone {
+    pub snapshot: Snapshot,
+    pub removed: usize,
+    /// Files another tool changed after Obsidian wrote them; left in place.
+    pub kept: usize,
+}
+
+#[tauri::command]
+pub async fn purge(ctx: State<'_, Ctx>) -> CmdResult<PurgeDone> {
+    let _turn = ctx.turn();
+    let game = game_of(&ctx)?;
+    ensure_closed()?;
+    let r = core_purge(&game, &ctx.data)?;
+    Ok(PurgeDone { snapshot: fresh(&ctx)?, removed: r.removed.len(), kept: r.kept_changed.len() })
+}
+
+#[tauri::command]
+pub async fn play(ctx: State<'_, Ctx>, app: tauri::AppHandle) -> CmdResult<Snapshot> {
+    use tauri_plugin_opener::OpenerExt;
+    let _turn = ctx.turn();
+    let game = find(&AppSettings::load(&ctx.data));
+    play_with(&ctx.data, game.as_ref(), || {
+        app.opener().open_url(STEAM_LAUNCH, None::<&str>).map_err(|e| CmdError { code: "Launch".into(), message: e.to_string() })
+    })?;
+    fresh(&ctx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +300,31 @@ mod tests {
         assert_eq!(kinds(&v2).1, "reinstalled");
         let profile = Profile::load(&data).unwrap();
         assert!(profile.mods.iter().any(|m| m.id == "a.drop" && !m.enabled), "new mods join the profile switched off");
+    }
+
+    #[test]
+    fn play_does_not_launch_after_a_failed_deploy() {
+        let t = tempfile::tempdir().unwrap();
+        let data = t.path().join("data");
+        std::fs::create_dir_all(t.path().join("game/contents")).unwrap();
+        let game = obsidian_core::game::find_game(Some(&t.path().join("game"))).unwrap();
+        let launched = std::cell::Cell::new(false);
+        let launch = || {
+            launched.set(true);
+            Ok(())
+        };
+
+        // Nothing on and nothing deployed: no deploy needed, so Play launches.
+        play_with(&data, Some(&game), launch).unwrap();
+        assert!(launched.replace(false));
+
+        // A mod switched on needs a deploy, which fails on this fake game (no known build).
+        mod_folder(&t.path().join("m"), "1.0.0");
+        import_all(&data, Some(&game), &[t.path().join("m")]);
+        with_profile(&data, |p| p.set_enabled("a.drop", true)).unwrap();
+        let e = play_with(&data, Some(&game), launch).unwrap_err();
+        assert!(!launched.get(), "nothing launches after a failed deploy");
+        assert_ne!(e.code, "", "{e:?}");
+        assert_eq!(play_with(&data, None, launch).unwrap_err().code, "GameNotFound");
     }
 }

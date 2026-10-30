@@ -33,7 +33,8 @@
       "../../loader/src/": "loader/src/",
       "../../bundled/": "bundled/",
       "../../locales/": "locales/",
-      "../../target/luajit/luajit.exe": "luajit/luajit.exe"
+      "../../target/luajit/luajit.exe": "luajit/luajit.exe",
+      "../../target/luajit/lua/": "luajit/lua/"
     },
     "windows": { "nsis": { "languages": ["English", "PortugueseBR", "SimpChinese"], "displayLanguageSelector": false } }
   }

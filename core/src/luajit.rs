@@ -11,7 +11,8 @@ const EXE: &str = "luajit.exe";
 #[cfg(not(windows))]
 const EXE: &str = "luajit";
 
-/// `OBSIDIAN_LUAJIT`, then `luajit/` beside the running exe, then the workspace build in `target/luajit/`.
+/// `OBSIDIAN_LUAJIT`, then `luajit/` beside the running exe, then the workspace build in `target/luajit/`;
+/// the first one that has its `lua/jit/` modules.
 pub fn find_compiler() -> Result<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(p) = std::env::var_os("OBSIDIAN_LUAJIT") {
@@ -21,9 +22,10 @@ pub fn find_compiler() -> Result<PathBuf> {
         candidates.push(dir.join("luajit").join(EXE));
     }
     candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../target/luajit").join(EXE));
+    // `-b` needs the jit.* modules in `lua/jit/` beside the exe; a copy without them cannot compile.
     candidates
         .iter()
-        .find(|p| p.is_file())
+        .find(|p| p.is_file() && p.parent().is_some_and(|d| d.join("lua/jit/bcsave.lua").is_file()))
         .cloned()
         .ok_or_else(|| ObsidianError::CompilerUnavailable(candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")))
 }

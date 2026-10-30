@@ -79,6 +79,11 @@ fn steam_libraries() -> Vec<PathBuf> {
 pub const EXE: &str = "helldivers.exe";
 
 /// Whether HELLDIVERS is running.
+/// Deploy and purge rewrite game files, so they wait until the game is closed.
+pub fn ensure_closed() -> Result<()> {
+    if is_running() { Err(crate::ObsidianError::GameRunning) } else { Ok(()) }
+}
+
 pub fn is_running() -> bool {
     is_running_named(EXE)
 }
