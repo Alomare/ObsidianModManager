@@ -255,7 +255,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
           onConfirm={(name, color) => { run("edit_folder", { id: askFolder.id, name, color }); setAsk(null); }} />
       )}
       {ask?.kind === "deleteFolder" && askFolder && (
-        <DeleteFolder name={askFolder.name} count={membersOf(askFolder.id).length} onCancel={() => setAsk(null)}
+        <DeleteFolder name={askFolder.name} color={askFolder.color} count={membersOf(askFolder.id).length} onCancel={() => setAsk(null)}
           onDelete={(removeMods) => { run("delete_folder", { id: askFolder.id, removeMods }); setAsk(null); }} />
       )}
       {ask?.kind === "remove" && (

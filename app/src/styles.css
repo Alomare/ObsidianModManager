@@ -6,7 +6,7 @@
   /* Opaque surfaces for what floats over the page: tooltips, dialogs, lists, popovers. */
   --s1: #464a50; --s2: #2c2f34;
   --btn: #575c63; --btn-hi: #62676e;
-  --danger: #8f1d1d; --danger-hi: #a52222;
+  --danger: #b3352c; --danger-hi: #c9463a;
   --bar: rgba(0, 0, 0, 0.32);
   --tx: #ecebe7; --mu: #a7a8a6; --ln: rgba(255, 255, 255, 0.09); --row: rgba(255, 255, 255, 0.04);
   --gold: #f0b429; --goldtx: #f0b429; --on: #1b1b1b;
@@ -88,7 +88,6 @@ button.bare:hover { color: var(--tx); }
 :root[data-theme="light"] .btn { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
 .btn:hover:not(:disabled) { background: var(--btn-hi); }
 .actions .btn { clip-path: polygon(0.42rem 0, calc(100% - 0.42rem) 0, 100% 50%, calc(100% - 0.42rem) 100%, 0.42rem 100%, 0 50%); }
-.btn.danger:hover:not(:disabled) { filter: brightness(1.12); }
 .btn.go:hover:not(:disabled) { background: linear-gradient(180deg, #55dcac, #2bab7e); }
 .btn.play:hover:not(:disabled) { background: linear-gradient(180deg, #ffd466, #f0b429); }
 .btn:disabled { opacity: 0.45; cursor: default; }
@@ -248,8 +247,13 @@ button.link:hover { filter: brightness(1.2); }
 .modal.confirm h2 { margin: 0; font-size: 1rem; }
 .modal.confirm p { margin: 0; color: var(--mu); line-height: 1.45; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.3rem; }
-.btn.danger { background: var(--danger); color: #fff; font-weight: 700; }
-.btn.danger:hover:not(:disabled) { background: var(--danger-hi); filter: none; }
+.btn.danger { background: linear-gradient(180deg, var(--danger-hi), var(--danger)); color: #fff; font-weight: 700; }
+.btn.danger:hover:not(:disabled) { background: linear-gradient(180deg, #d65245, var(--danger-hi)); filter: none; }
+/* Faded red turns muddy on a dark panel, so a disabled one looks like any other disabled button. */
+.btn.danger:disabled { background: var(--btn); color: var(--tx); }
+.choices { display: flex; flex-direction: column; gap: 0.6rem; }
+.btn.choice { height: auto; width: 100%; padding: 0.65rem 1.1rem; flex-direction: column; align-items: flex-start; gap: 0.2rem; text-align: left; letter-spacing: 0.14em; }
+.btn.choice small { font-family: Barlow, "Microsoft YaHei", "PingFang SC", sans-serif; font-size: 0.82rem; font-weight: 500; letter-spacing: 0; text-transform: none; }
 
 /* Drawer (spec 4.2) */
 .drawer { width: var(--drawer-w, 25rem); flex: none; display: flex; flex-direction: column; min-height: 0; background: linear-gradient(160deg, var(--p1), var(--p2)); border-top: 4px solid var(--gold); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); animation: drawer-in 180ms ease-out; }
@@ -426,9 +430,9 @@ button.thumb:hover { border-color: var(--gold); }
 .fr-name { font-family: "Saira Variable", sans-serif; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fr-count { font-size: 0.75rem; color: var(--mu); }
 .tr.fr.onto { background: color-mix(in srgb, var(--fc) 42%, transparent); box-shadow: inset 4px 0 0 var(--fc), inset 0 0 0 2px var(--fc); }
-.tr.in { box-shadow: inset 4px 0 0 color-mix(in srgb, var(--fc) 75%, transparent); background: color-mix(in srgb, var(--fc) 5%, transparent); }
-.tr.in:hover { background: color-mix(in srgb, var(--fc) 9%, transparent); }
-.tr.in.sel { box-shadow: inset 4px 0 0 var(--fc), inset 7px 0 0 var(--gold); }
+.tr.in { box-shadow: inset 4px 0 0 var(--fc); background: color-mix(in srgb, var(--fc) 20%, transparent); --mu: color-mix(in srgb, var(--tx) 88%, transparent); }
+.tr.in:hover { background: color-mix(in srgb, var(--fc) 28%, transparent); }
+.tr.in.sel { box-shadow: inset 4px 0 0 var(--fc), inset 7px 0 0 var(--gold); background: color-mix(in srgb, var(--fc) 34%, transparent); }
 
 /* Dragging: the rows on the move dim, a line shows where they land, a label follows the pointer */
 .tr.lifted { opacity: 0.35; }
@@ -478,8 +482,9 @@ button.thumb:hover { border-color: var(--gold); }
 .tr.fr.locked { cursor: pointer; }
 
 /* Purge keeps the same grey in the dark theme instead of sinking into the bar */
-:root[data-theme="dark"] .actions .btn.icon:not(.go) { background: #575c63; }
-:root[data-theme="dark"] .actions .btn.icon:not(.go):hover:not(:disabled) { background: #62676e; }
+:root[data-theme="dark"] .actions .btn.icon:not(.go):not(.cur) { background: #575c63; }
+:root[data-theme="dark"] .actions .btn.icon:not(.go):not(.cur):hover:not(:disabled) { background: #62676e; }
+.actions .btn.icon.cur { background: var(--gold); color: var(--on); }
 
 /* Home links tuck into the button beside them and spring back out */
 .home-links { display: flex; align-items: center; gap: 0.6rem; }

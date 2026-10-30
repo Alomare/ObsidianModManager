@@ -43,7 +43,9 @@ export function FolderDialog({ title, confirm, name = "", color = FOLDER_COLORS[
   );
 }
 
-export function DeleteFolder({ name, count, onDelete, onCancel }: { name: string; count: number; onDelete: (removeMods: boolean) => void; onCancel: () => void }) {
+type DeleteProps = { name: string; color: string; count: number; onDelete: (removeMods: boolean) => void; onCancel: () => void };
+
+export function DeleteFolder({ name, color, count, onDelete, onCancel }: DeleteProps) {
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     keep.current?.focus();
@@ -53,13 +55,21 @@ export function DeleteFolder({ name, count, onDelete, onCancel }: { name: string
   }, [onCancel]);
   return (
     <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className="modal confirm" role="alertdialog" aria-modal="true" aria-label={t("app.folder.deleteTitle", name)}>
+      <div className="modal confirm" role="alertdialog" aria-modal="true" aria-label={t("app.folder.deleteTitle", name)} style={{ borderTopColor: color }}>
         <h2 className="cap">{t("app.folder.deleteTitle", name)}</h2>
         <p>{count === 1 ? t("app.folder.deleteTextOne") : t("app.folder.deleteText", count)}</p>
+        <div className="choices">
+          <button className="btn play choice" ref={keep} onClick={() => onDelete(false)}>
+            {t("app.folder.ungroup")}
+            <small>{t("app.folder.ungroupHint")}</small>
+          </button>
+          <button className="btn danger choice" onClick={() => onDelete(true)}>
+            {t("app.folder.deleteWithMods")}
+            <small>{t("app.folder.deleteWithModsHint")}</small>
+          </button>
+        </div>
         <div className="modal-foot">
           <button className="btn" onClick={onCancel}>{t("app.cancel")}</button>
-          <button className="btn danger" onClick={() => onDelete(true)}>{t("app.folder.deleteWithMods")}</button>
-          <button className="btn play" ref={keep} onClick={() => onDelete(false)}>{t("app.folder.ungroup")}</button>
         </div>
       </div>
     </div>

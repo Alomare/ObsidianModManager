@@ -1,5 +1,5 @@
-// The navigation bar: the tabs (Home, Mods, Wiki, Settings), then the "prepare to play" area: the multiplayer consent of the active
-// profile, and Purge, Deploy and Play (spec section 3). Deploy turns green while changes wait.
+// The navigation bar: the tabs (Home, Mods, Wiki), then the "prepare to play" area: the multiplayer consent of the active
+// profile, Purge, Deploy and Play, and the Settings button (spec section 3). Deploy turns green while changes wait.
 import type { ComponentType } from "react";
 import { run } from "./api";
 import { BookIcon, CogIcon, DeployIcon, HomeIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
@@ -17,7 +17,7 @@ type Props = {
   onPlay: () => void;
 };
 
-const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["wiki", BookIcon], ["settings", CogIcon]];
+const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["wiki", BookIcon]];
 
 export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
@@ -62,6 +62,10 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
           <button className="btn play" onClick={onPlay} disabled={locked} data-tip={why ?? t("app.action.playHint")}>
             <PlayIcon />
             <span>{t("app.action.play")}</span>
+          </button>
+          <button className={tab === "settings" ? "btn icon cur" : "btn icon"} onClick={() => onTab("settings")} aria-label={t("app.nav.settings")}
+            aria-current={tab === "settings" ? "page" : undefined} data-tip={t("app.nav.settings")}>
+            <CogIcon />
           </button>
         </div>
       </div>
