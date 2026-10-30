@@ -70,17 +70,18 @@ function F.install(e, opts)
 			if i == "wheel" then return { x = 0, y = ui.mouse.wheel, z = 0 } end
 			return rawget(_G, "Vector3")(ui.mouse.x, ui.mouse.y, 0)
 		end,
-		button = function(i) return (i == "left" and ui.mouse.held) and 1 or 0 end,
+		button = function(i) return ((i == "left" and ui.mouse.held) or (i == "right" and ui.mouse.right_held)) and 1 or 0 end,
 		pressed = function(i) return ui.mouse[i] == true end,
 	})
 
 	-- The game's cursor manager, and the engine under it. system is true while the arrow is the
-	-- operating system's.
-	ui.cursor = { name = "hud/cursors/game", shown = true, clipped = true, system = false, refuse_system = false }
+	-- operating system's, which an empty path gives. Anything but a string crashes the real engine.
+	ui.cursor = { name = "hud/cursors/game", shown = true, clipped = true, system = false, refuse_system = false, crashed = false }
 	rawset(_G, "Window", {
 		set_cursor = function(path)
-			if path == nil and ui.cursor.refuse_system then error("set_cursor needs a path") end
-			ui.cursor.system = path == nil
+			if type(path) ~= "string" then ui.cursor.crashed = true end
+			if path == "" and ui.cursor.refuse_system then error("set_cursor refused the path") end
+			ui.cursor.system = path == ""
 		end,
 	})
 	rawset(_G, "CursorManager", {
@@ -104,13 +105,13 @@ function F.install(e, opts)
 		ui.mouse.x, ui.mouse.y = x, y
 		button = button or "left"
 		ui.mouse[button] = true
-		if button == "left" then ui.mouse.held = true end
+		ui.mouse[button == "left" and "held" or "right_held"] = true
 		ui.frame()
 		ui.mouse[button] = false
 	end
 
 	function ui.release()
-		ui.mouse.held = false
+		ui.mouse.held, ui.mouse.right_held = false, false
 		ui.frame()
 	end
 

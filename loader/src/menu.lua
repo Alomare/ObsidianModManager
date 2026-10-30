@@ -30,7 +30,7 @@ local REPEATS = { up = true, down = true, left = true, right = true }
 local GOLD, WHITE, GREY, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 255, 155, 94 }, { 15, 17, 19 }
 local PANEL, HEADER, LINE = { 33, 35, 39 }, { 48, 51, 56 }, { 255, 255, 255 }
 
-local M = { is_open = false, roots = {}, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil }
+local M = { is_open = false, roots = {}, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil, closing = false }
 
 local function global(name)
 	return B.rawget(B.G, name)
@@ -233,14 +233,15 @@ local function can_open()
 	return not (ok and B.type(st) == "table" and st.text_chat and st.text_chat.active)
 end
 
--- The game's cursors nearly vanish away from the aim, so the menu asks for the system arrow: no path
--- gives it, where the engine allows that. The pause menu's cursor stays set for when it doesn't.
+-- The game's cursors nearly vanish away from the aim, so the menu asks for the system arrow, which an
+-- empty path gives. The path has to be a string: with none the engine reads through a null and the
+-- game crashes, past any pcall. The pause menu's cursor stays set for a call that fails.
 local function show_cursor()
 	local cursors = global("CursorManager")
 	cursors:set_cursor(MENU_CURSOR)
 	cursors:set_show_cursor(true)
 	cursors:set_clip_cursor(false)
-	local ok, err = B.pcall(global("Window").set_cursor)
+	local ok, err = B.pcall(global("Window").set_cursor, "")
 	if not ok then log.limited("menu cursor", "menu: no system cursor: " .. B.tostring(err)) end
 end
 
@@ -272,7 +273,7 @@ end
 
 function M.close()
 	if not M.is_open then return end
-	M.is_open = false
+	M.is_open, M.closing = false, false
 	M.field, M.drag, M.hold, M.hits = nil, nil, nil, nil
 	M.mouse_x, M.mouse_y = nil, nil
 	M.stack = {}
@@ -506,7 +507,8 @@ local function read_field()
 	end
 end
 
-local function go_back(frame)
+-- close is how the top page leaves: a click passes its own, as the button is still down.
+local function go_back(frame, close)
 	if frame.filter and frame.filter ~= "" then
 		frame.filter = nil
 		settle(frame, rows(frame))
@@ -515,7 +517,7 @@ local function go_back(frame)
 		local back = M.stack[#M.stack]
 		build(back)
 	else
-		M.close()
+		(close or M.close)()
 	end
 end
 
@@ -803,7 +805,7 @@ local function read_mouse()
 			M.mouse_ids = ids
 		end
 		local at, wheel = mouse.axis(ids.cursor), mouse.axis(ids.wheel)
-		return { x = at.x, y = at.y, wheel = wheel.y, held = mouse.button(ids.left) > 0.5, left = mouse.pressed(ids.left) == true, right = mouse.pressed(ids.right) == true }
+		return { x = at.x, y = at.y, wheel = wheel.y, held = mouse.button(ids.left) > 0.5, right_held = mouse.button(ids.right) > 0.5, left = mouse.pressed(ids.left) == true, right = mouse.pressed(ids.right) == true }
 	end)
 	if ok then return m end
 	M.no_mouse = true
@@ -838,10 +840,16 @@ local function click_row(frame, row, x, y)
 	end
 end
 
+-- Closing gives the game its input back, so a click that closes the menu waits for the button to come
+-- up. Otherwise the game gets the rest of the click: a shot in a mission.
+local function close_after_click()
+	M.closing = true
+end
+
 local function press(frame, x, y)
 	local hits = M.hits
 	if inside(hits.close, x, y) then
-		M.close()
+		close_after_click()
 	elseif inside(hits.back, x, y) then
 		go_back(frame)
 	elseif inside(hits.filter, x, y) then
@@ -878,6 +886,10 @@ local function mouse_input(dt)
 	if not m then return end
 	local moved = M.mouse_x ~= nil and (m.x ~= M.mouse_x or m.y ~= M.mouse_y)
 	M.mouse_x, M.mouse_y = m.x, m.y
+	if M.closing then
+		if not m.held and not m.right_held then M.close() end
+		return
+	end
 	-- A click elsewhere ends typing, as Enter does.
 	if M.field then
 		if m.left then
@@ -914,7 +926,7 @@ local function mouse_input(dt)
 		end
 	end
 	if m.right then
-		go_back(frame)
+		go_back(frame, close_after_click)
 	elseif m.left then
 		press(frame, m.x, m.y)
 	end
