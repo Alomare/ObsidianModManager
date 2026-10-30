@@ -71,11 +71,69 @@ The text `key` from the `locales` folder of the mod, in the language of the game
 
 Writes a line to the log of this mod, in `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`.
 
+## Other mods and more files {#other-mods}
+
+### obsidian.module(name)
+
+Loads another Lua file of this mod and returns what it returns. The file has to be listed in `modules` in `obsidian.json`, and `name` is its path without `.lua`, such as `"lib/parts"`.
+
+### obsidian.import(id)
+
+What the `entry` script of another mod returned, or `nil` when that mod isn't running. List the mod in `requires`, so it starts first ([Obsidian API](wiki:obsidian-api)).
+
+### obsidian.caller()
+
+The id of the mod whose code is running, so a shared mod can record who asked for something.
+
+## In-game menu {#menu}
+
+### obsidian.menu.add(title, build)
+
+Adds a page to the top of the in-game menu. `title` is text, or a function that returns it. `build(page)` runs each time the page opens:
+
+```lua
+obsidian.menu.add("My mod", function(page)
+  page:header("Tuning")
+  page:toggle("Enabled", { get = function() return on end, set = function(v) on = v end })
+  page:number("Power", { min = 1, max = 10, step = 1, get = get_power, set = set_power })
+  page:choice("Mode", { choices = { { id = "a", label = "First" } }, get = get_mode, set = set_mode })
+  page:action("Do it", function() return "Done" end)
+  page:input("Name", function(text) end)
+  page:page("More", function(sub) sub:label("Deeper") end)
+end)
+```
+
+Any row takes `help`, a text shown while it's selected, and `enabled`, a function that returns `false` and a reason. A string returned by an action shows as a toast. An action can call `page:refresh()` to build the page again. A failing row shows the error and doesn't count against your mod.
+
+A session mod's pages aren't listed, and close, while the lobby isn't cleared.
+
+### obsidian.menu.open(), close(), toggle(), is_open()
+
+Nothing opens the menu by itself, so bind a key to it:
+
+```lua
+obsidian.keybind("open", function() obsidian.menu.toggle() end)
+```
+
+### obsidian.menu.overlay(fn)
+
+Calls `fn(draw, width, height)` every frame, to put something on screen outside the menu. `draw.text(text, x, y, color)` and `draw.rect(x, y, w, h, color, alpha)` work in pixels from the bottom left. Colors are `{ r, g, b }`.
+
+### obsidian.toast(text, seconds)
+
+Shows a short message at the bottom left of the screen.
+
+## Saved values {#storage}
+
+### obsidian.storage.get(key, default), set(key, value), all()
+
+Strings, numbers and booleans this mod keeps between launches. `set` with `nil` removes a key. The file is written at once, so don't call it every frame.
+
 ## Version and features
 
 `obsidian.version` is the API version, `1` today. A mod that needs a newer API sets `loader_api` in `obsidian.json`, and older loaders refuse to start it.
 
-`obsidian.capabilities` is a read-only table of what the running loader supports, one entry per feature: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`. Test a feature by name before using one that came later:
+`obsidian.capabilities` is a read-only table of what the running loader supports, one entry per feature: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`, `module`, `import`, `caller`, `menu`, `toast`, `storage`. Test a feature by name before using one that came later:
 
 ```lua
 if obsidian.capabilities.on_frame then

@@ -38,7 +38,9 @@ obsidian profile list|use|new <name>   switch between named sets of mods and set
 
 Obsidian comes with Obsidian Quality of Life, a mod that is off until you enable it (`obsidian enable obsidian.qol`). It skips the intro, the login screen, war briefs and planet scanning, removes the black bars on screens wider than 16:9, and can speed up or skip the results screens after a mission. Each fix is an option. All are on by default except the mission end one, which starts off: `obsidian set obsidian.qol skip_login false` turns one off.
 
-Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your save folder is backed up before every deploy.
+Two more bundled mods go further. Obsidian Trainer (`obsidian enable obsidian.trainer`) is an in-game menu, opened with F6, for your character, weapons, stratagems, enemies, missions and the game's numbers. It's built on Obsidian API, a runtime other mods can use too, which turns on with it. Both are session mods, so they follow the same rules as any mod that changes the shared game. The trainer doesn't change XP or rank, doesn't unlock paid DLC, and doesn't touch the Galactic War. The design is in [docs/superpowers/specs/2026-10-30-obsidian-api-design.md](docs/superpowers/specs/2026-10-30-obsidian-api-design.md), and it has been smoke tested in the game solo and offline, but not yet played through or tried with a second player: section 6 there says what has run.
+
+Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your saves are backed up before every deploy, including the ones in Steam Cloud.
 
 ## License
 

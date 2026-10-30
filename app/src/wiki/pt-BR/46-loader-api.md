@@ -71,11 +71,69 @@ O texto `key` da pasta `locales` do mod, no idioma do jogo, com inglês como res
 
 Escreve uma linha no log deste mod, em `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`.
 
+## Outros mods e mais arquivos {#other-mods}
+
+### obsidian.module(name) {#obsidian-module-name}
+
+Carrega outro arquivo Lua deste mod e devolve o que ele devolve. O arquivo precisa estar em `modules` no `obsidian.json`, e `name` é o caminho sem `.lua`, como `"lib/parts"`.
+
+### obsidian.import(id) {#obsidian-import-id}
+
+O que o script `entry` de outro mod devolveu, ou `nil` quando esse mod não está rodando. Coloque o mod em `requires`, para ele iniciar primeiro ([API Obsidian](wiki:obsidian-api)).
+
+### obsidian.caller() {#obsidian-caller}
+
+O id do mod cujo código está rodando, para um mod compartilhado registrar quem pediu algo.
+
+## Menu dentro do jogo {#menu}
+
+### obsidian.menu.add(title, build) {#obsidian-menu-add-title-build}
+
+Adiciona uma página ao topo do menu dentro do jogo. `title` é um texto, ou uma função que o devolve. `build(page)` roda cada vez que a página abre:
+
+```lua
+obsidian.menu.add("Meu mod", function(page)
+  page:header("Ajustes")
+  page:toggle("Ligado", { get = function() return on end, set = function(v) on = v end })
+  page:number("Força", { min = 1, max = 10, step = 1, get = get_power, set = set_power })
+  page:choice("Modo", { choices = { { id = "a", label = "Primeiro" } }, get = get_mode, set = set_mode })
+  page:action("Fazer", function() return "Feito" end)
+  page:input("Nome", function(text) end)
+  page:page("Mais", function(sub) sub:label("Mais fundo") end)
+end)
+```
+
+Qualquer linha aceita `help`, um texto mostrado enquanto está selecionada, e `enabled`, uma função que devolve `false` e um motivo. Um texto devolvido por uma ação aparece como aviso. Uma ação pode chamar `page:refresh()` para montar a página de novo. Uma linha que falha mostra o erro e não conta contra o seu mod.
+
+As páginas de um mod de sessão não aparecem, e fecham, enquanto o lobby não estiver liberado.
+
+### obsidian.menu.open(), close(), toggle(), is_open() {#obsidian-menu-open}
+
+Nada abre o menu sozinho, então associe uma tecla:
+
+```lua
+obsidian.keybind("open", function() obsidian.menu.toggle() end)
+```
+
+### obsidian.menu.overlay(fn) {#obsidian-menu-overlay-fn}
+
+Chama `fn(draw, width, height)` a cada quadro, para mostrar algo na tela fora do menu. `draw.text(text, x, y, color)` e `draw.rect(x, y, w, h, color, alpha)` usam pixels a partir do canto inferior esquerdo. Cores são `{ r, g, b }`.
+
+### obsidian.toast(text, seconds) {#obsidian-toast-text-seconds}
+
+Mostra uma mensagem curta no canto inferior esquerdo da tela.
+
+## Valores salvos {#storage}
+
+### obsidian.storage.get(key, default), set(key, value), all() {#obsidian-storage}
+
+Textos, números e booleanos que este mod guarda entre aberturas do jogo. `set` com `nil` remove a chave. O arquivo é gravado na hora, então não chame a cada quadro.
+
 ## Versão e recursos {#version-and-features}
 
 `obsidian.version` é a versão da API, hoje `1`. Um mod que precisa de uma API mais nova define `loader_api` no `obsidian.json`, e loaders mais antigos se recusam a iniciá-lo.
 
-`obsidian.capabilities` é uma tabela, só de leitura, do que o loader em execução oferece, uma entrada por recurso: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`. Teste um recurso pelo nome antes de usar um que chegou depois:
+`obsidian.capabilities` é uma tabela, só de leitura, do que o loader em execução oferece, uma entrada por recurso: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`, `module`, `import`, `caller`, `menu`, `toast`, `storage`. Teste um recurso pelo nome antes de usar um que chegou depois:
 
 ```lua
 if obsidian.capabilities.on_frame then

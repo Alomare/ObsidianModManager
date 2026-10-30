@@ -45,6 +45,8 @@ summary: Every field of the file that describes a mod.
 | `source` | no | The mod's address, shown in its details. A GitHub repository such as `https://github.com/you/mod` also lets players update the mod from the app ([Sharing a mod](wiki:sharing#updates)). |
 | `scope` | no | `client` or `session` ([Scopes](wiki:scopes)). Missing or unknown counts as `session`. |
 | `entry` | no | The Lua script the loader starts. Mods that only replace game files leave it out. |
+| `modules` | no | More `.lua` files beside `entry`, which the mod loads with `obsidian.module`. Paths inside the mod folder. |
+| `requires` | no | Ids of mods this one needs. Switching the mod on switches them on, and they start first. A deploy stops with a message if one is missing. |
 | `loader_api` | no | The version of the [Loader API](wiki:loader-api) the mod needs. `1` when left out. |
 | `options` | no | Settings players change in the app ([Options and keys](wiki:options-and-keys)). |
 | `keybinds` | no | Keys players can rebind in the app. |

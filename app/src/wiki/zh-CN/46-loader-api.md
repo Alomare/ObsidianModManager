@@ -71,11 +71,71 @@ end)
 
 向本模组的日志写一行，位于 `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`。
 
+## 其他模组和更多文件 {#other-mods}
+
+### obsidian.module(name) {#obsidian-module-name}
+
+加载本模组的另一个 Lua 文件并返回其返回值。该文件必须列在 `obsidian.json` 的 `modules` 中，`name` 是不带 `.lua` 的路径，例如 `"lib/parts"`。
+
+### obsidian.import(id) {#obsidian-import-id}
+
+另一个模组的 `entry` 脚本返回的值；该模组未运行时为 `nil`。请把该模组写进 `requires`，使其先启动（[Obsidian 运行时 API](wiki:obsidian-api)）。
+
+### obsidian.caller() {#obsidian-caller}
+
+正在运行其代码的模组 id，便于共享模组记录请求者。
+
+## 游戏内菜单 {#menu}
+
+### obsidian.menu.add(title, build) {#obsidian-menu-add-title-build}
+
+在游戏内菜单顶层添加一个页面。`title` 是文本或返回文本的函数。每次打开页面时都会运行 `build(page)`：
+
+```lua
+obsidian.menu.add("我的模组", function(page)
+  page:header("调整")
+  page:toggle("启用", { get = function() return on end, set = function(v) on = v end })
+  page:number("强度", { min = 1, max = 10, step = 1, get = get_power, set = set_power })
+  page:choice("模式", { choices = { { id = "a", label = "第一种" } }, get = get_mode, set = set_mode })
+  page:action("执行", function() return "完成" end)
+  page:input("名称", function(text) end)
+  page:page("更多", function(sub) sub:label("更深一层") end)
+end)
+```
+
+每一行都可以设置 `help`（选中时显示的文字）和 `enabled`（返回 `false` 和原因的函数）。操作返回的字符串会以提示显示。操作可以调用 `page:refresh()` 重新构建页面。出错的行会显示错误，且不会计入模组的错误次数。
+
+大厅未处于许可状态时，会话模组的页面不会列出，已打开的也会关闭。
+
+请注意：菜单字体只支持拉丁字母，中文文本会显示为方框。
+
+### obsidian.menu.open(), close(), toggle(), is_open() {#obsidian-menu-open}
+
+菜单不会自行打开，因此请绑定按键：
+
+```lua
+obsidian.keybind("open", function() obsidian.menu.toggle() end)
+```
+
+### obsidian.menu.overlay(fn) {#obsidian-menu-overlay-fn}
+
+每帧调用 `fn(draw, width, height)`，用于在菜单之外显示内容。`draw.text(text, x, y, color)` 和 `draw.rect(x, y, w, h, color, alpha)` 以屏幕左下角为原点，单位为像素。颜色为 `{ r, g, b }`。
+
+### obsidian.toast(text, seconds) {#obsidian-toast-text-seconds}
+
+在屏幕左下角显示一条简短消息。
+
+## 保存的值 {#storage}
+
+### obsidian.storage.get(key, default), set(key, value), all() {#obsidian-storage}
+
+本模组在多次启动之间保留的字符串、数字和布尔值。`set` 传入 `nil` 会删除键。文件会立即写入，因此不要每帧调用。
+
 ## 版本和功能 {#version-and-features}
 
 `obsidian.version` 是 API 版本，目前为 `1`。需要更新 API 的模组在 `obsidian.json` 中设置 `loader_api`，较旧的加载器会拒绝启动它。
 
-`obsidian.capabilities` 是一个只读表，列出当前加载器支持的功能，每项一个条目：`hook`、`on_require`、`on_frame`、`on_session`、`after_startup`、`settings`、`keybind`、`session`、`text`、`log`。使用较晚加入的功能前，先按名称检查：
+`obsidian.capabilities` 是一个只读表，列出当前加载器支持的功能，每项一个条目：`hook`、`on_require`、`on_frame`、`on_session`、`after_startup`、`settings`、`keybind`、`session`、`text`、`log`、`module`、`import`、`caller`、`menu`、`toast`、`storage`。使用较晚加入的功能前，先按名称检查：
 
 ```lua
 if obsidian.capabilities.on_frame then
