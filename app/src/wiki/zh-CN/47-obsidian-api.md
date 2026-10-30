@@ -1,7 +1,7 @@
 ---
-title: Obsidian 运行时 API
+title: Obsidian 模组 API
 group: 制作模组
-summary: "模组运行时：按名称访问游戏数据、受检查的修改和现成操作。"
+summary: "模组库：按名称访问游戏数据、受检查的修改和现成操作。"
 ---
 
 Obsidian API 是供其他模组使用的模组。它知道游戏中各项内容的位置，以游戏接受的方式进行修改，并在需要时撤销。Obsidian Trainer 就是这样工作的，它没有使用任何你用不到的功能。
@@ -52,7 +52,7 @@ api.edits.set_table("Resupply", s, "cooldown_time", 30)
 
 ## 效果 {#effects}
 
-效果在重生和任务之间保持开启。游戏这时会重建大部分状态，所以运行时会重新应用已启用的效果。
+效果在重生和任务之间保持开启。游戏这时会重建大部分状态，所以它会重新应用已启用的效果。
 
 ```lua
 api.effects.set("god", true)

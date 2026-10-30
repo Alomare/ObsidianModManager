@@ -74,7 +74,7 @@ An in-game window, opened with F6, for your character, weapons, stratagems, enem
 
 #### [Obsidian API](https://github.com/Alomare/ObsidianAPI)
 
-A runtime other mods can build on. It turns on with the Trainer.
+A library other mods can build on. It turns on with the Trainer.
 
 The Trainer and Obsidian API have been tested solo and offline, but not yet with a second player.
 

@@ -1,7 +1,7 @@
 ---
 title: Obsidian API
 group: Making mods
-summary: The runtime for mods: the game's data by name, checked changes, and ready actions.
+summary: A library for mods: the game's data by name, checked changes, and ready actions.
 ---
 
 Obsidian API is a mod other mods build on. It knows where things are in the game, makes changes in ways the game accepts, and undoes them when it has to. It's how Obsidian Trainer works, and the trainer uses nothing you can't use.
@@ -52,7 +52,7 @@ Fields a player can edit, with ranges and when each takes effect, are in `api.ca
 
 ## Effects {#effects}
 
-An effect stays on across respawns and missions. The game rebuilds much of its state then, so the runtime applies active effects again.
+An effect stays on across respawns and missions. The game rebuilds much of its state then, so the library applies active effects again.
 
 ```lua
 api.effects.set("god", true)

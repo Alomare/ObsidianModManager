@@ -1,7 +1,7 @@
 ---
 title: API Obsidian (Obsidian API)
 group: Criar mods
-summary: "O runtime para mods: os dados do jogo por nome, mudanças verificadas e ações prontas."
+summary: "Uma biblioteca para mods: os dados do jogo por nome, mudanças verificadas e ações prontas."
 ---
 
 O Obsidian API é um mod sobre o qual outros mods são construídos. Ele sabe onde as coisas ficam no jogo, faz mudanças do jeito que o jogo aceita e as desfaz quando precisa. É assim que o Obsidian Trainer funciona, e o trainer não usa nada que você não possa usar.
@@ -52,7 +52,7 @@ Os campos editáveis, com limites e quando cada um vale, estão em `api.catalog.
 
 ## Efeitos {#effects}
 
-Um efeito continua ligado entre reaparições e missões. O jogo reconstrói boa parte do estado nesses momentos, então o runtime aplica de novo os efeitos ativos.
+Um efeito continua ligado entre reaparições e missões. O jogo reconstrói boa parte do estado nesses momentos, então a biblioteca aplica de novo os efeitos ativos.
 
 ```lua
 api.effects.set("god", true)
