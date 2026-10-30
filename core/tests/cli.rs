@@ -10,6 +10,8 @@ fn spaced() -> tempfile::TempDir {
 fn obsidian(game: &std::path::Path, data: &std::path::Path) -> Command {
     let mut c = Command::cargo_bin("obsidian").unwrap();
     c.arg("--game").arg(game).arg("--data-dir").arg(data);
+    // Never the player's real saves, and Linux wants no Proton prefix for a throwaway game.
+    c.env("OBSIDIAN_APPDATA", data.join("appdata"));
     c
 }
 
@@ -22,7 +24,7 @@ fn bundle_with(data: &[u8]) -> Bundle {
 fn help_lists_every_command() {
     let out = Command::cargo_bin("obsidian").unwrap().arg("--help").assert().success().get_output().stdout.clone();
     let text = String::from_utf8(out).unwrap();
-    for cmd in ["game", "import", "list", "order", "enable", "disable", "conflicts", "deploy", "purge", "status"] {
+    for cmd in ["game", "import", "list", "order", "enable", "disable", "conflicts", "deploy", "purge", "status", "updates", "update"] {
         assert!(text.contains(cmd), "missing {cmd}");
     }
 }
