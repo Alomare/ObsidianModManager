@@ -1,6 +1,6 @@
 // The mod list as a tree: mods and folders at the top, mods inside folders. The load order is the
 // tree read top to bottom. An empty folder has no place in the load order, so it comes last.
-// A locked folder keeps the place and mods it has: it doesn't move, its mods don't leave, and no
+// A locked folder keeps the place and mods it has: it doesn't move, the mods in it don't leave, and no
 // mod goes in. The Obsidian folder (the bundled mods) is always locked and always first.
 import type { Folder } from "../types";
 

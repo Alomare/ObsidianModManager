@@ -53,11 +53,10 @@ export default function App() {
     <div className="app">
       <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => setAskPurge(true)} onDeploy={deploy} onPlay={play} />
       <main className={tab === "home" ? "page bleed" : "page"}>
-        <div className="view" key={tab}>
-          {tab === "home" && <HomePage />}
-          {snap && tab === "mods" && <ModsPage snap={snap} />}
-          {snap && tab === "settings" && <SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} />}
-        </div>
+        {tab === "home" && <div className="view" key="home"><HomePage /></div>}
+        {/* Mods stays mounted while hidden: a long list then costs nothing to come back to. */}
+        {snap && <div className="view" hidden={tab !== "mods"}><ModsPage snap={snap} /></div>}
+        {snap && tab === "settings" && <div className="view" key="settings"><SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} /></div>}
       </main>
       <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />
       {dropping && <div className="dropzone cap">{t("app.mods.dropHere")}</div>}

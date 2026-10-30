@@ -3,11 +3,11 @@
 // Dragging a checked mod takes every checked mod. After a move the rows slide to their places.
 // Alt+Up and Alt+Down move the focused mod or folder from the keyboard. A warning icon marks
 // mods in a conflict and opens the conflicts; a right click opens the menu.
-import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type MutableRefObject, type PointerEvent } from "react";
 import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, WarnIcon } from "../Icons";
-import { pick, t } from "../i18n";
+import { language, pick, t } from "../i18n";
 import { Thumb } from "../Thumb";
-import type { ConflictRow, ModRow } from "../types";
+import type { ConflictRow, ImageRef, ModRow } from "../types";
 import { conflictsOf } from "./conflicts";
 import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, OBSIDIAN, pinned, type Line, type Node } from "./layout";
 
@@ -53,12 +53,91 @@ function Check({ state, label, onChange }: { state: boolean | "mixed"; label: st
   );
 }
 
-export function ModTable({ tree, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu }: Props) {
+/** What a row calls back into; kept in a ref so the rows never see new functions. */
+type Handlers = {
+  down: (e: PointerEvent<HTMLDivElement>, line: Line) => void;
+  move: (e: PointerEvent<HTMLDivElement>) => void;
+  up: (e: PointerEvent<HTMLDivElement>) => void;
+  key: (e: KeyboardEvent<HTMLDivElement>, line: Line) => void;
+  menu: (e: MouseEvent, target: MenuTarget) => void;
+  check: (id: string, on: boolean, shift: boolean) => void;
+  toggle: (id: string, on: boolean) => void;
+  conflicts: (id: string) => void;
+};
+type RowProps = {
+  id: string; folder: string | null; color: string | null; name: string; description: string; version: string | null;
+  scope: string; on: boolean; imagePath: string | null; imageV: number; num: number; pinned: boolean; selected: boolean; checked: boolean;
+  lifted: boolean; leaving: boolean; tips: string | null; lose: boolean; h: MutableRefObject<Handlers>;
+  /** The UI language: the row's texts change with it. */
+  lang: string;
+};
+
+/** One mod. Every prop is a plain value, so a click elsewhere in a long list leaves this row alone. */
+const ModLine = memo(function ModLine({ id, folder, color, name, description, version, scope, on, imagePath, imageV, num, pinned: fixed, selected, checked, lifted, leaving, tips, lose, h }: RowProps) {
+  const line: Line = { kind: "mod", id, folder };
+  const image: ImageRef | null = useMemo(() => (imagePath ? { path: imagePath, v: imageV } : null), [imagePath, imageV]);
+  const cls = ["tr", folder && "in", fixed && "pinned", selected && "sel", checked && "checked", lifted && "lifted", leaving && "leaving"].filter(Boolean).join(" ");
+  return (
+    <div data-key={id} role="row" tabIndex={0} className={cls} aria-selected={selected} style={color ? ({ "--fc": color } as CSSProperties) : undefined}
+      onPointerDown={(e) => h.current.down(e, line)} onPointerMove={(e) => h.current.move(e)} onPointerUp={(e) => h.current.up(e)} onPointerCancel={(e) => h.current.up(e)}
+      onKeyDown={(e) => h.current.key(e, line)} onContextMenu={(e) => h.current.menu(e, { kind: "mod", id })}>
+      <Check state={checked} label={name} onChange={(v, shift) => h.current.check(id, v, shift)} />
+      <span className="num">{num}</span>
+      <button role="switch" aria-checked={on} aria-label={name} className={on ? "sw on" : "sw"} data-tip={t(on ? "app.mods.turnOff" : "app.mods.turnOn", name)}
+        {...stop} onClick={() => h.current.toggle(id, !on)} />
+      <div className="mod-cell">
+        <Thumb image={image} name={name} />
+        <div className="who">
+          <div className="nm">
+            {name}
+            <span className="ver">{version ?? t("app.mods.imported")}</span>
+          </div>
+          {description && <div className="sub">{description}</div>}
+        </div>
+      </div>
+      {tips ? (
+        <button className={lose ? "bare cf-ico lose" : "bare cf-ico"} aria-label={t("app.drawer.conflicts")}
+          data-tip-title={t("app.drawer.conflicts")} data-tip={tips} {...stop} onClick={() => h.current.conflicts(id)}>
+          <WarnIcon />
+        </button>
+      ) : <span />}
+      <span className={`scope ${scope}`} data-tip-title={t(`app.scope.${scope}Mod`)} data-tip={t(`app.scope.${scope}Hint`)}><i />{t(`app.scope.${scope}`)}</span>
+    </div>
+  );
+});
+
+/** How long the mods of a closing folder take to fade before the rows below move up. */
+const CLOSE_MS = 140;
+
+export function ModTable({ tree: saved, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu }: Props) {
   const body = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const before = useRef<Map<string, number> | null>(null);
   const lastCheck = useRef<string | null>(null);
   const [marker, setMarker] = useState<Marker | null>(null);
+  // Folders open and close on screen at once; the saved state follows.
+  const [fold, setFold] = useState<Record<string, boolean>>({});
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const tree = useMemo(
+    () => saved?.map((n) => (n.kind === "folder" && fold[n.folder.id] !== undefined ? { ...n, folder: { ...n.folder, collapsed: fold[n.folder.id] } } : n)) ?? null,
+    [saved, fold],
+  );
+  useEffect(() => {
+    // Overrides the saved state has caught up with are dropped.
+    const done = Object.keys(fold).filter((id) => saved?.some((n) => n.kind === "folder" && n.folder.id === id && n.folder.collapsed === fold[id]));
+    if (done.length) setFold((f) => Object.fromEntries(Object.entries(f).filter(([id]) => !done.includes(id))));
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  const collapse = (id: string, closed: boolean) => {
+    const apply = () => {
+      measure();
+      setFold((f) => ({ ...f, [id]: closed }));
+      setLeaving(null);
+      onCollapse(id, closed);
+    };
+    if (!closed || document.documentElement.dataset.motion === "off") return apply();
+    setLeaving(id);
+    setTimeout(apply, CLOSE_MS);
+  };
   const all: Line[] = tree ? lines(tree) : rows.map((r) => ({ kind: "mod", id: r.id, folder: null }));
   const visibleMods = all.flatMap((l) => (l.kind === "mod" ? [l.id] : []));
 
@@ -142,7 +221,7 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
     if (!d.moved) {
       if (d.folder) {
         const f = tree?.find((n) => n.kind === "folder" && n.folder.id === d.folder);
-        if (f?.kind === "folder") onCollapse(f.folder.id, !f.folder.collapsed);
+        if (f?.kind === "folder") collapse(f.folder.id, !f.folder.collapsed);
       } else onSelect(d.key);
       return;
     }
@@ -153,7 +232,7 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
   const key = (e: KeyboardEvent<HTMLDivElement>, line: Line) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      if (line.kind === "folder") onCollapse(line.folder.id, !line.folder.collapsed);
+      if (line.kind === "folder") collapse(line.folder.id, !line.folder.collapsed);
       else onSelect(line.id);
     } else if (tree && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       e.preventDefault();
@@ -178,8 +257,27 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
     onCheck(shift && a >= 0 ? visibleMods.slice(Math.min(a, b), Math.max(a, b) + 1) : [id], on);
   };
 
-  const nameOf = (id: string) => names.get(id) ?? id;
-  const withFiles = ([id, n]: [string, number]) => (n === 1 ? t("app.mods.withOneFile", nameOf(id)) : t("app.mods.withFiles", nameOf(id), n));
+  // Worked out once per change instead of once per row: positions, folder colours, conflict tips.
+  const position = useMemo(() => new Map(order.map((id, i) => [id, i + 1])), [order]);
+  const folders = useMemo(() => new Map((tree ?? []).flatMap((n) => (n.kind === "folder" ? [[n.folder.id, n] as const] : []))), [tree]);
+  const tipsOf = useMemo(() => {
+    const nameOf = (id: string) => names.get(id) ?? id;
+    const withFiles = ([id, n]: [string, number]) => (n === 1 ? t("app.mods.withOneFile", nameOf(id)) : t("app.mods.withFiles", nameOf(id), n));
+    const out = new Map<string, { tips: string; lose: boolean }>();
+    for (const id of new Set(conflicts.flatMap((c) => c.mods))) {
+      const c = conflictsOf(id, conflicts);
+      if (!c.overrides.length && !c.overriddenBy.length) continue;
+      const tips = [
+        c.overrides.length > 0 && t("app.mods.overridesList", c.overrides.map(withFiles).join(", ")),
+        c.overriddenBy.length > 0 && t("app.mods.overriddenByList", c.overriddenBy.map(withFiles).join(", ")),
+        t("app.mods.conflictsClick"),
+      ].filter(Boolean);
+      out.set(id, { tips: tips.join("\n"), lose: c.overriddenBy.length > 0 });
+    }
+    return out;
+  }, [conflicts, names]);
+  const h = useRef<Handlers>(null!);
+  h.current = { down, move, up, key, menu, check, toggle: (id, on) => onToggle([id], on), conflicts: onConflicts };
   const allState = visibleMods.length && visibleMods.every((id) => checked.has(id)) ? true : visibleMods.some((id) => checked.has(id)) ? "mixed" : false;
   const draggingKeys = new Set(drag.current?.moved ? (drag.current.folder ? [drag.current.key] : drag.current.ids) : []);
 
@@ -197,7 +295,7 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
         {all.map((line) => {
           if (line.kind === "folder") {
             const f = line.folder;
-            const node = tree?.find((n) => n.kind === "folder" && n.folder.id === f.id);
+            const node = folders.get(f.id);
             const ids = node?.kind === "folder" ? node.ids : [];
             const on = ids.filter((id) => byId.get(id)?.on).length;
             const state = ids.length && ids.every((id) => checked.has(id)) ? true : ids.some((id) => checked.has(id)) ? "mixed" : false;
@@ -225,41 +323,13 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
           }
           const m = byId.get(line.id);
           if (!m) return null;
-          const name = pick(m.name, m.id);
-          const c = conflictsOf(m.id, conflicts);
-          const tips = [
-            c.overrides.length > 0 && t("app.mods.overridesList", c.overrides.map(withFiles).join(", ")),
-            c.overriddenBy.length > 0 && t("app.mods.overriddenByList", c.overriddenBy.map(withFiles).join(", ")),
-            t("app.mods.conflictsClick"),
-          ].filter(Boolean);
-          const color = line.folder ? tree?.find((n) => n.kind === "folder" && n.folder.id === line.folder) : undefined;
-          const cls = ["tr", line.folder && "in", selected === m.id && "sel", checked.has(m.id) && "checked", draggingKeys.has(m.id) && "lifted"].filter(Boolean).join(" ");
+          const conflict = tipsOf.get(m.id);
+          const folder = line.folder ? folders.get(line.folder) : undefined;
           return (
-            <div key={m.id} data-key={m.id} role="row" tabIndex={0} className={cls} aria-selected={selected === m.id}
-              style={color?.kind === "folder" ? ({ "--fc": color.folder.color } as CSSProperties) : undefined}
-              onPointerDown={(e) => down(e, line)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => key(e, line)} onContextMenu={(e) => menu(e, { kind: "mod", id: m.id })}>
-              <Check state={checked.has(m.id)} label={name} onChange={(on, shift) => check(m.id, on, shift)} />
-              <span className="num">{order.indexOf(m.id) + 1}</span>
-              <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"} data-tip={t(m.on ? "app.mods.turnOff" : "app.mods.turnOn", name)}
-                {...stop} onClick={() => onToggle([m.id], !m.on)} />
-              <div className="mod-cell">
-                <Thumb image={m.image} name={name} />
-                <div className="who">
-                  <div className="nm">
-                    {name}
-                    <span className="ver">{m.version ?? t("app.mods.imported")}</span>
-                  </div>
-                  {pick(m.description) && <div className="sub">{pick(m.description)}</div>}
-                </div>
-              </div>
-              {tips.length > 1 ? (
-                <button className={c.overriddenBy.length ? "bare cf-ico lose" : "bare cf-ico"} aria-label={t("app.drawer.conflicts")}
-                  data-tip-title={t("app.drawer.conflicts")} data-tip={tips.join("\n")} {...stop} onClick={() => onConflicts(m.id)}>
-                  <WarnIcon />
-                </button>
-              ) : <span />}
-              <span className={`scope ${m.scope}`} data-tip-title={t(`app.scope.${m.scope}Mod`)} data-tip={t(`app.scope.${m.scope}Hint`)}><i />{t(`app.scope.${m.scope}`)}</span>
-            </div>
+            <ModLine key={m.id} id={m.id} folder={line.folder} color={folder?.kind === "folder" ? folder.folder.color : null} name={names.get(m.id) ?? m.id}
+              description={pick(m.description)} version={m.version} scope={m.scope} on={m.on} imagePath={m.image?.path ?? null} imageV={m.image?.v ?? 0} num={position.get(m.id) ?? 0}
+              pinned={!!folder && folder.kind === "folder" && folder.folder.locked} selected={selected === m.id} checked={checked.has(m.id)}
+              lifted={draggingKeys.has(m.id)} leaving={leaving !== null && line.folder === leaving} tips={conflict?.tips ?? null} lose={conflict?.lose ?? false} h={h} lang={language()} />
           );
         })}
         {marker && !marker.onto && <div className={marker.indent ? "drop-line in" : "drop-line"} style={{ top: marker.y }} aria-hidden="true" />}

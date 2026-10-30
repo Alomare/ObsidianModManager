@@ -38,5 +38,7 @@ export async function updateSettings(patch: Partial<AppSettings>) {
   try { apply(await withTask(t("app.task.settings"), () => call<AppSettings>("set_app_settings", { settings: { ...current, ...patch } }))); } catch (e) { notify("error", errorText(e)); }
 }
 
+export const currentSettings = () => current;
+
 export const useAppSettings = () =>
   useSyncExternalStore((f) => { listeners.add(f); return () => { listeners.delete(f); }; }, () => current);
