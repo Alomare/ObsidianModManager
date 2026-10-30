@@ -1,4 +1,4 @@
-// The drawer beside the mod table (spec 4.2): one mod's Options, Keys, Files, Dependencies and About,
+// The drawer beside the mod table (spec 4.2): one mod's About, Options, Keys, Files and Dependencies,
 // or the conflicts. With nothing selected it shows the conflicts, or a hint about importing.
 import { useEffect, useState } from "react";
 import { run } from "../api";
@@ -37,15 +37,15 @@ export function Drawer({ view, mods, conflicts, order, names, onOpen, onClose }:
   );
 }
 
-type Tab = "options" | "keys" | "files" | "deps" | "about";
+type Tab = "about" | "options" | "keys" | "files" | "deps";
 
-const TAB_ICONS: Record<Tab, () => React.JSX.Element> = { options: SlidersIcon, keys: KeyboardIcon, files: FileIcon, deps: LinkIcon, about: InfoIcon };
+const TAB_ICONS: Record<Tab, () => React.JSX.Element> = { about: InfoIcon, options: SlidersIcon, keys: KeyboardIcon, files: FileIcon, deps: LinkIcon };
 
 function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModRow; mods: ModRow[]; conflicts: ConflictRow[]; names: Map<string, string>; onOpen: (id: string) => void; onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>(mod.options.length ? "options" : mod.keybinds.length ? "keys" : "about");
+  const [tab, setTab] = useState<Tab>("about");
   const name = pick(mod.name, mod.id);
   const { needs, neededBy } = dependencies(mod, mods);
-  const tabs: [Tab, number | null][] = [["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["deps", needs.length + neededBy.length], ["about", null]];
+  const tabs: [Tab, number | null][] = [["about", null], ["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["deps", needs.length + neededBy.length]];
   return (
     <aside className={`drawer ${mod.scope}`} aria-label={name}>
       <div className="dh">
@@ -70,11 +70,11 @@ function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModR
         })}
       </div>
       <div className="dbody">
+        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
         {tab === "options" && <OptionsTab mod={mod} />}
         {tab === "keys" && <KeysTab mod={mod} names={names} />}
         {tab === "files" && <FilesTab mod={mod} conflicts={conflicts} names={names} />}
         {tab === "deps" && <DepsTab needs={needs} neededBy={neededBy} names={names} onOpen={onOpen} />}
-        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
       </div>
     </aside>
   );

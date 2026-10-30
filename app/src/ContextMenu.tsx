@@ -1,6 +1,7 @@
 // A right-click menu. Items run and close it; an item with `sub` opens a menu to the side on
 // hover or Enter, and `colors` is a row of swatches to pick from. Esc, a click outside, a scroll
 // or leaving the window closes it. It sits on the body, so a folded corner's mask can't cut it off.
+// `up` hangs it above y, for a button low in the window.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronIcon } from "./Icons";
@@ -10,7 +11,7 @@ export type MenuItem =
   | { colors: string[]; current: string | null; pick: (color: string) => void }
   | "sep";
 
-export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+export function ContextMenu({ x, y, up, items, onClose }: { x: number; y: number; up?: boolean; items: MenuItem[]; onClose: () => void }) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -30,10 +31,10 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
       document.removeEventListener("scroll", gone, true);
     };
   }, []);
-  return createPortal(<Menu x={x} y={y} items={items} onClose={onClose} root />, document.body);
+  return createPortal(<Menu x={x} y={y} up={up} items={items} onClose={onClose} root />, document.body);
 }
 
-function Menu({ x, y, items, onClose, root, keys }: { x: number; y: number; items: MenuItem[]; onClose: () => void; root?: boolean; keys?: boolean }) {
+function Menu({ x, y, up, items, onClose, root, keys }: { x: number; y: number; up?: boolean; items: MenuItem[]; onClose: () => void; root?: boolean; keys?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   const [open, setOpen] = useState<{ i: number; x: number; y: number; keys?: boolean } | null>(null);
@@ -41,10 +42,11 @@ function Menu({ x, y, items, onClose, root, keys }: { x: number; y: number; item
   useLayoutEffect(() => {
     const r = box.current!.getBoundingClientRect();
     const nx = x + r.width > innerWidth - 4 ? (root ? x - r.width : x - r.width * 2 - 4) : x;
-    const ny = y + r.height > innerHeight - 4 ? Math.max(4, innerHeight - r.height - 4) : y;
-    setPos({ x: Math.max(4, nx), y: ny });
+    const top = up ? y - r.height : y;
+    const ny = top + r.height > innerHeight - 4 ? innerHeight - r.height - 4 : top;
+    setPos({ x: Math.max(4, nx), y: Math.max(4, ny) });
     if (root || keys) box.current!.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
-  }, [x, y, root, keys]);
+  }, [x, y, up, root, keys]);
 
   const openSub = (i: number, el: HTMLElement, keys?: boolean) => {
     const r = el.getBoundingClientRect();

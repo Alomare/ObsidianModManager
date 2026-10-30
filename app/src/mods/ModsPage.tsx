@@ -1,6 +1,7 @@
 // The Mods page: header, crash banner, the table and the drawer (spec 4.1 and 4.2). Checked mods
-// get a bar of batch actions; a right click opens the same actions for one mod or folder. The
-// line between the table and the drawer drags to resize them.
+// get a bar of batch actions over the foot of the list, so the rows stay where they are; a right
+// click opens the same actions for one mod or folder. The line between the table and the drawer
+// drags to resize them.
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
@@ -48,7 +49,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const [view, setView] = useState<DrawerView>(null);
   const [profiles, setProfiles] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [menu, setMenu] = useState<{ x: number; y: number; target: MenuTarget } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; up?: boolean; target: MenuTarget } | null>(null);
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [width, setWidth] = useState(savedWidth);
@@ -203,19 +204,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
       </div>
       <CrashBanner snap={snap} />
       <div className="mods-body" ref={body} style={width ? { ["--drawer-w" as string]: `${width}px` } : undefined}>
-        <section className="list">
-          {sel.length > 0 && (
-            <div className="batch" role="toolbar" aria-label={t("app.mods.selection")}>
-              <span className="batch-n">{t("app.mods.nChecked", sel.length)}</span>
-              <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: true })}>{t("app.menu.enable")}</button>
-              <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: false })}>{t("app.menu.disable")}</button>
-              <button className="btn small" data-pop onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4, target: { kind: "mod", id: sel[0] } }); }}>
-                <FolderIcon />{t("app.mods.moreActions")}
-              </button>
-              <button className="btn small danger" onClick={() => setAsk({ kind: "remove", ids: sel })}><TrashIcon />{t("app.menu.remove")}</button>
-              <button className="bare batch-x" onClick={() => setChecked(new Set())} aria-label={t("app.mods.uncheck")} data-tip={t("app.mods.uncheck")}><CloseIcon /></button>
-            </div>
-          )}
+        <section className={sel.length ? "list batched" : "list"}>
           <ModTable tree={searching ? null : tree} rows={rows} byId={byId} order={order} names={names} conflicts={shownConflicts}
             selected={view?.kind === "mod" ? view.id : null} checked={checked} onCheck={check}
             onSelect={(id) => setView({ kind: "mod", id })}
@@ -227,13 +216,27 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onMenu={(x, y, target) => setMenu({ x, y, target })}
             updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
+          {sel.length > 0 && (
+            <div className="batch-dock">
+              <div className="batch" role="toolbar" aria-label={t("app.mods.selection")}>
+                <span className="batch-n">{t("app.mods.nChecked", sel.length)}</span>
+                <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: true })}>{t("app.menu.enable")}</button>
+                <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: false })}>{t("app.menu.disable")}</button>
+                <button className="btn small" data-pop onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.top - 4, up: true, target: { kind: "mod", id: sel[0] } }); }}>
+                  <FolderIcon />{t("app.mods.moreActions")}
+                </button>
+                <button className="btn small danger" onClick={() => setAsk({ kind: "remove", ids: sel })}><TrashIcon />{t("app.menu.remove")}</button>
+                <button className="bare batch-x" onClick={() => setChecked(new Set())} aria-label={t("app.mods.uncheck")} data-tip={t("app.mods.uncheck")}><CloseIcon /></button>
+              </div>
+            </div>
+          )}
         </section>
         <div className="split" role="separator" aria-orientation="vertical" aria-label={t("app.mods.resize")} onPointerDown={resize}
           onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(DRAWER_KEY); } catch { /* fine */ } }} data-tip={t("app.mods.resizeHint")} />
         <Drawer view={view} mods={snap.mods} conflicts={shownConflicts} order={order} names={names} onOpen={(id) => setView({ kind: "mod", id })} onClose={() => setView(null)} />
       </div>
       {profiles && <ProfilesDialog snap={snap} onClose={() => setProfiles(false)} />}
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.target)} onClose={() => setMenu(null)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} up={menu.up} items={menuItems(menu.target)} onClose={() => setMenu(null)} />}
       {addMenu && (
         <ContextMenu x={addMenu.x} y={addMenu.y} onClose={() => setAddMenu(null)} items={[
           { label: t("app.mods.importZip"), icon: <ImportIcon />, run: () => pickAndImport(false) },

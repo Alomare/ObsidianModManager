@@ -124,7 +124,7 @@ function Blocks({ tokens }: { tokens: Token[] }): ReactNode {
       case "blockquote": {
         const c = callout(tok as Tokens.Blockquote);
         return c ? (
-          <aside key={i} className={`callout ${c.kind.toLowerCase()}`}><b className="cap">{t(`app.wiki.${c.kind.toLowerCase()}`)}</b><div><Blocks tokens={c.tokens} /></div></aside>
+          <aside key={i} className={`callout callout-${c.kind.toLowerCase()}`}><b className="cap">{t(`app.wiki.${c.kind.toLowerCase()}`)}</b><div><Blocks tokens={c.tokens} /></div></aside>
         ) : <blockquote key={i}><Blocks tokens={k.tokens ?? []} /></blockquote>;
       }
       case "code": return <pre key={i}><code>{k.text}</code></pre>;

@@ -49,6 +49,15 @@ describe("overlays", () => {
   });
 });
 
+describe("ContextMenu", () => {
+  it("hangs above the point for a button low in the window", () => {
+    const size = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ width: 200, height: 120 } as DOMRect);
+    inMaskedBox(<ContextMenu x={300} y={500} up items={[{ label: "M" }]} onClose={vi.fn()} />);
+    expect(document.querySelector<HTMLElement>(".ctx")!.style.top).toBe("380px");
+    size.mockRestore();
+  });
+});
+
 describe("Select", () => {
   it("takes a pick from the list, though the list is outside the control", () => {
     const onChange = vi.fn();
