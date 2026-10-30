@@ -96,7 +96,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
                 {m.overlaps.length > 0 ? (
                   <div className="sub warn">{t("app.mods.overlaps", m.overlaps.map((id) => names.get(id) ?? id).join(", "))}</div>
                 ) : (
-                  <div className="sub">{pick(m.description) || " "}</div>
+                  pick(m.description) && <div className="sub">{pick(m.description)}</div>
                 )}
               </div>
               <span className={`scope ${m.scope}`} data-tip={t(`app.scope.${m.scope}Hint`)}><i />{t(`app.scope.${m.scope}`)}</span>

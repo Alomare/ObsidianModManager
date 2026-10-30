@@ -21,9 +21,9 @@ export const CogIcon = () => (
     <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
   </Icon>
 );
-/** A broom: Purge cleans the game back to vanilla. */
-export const PurgeIcon = () => <Icon><path d="M20 3l-8.5 8.5" /><path d="M11.5 11.5c-2.5-1-5 .5-6 3L3 20.5l6-2.5c2.5-1 4-3.5 3-6z" /><path d="M5.5 15.5l3 3M15 16l1-1M18 19l1-1M17 13l.8-.8" /></Icon>;
-export const DeployIcon = () => <Icon><path d="M12 3v12M7 10l5 5 5-5M4 19h16" /></Icon>;
+/** An eraser: Purge wipes what Obsidian wrote, back to vanilla. */
+export const PurgeIcon = () => <Icon width="21" height="21" strokeWidth="2"><path d="M9 20.5L2.8 14.3a1 1 0 0 1 0-1.4l9.5-9.5a1 1 0 0 1 1.4 0l6.8 6.8a1 1 0 0 1 0 1.4L11.6 20.5z" /><path d="M7.5 8.6l8.4 8.4M9 20.5h12" /></Icon>;
+export const DeployIcon = () => <Icon width="21" height="21" strokeWidth="2"><path d="M12 2.5v13M6.5 10l5.5 5.5 5.5-5.5M3.5 20.5h17" /></Icon>;
 export const PlayIcon = () => <Icon fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z" /></Icon>;
 export const WarnIcon = () => <Icon><path d="M12 3l10 18H2zM12 10v5M12 17.5v.5" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></Icon>;

@@ -25,9 +25,6 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
   const waiting = snap?.changes === "Waiting";
   return (
     <nav className="nav">
-      <div className="brand">
-        <span className="cap">Obsidian</span>
-      </div>
       <div className="tabs" role="tablist">
         {TABS.map(([id, Icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "tab cur" : "tab"} onClick={() => onTab(id)}>

@@ -11,7 +11,8 @@
   --scale: 1; --text: 1;
   --fast: 120ms;
   color-scheme: dark;
-  font-size: calc(16px * var(--scale));
+  /* 17.6px: 10 % over the browser default, as the user asked. */
+  font-size: calc(17.6px * var(--scale));
 }
 :root[data-theme="dark"] {
   --bg1: #121316; --bg2: #060708;
@@ -36,6 +37,8 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   font-family: Barlow, "Microsoft YaHei", "PingFang SC", sans-serif;
   font-size: calc(1rem * var(--text));
+  /* Barlow has no in-between weights; a hairline stroke adds about 10 %. */
+  -webkit-text-stroke: 0.2px currentColor;
   color: var(--tx);
   background: radial-gradient(circle at 70% 20%, var(--bg1), var(--bg2) 80%) fixed;
   overflow: hidden;
@@ -43,7 +46,7 @@ body {
 }
 input, textarea { user-select: text; }
 button, input, select { font: inherit; color: inherit; }
-.cap { font-family: Saira, "Microsoft YaHei", sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600; }
+.cap { font-family: "Saira Variable", Saira, "Microsoft YaHei", sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 660; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 button.bare { background: none; border: 0; padding: 0.25rem; cursor: pointer; color: var(--mu); display: inline-flex; }
 button.bare:hover { color: var(--tx); }
@@ -55,20 +58,17 @@ button.bare:hover { color: var(--tx); }
 .page { min-height: 0; min-width: 0; overflow: auto; padding: 1.25rem 1.5rem; }
 
 .nav { display: flex; align-items: center; gap: 0.4rem; padding: 0 1.25rem; height: 4rem; background: var(--bar); border-bottom: 1px solid var(--ln); }
-.brand { display: flex; align-items: center; gap: 0.75rem; padding-right: 1.5rem; }
-.brand span { font-size: 1.1rem; }
 .tabs { display: flex; height: 100%; }
 .tab { display: flex; align-items: center; gap: 0.6rem; height: 100%; padding: 0 1rem; background: none; border: 0; color: var(--mu); cursor: pointer; font-size: 0.8rem; transition: color var(--fast); }
 .tab:hover { color: var(--tx); }
 .tab.cur { color: var(--tx); background: linear-gradient(0deg, rgba(240, 180, 41, 0.18), transparent); box-shadow: inset 0 -3px 0 var(--gold); }
 .nav-end { margin-left: auto; display: flex; align-items: center; gap: 0.9rem; }
 .state { font-size: 0.75rem; color: var(--mu); text-align: right; display: flex; flex-direction: column; }
-.state b { color: var(--goldtx); font-family: Saira, sans-serif; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+.state b { color: var(--goldtx); font-family: "Saira Variable", sans-serif; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 660; }
 .state b.waiting { color: var(--go); }
 .actions { display: flex; gap: 0.5rem; }
 
 :root[data-nav="left"] .nav { flex-direction: column; align-items: stretch; height: auto; padding: 1.4rem 0; border-bottom: 0; border-right: 1px solid var(--ln); }
-:root[data-nav="left"] .brand { padding: 0 1.4rem 1.4rem; }
 :root[data-nav="left"] .tabs { flex-direction: column; height: auto; }
 :root[data-nav="left"] .tab { height: auto; padding: 0.75rem 1.4rem; }
 :root[data-nav="left"] .tab.cur { background: linear-gradient(90deg, rgba(240, 180, 41, 0.18), transparent); box-shadow: inset 3px 0 0 var(--gold); }
@@ -82,7 +82,7 @@ button.bare:hover { color: var(--tx); }
   height: 2.5rem; padding: 0 1.4rem; border: 1px solid var(--ln); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   background: linear-gradient(180deg, var(--p1), var(--p2)); color: var(--tx);
-  font-family: Saira, sans-serif; font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase;
+  font-family: "Saira Variable", sans-serif; font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase;
   clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 50%, calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 50%);
   transition: filter var(--fast), background var(--fast);
 }
@@ -90,7 +90,7 @@ button.bare:hover { color: var(--tx); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn.icon { width: 3.2rem; padding: 0; }
 .btn.go { background: linear-gradient(180deg, #3fcf9c, #239a70); color: #0d1f18; border: 0; }
-.btn.play { background: linear-gradient(180deg, #f7c548, #e0a215); color: #1b1b1b; border: 0; font-weight: 700; min-width: 9rem; }
+.btn.play { background: linear-gradient(180deg, #f7c548, #e0a215); color: #1b1b1b; border: 0; font-weight: 770; min-width: 9rem; }
 
 /* Notices */
 .notices { position: fixed; right: 1.25rem; bottom: 3rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 50; max-width: 28rem; }
@@ -127,16 +127,17 @@ button.bare:hover { color: var(--tx); }
 .tr { padding-top: 0.7rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--ln); cursor: pointer; outline-offset: -2px; touch-action: none; }
 .tr { transition: background var(--fast); }
 .tr:hover { background: var(--row); }
-.ver { margin-left: 0.6rem; font-weight: 400; font-size: 0.8rem; color: var(--mu); }
+.ver { margin-left: 0.6rem; font-family: "Saira Variable", sans-serif; font-weight: 500; font-size: 0.78rem; color: var(--mu); font-variant-numeric: tabular-nums; }
+.who { display: flex; flex-direction: column; justify-content: center; min-height: 2.6rem; }
 .tr.sel { background: var(--row); box-shadow: inset 3px 0 0 var(--gold); }
 .tr.dragging { background: rgba(240, 180, 41, 0.12); box-shadow: inset 3px 0 0 var(--gold), 0 4px 16px rgba(0, 0, 0, 0.3); cursor: grabbing; position: relative; z-index: 1; }
-.num { font-family: Saira, sans-serif; color: var(--mu); font-size: 0.8rem; }
+.num { font-family: "Saira Variable", sans-serif; color: var(--mu); font-size: 0.8rem; }
 .who { min-width: 0; }
-.nm { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nm { font-weight: 660; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { font-size: 0.75rem; color: var(--mu); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub.warn, .warn { color: var(--warn); }
-.tag { font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.1rem 0.45rem; background: var(--gold); color: var(--on); font-weight: 600; margin-left: 0.5rem; vertical-align: 0.1rem; }
-.scope { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+.tag { font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.1rem 0.45rem; background: var(--gold); color: var(--on); font-weight: 660; margin-left: 0.5rem; vertical-align: 0.1rem; }
+.scope { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 660; display: flex; align-items: center; gap: 0.4rem; }
 .scope i { width: 0.5rem; height: 0.5rem; transform: rotate(45deg); display: inline-block; background: var(--client); }
 .scope.session i { background: var(--session); }
 
@@ -193,7 +194,7 @@ button.link:hover { filter: brightness(1.2); }
 .crash pre { white-space: pre-wrap; font-size: 0.8rem; color: var(--mu); }
 
 /* Motion (off with Animations off) */
-.view { height: 100%; animation: view-in 180ms ease-out; }
+.view { height: 100%; display: flow-root; animation: view-in 180ms ease-out; }
 @keyframes view-in { from { opacity: 0; transform: translateY(0.35rem); } }
 .sb-busy { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--tx); }
 .sb-busy i { width: 0.5rem; height: 0.5rem; background: var(--gold); transform: rotate(45deg); animation: pulse 900ms ease-in-out infinite; }
@@ -211,7 +212,7 @@ button.link:hover { filter: brightness(1.2); }
 .select-btn { display: flex; align-items: center; gap: 0.5rem; height: 2.3rem; padding: 0 0.6rem 0 0.75rem; border: 1px solid var(--ln); background: var(--row); color: var(--tx); font-size: 0.875rem; cursor: pointer; transition: border-color var(--fast); }
 .select-btn:hover, .select.open .select-btn { border-color: var(--gold); }
 .select-prefix { color: var(--mu); }
-.select-value { font-weight: 600; }
+.select-value { font-weight: 660; }
 .select-btn svg { color: var(--mu); transition: transform var(--fast); }
 .select.open .select-btn svg { transform: rotate(180deg); }
 .select-list { position: absolute; z-index: 30; top: calc(100% + 0.25rem); left: 0; min-width: 100%; max-height: 18rem; overflow: auto; margin: 0; padding: 0.25rem 0; list-style: none; background: linear-gradient(160deg, var(--p1), var(--p2)); border: 1px solid var(--ln); border-top: 2px solid var(--gold); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4); animation: tip-in 120ms ease-out; }
