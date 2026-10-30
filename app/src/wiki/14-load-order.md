@@ -24,7 +24,7 @@ A conflict is often fine. Two mods may change the same script on purpose, and th
 
 Folders group mods in the list. They change nothing in the game: the load order still runs from the top of the list to the bottom, through every folder.
 
-- **Create Folder** beside the search box makes one. Right-click checked mods to put them in a new folder.
+- **Create Folder** beside the Profile button makes one. Right-click checked mods to put them in a new folder.
 - Drag mods onto a folder name to move them in, and drag the folder to move the mods in it together.
 - Click the arrow to fold a folder away.
 - Right-click a folder to rename it, change the color, or delete it. Deleting asks whether the mods go too or stay in the list.

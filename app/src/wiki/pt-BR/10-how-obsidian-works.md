@@ -1,0 +1,47 @@
+---
+title: Como o Obsidian funciona
+group: Primeiros passos
+summary: O que o Obsidian faz no jogo, o que fica intocado e para que serve cada aba.
+---
+
+O Obsidian é um gerenciador de mods para HELLDIVERS (2015). Você guarda os mods numa biblioteca, escolhe com quais quer jogar e o Obsidian os coloca no jogo. Os arquivos do jogo nunca são editados, então vários mods rodam lado a lado e o jogo sempre pode voltar ao original.
+
+## Patches em vez de arquivos substituídos {#patches-instead-of-replaced-files}
+
+O jogo guarda o conteúdo em bundles, na pasta `contents` da instalação. Ao lado de cada bundle, o motor também carrega arquivos chamados `<bundle>.patch_0`, `.patch_1` e assim por diante, e um recurso dentro de um patch toma o lugar do recurso no bundle.
+
+Mods feitos à mão costumam substituir bundles inteiros. Dois mods assim se sobrescrevem, mesmo quando mudam coisas diferentes. O Obsidian lê cada mod ligado, encontra os recursos que cada um realmente altera e grava tudo num patch por bundle. Os bundles originais ficam como estavam.
+
+> [!NOTE]
+> Aplicar grava os patches, e [Limpar](wiki:deploy-and-purge#purge) apaga. Depois de limpar, a instalação fica idêntica ao jogo original, byte por byte.
+
+## Obsidian Loader {#obsidian-loader}
+
+Mods que rodam código, como um mod de câmera, precisam de um jeito de começar dentro do jogo. A cada aplicação, o Obsidian coloca no jogo um script pequeno: o Obsidian Loader. Quando o jogo abre, o loader lê a lista de mods aplicados, inicia cada um e acompanha o que eles podem fazer.
+
+O loader também cuida das regras do multijogador. Mods que mudam o jogo compartilhado só rodam com jogadores que concordaram, e missões com mods ficam fora da Guerra Galáctica. [Escopos: cliente e sessão](wiki:scopes) explica como.
+
+## As abas {#the-tabs}
+
+| Aba | Para que serve |
+|---|---|
+| Início | Links e a situação da Guerra Galáctica |
+| [Mods](app:mods) | A biblioteca: ligar e desligar mods, a ordem de carregamento, opções e teclas |
+| Wiki | Estes guias |
+| [Configurações](app:settings) | Idioma, tema, pasta do jogo, atualizações |
+
+A barra de cima tem o interruptor de multijogador e três botões:
+
+- **Limpar** tira do jogo todos os patches do Obsidian.
+- **Aplicar** coloca os mods ligados no jogo. Ele fica verde quando há mudanças que ainda não foram aplicadas.
+- **Jogar** abre o jogo pela Steam.
+
+A barra de status, embaixo, mostra o que o Obsidian está fazendo, a versão, as notificações e o Sobre.
+
+## Onde ficam os arquivos {#where-your-files-are}
+
+| O quê | Onde |
+|---|---|
+| Biblioteca de mods, perfis, configurações do app | `%LOCALAPPDATA%\ObsidianModManager`, ou `data\` ao lado do app numa cópia portátil |
+| Opções e teclas que o jogo lê, logs | `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager` |
+| Backups do save | a pasta `backups` dentro da pasta de dados do app |

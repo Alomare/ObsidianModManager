@@ -1,4 +1,4 @@
-// Drives the Obsidian dev window through WebView2's DevTools port (9222), without focus or mouse.
+// Drives the Obsidian dev window through WebView2's DevTools port (9222, or CDP_PORT), without focus or mouse.
 //   node cdp.mjs eval "<js expression>"   prints the result (awaited, as JSON)
 //   node cdp.mjs shot out.png [x y w h]   saves an image of the page (CSS pixels)
 //   node cdp.mjs drag x1 y1 x2 y2 [out.png] drags with the mouse (image taken before release)
@@ -6,9 +6,10 @@
 //                                         with after-ms, first waits for a page newer than that
 //                                         (a restart), and reloads a page that stays blank
 const [, , cmd, ...rest] = process.argv;
+const PORT = process.env.CDP_PORT ?? "9222";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function page() {
-  const all = await (await fetch("http://127.0.0.1:9222/json")).json();
+  const all = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
   return all.find((t) => t.type === "page" && t.url.includes("localhost:1420")) ?? all.find((t) => t.type === "page");
 }
 async function evalOn(t, expression) {
@@ -40,7 +41,7 @@ if (cmd === "wait") {
 }
 
 const target = await page();
-if (!target) throw new Error("no page on port 9222");
+if (!target) throw new Error(`no page on port ${PORT}`);
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
 let next = 1;

@@ -1,0 +1,28 @@
+---
+title: "Escopos: cliente e sessão"
+group: Jogar online
+summary: Por que todo mod é de cliente ou de sessão, e o que cada um pode fazer.
+---
+
+HELLDIVERS é um jogo cooperativo. Um mod que muda inimigos, armas ou missões muda o jogo de todo mundo no lobby, não só o seu. O Obsidian separa cada mod em um de dois escopos para que um jogador que nunca instalou mod nenhum não seja afetado por um.
+
+## Mods de cliente {#client-mods}
+
+Um mod de cliente muda só o que você vê, ouve ou aperta: a câmera, o HUD, os controles, os menus, o visual e o som locais. Nada do que ele faz chega aos outros jogadores. Mods de cliente rodam em qualquer lugar, em qualquer lobby, com qualquer pessoa.
+
+O Obsidian Qualidade de Vida é um mod de cliente.
+
+## Mods de sessão {#session-mods}
+
+Um mod de sessão pode mudar o jogo compartilhado: balanceamento, inimigos, spawns, missões, física, qualquer coisa que outros jogadores perceberiam. Mods de sessão só rodam num lobby em que todos os outros jogadores concordaram com eles ([Jogar online](wiki:multiplayer)). Sozinho, você sempre pode usá-los.
+
+Mods que não declaram escopo contam como mods de sessão. O mesmo vale para mods antigos importados de bundles inteiros, porque o Obsidian não tem como saber o que eles mudam.
+
+O escopo aparece em cada linha da lista de mods e nos detalhes de cada mod.
+
+## Quem decide o escopo {#who-decides-the-scope}
+
+O autor do mod declara o escopo no arquivo `obsidian.json`. O Obsidian então faz valer: os hooks de um mod de sessão se desligam sozinhos quando o lobby não está liberado, então o autor não precisa escrever nada disso ([Escrever mods de sessão](wiki:session-mods)).
+
+> [!WARNING]
+> O escopo é uma promessa do autor. Um mod que se diz de cliente mas muda o jogo compartilhado quebra as regras, e o Obsidian nem sempre consegue perceber. [O que as proteções não fazem](wiki:honest-limits) fala disso.
