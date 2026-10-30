@@ -1,7 +1,12 @@
 // A styled dropdown in place of the native <select>: a button that opens a list. Arrow keys move,
-// Enter or Space picks, Esc or a click outside closes.
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+// Enter or Space picks, Esc, a click outside, a scroll or a resize closes. The list sits on the
+// body: inside a box with a folded corner, the corner's mask would cut it off at the edge of the box.
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { ChevronIcon } from "./Icons";
+
+const GAP = 4;
+const EDGE = 8;
 
 type Props<T extends string> = {
   value: T;
@@ -13,19 +18,56 @@ type Props<T extends string> = {
   tip?: string;
 };
 
+/** Under the button, or over it when the list doesn't fit there and there's more room above, and
+ *  always inside the window. */
+export function listPlace(
+  button: { left: number; top: number; bottom: number; width: number },
+  list: { width: number; height: number },
+  win: { width: number; height: number },
+): CSSProperties {
+  const below = win.height - button.bottom - GAP - EDGE;
+  const above = button.top - GAP - EDGE;
+  const up = list.height > below && above > below;
+  const left = Math.max(EDGE, Math.min(button.left, win.width - Math.max(list.width, button.width) - EDGE));
+  return {
+    left,
+    minWidth: button.width,
+    maxHeight: Math.min(list.height, up ? above : below),
+    ...(up ? { bottom: win.height - button.top + GAP } : { top: button.bottom + GAP }),
+  };
+}
+
 export function Select<T extends string>({ value, options, onChange, prefix, label, tip }: Props<T>) {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
+  const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
   const root = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLUListElement>(null);
   const list = useId();
   const current = options.find((o) => o.value === value);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const size = box.current!.getBoundingClientRect();
+    setPlace(listPlace(root.current!.getBoundingClientRect(), size, { width: innerWidth, height: innerHeight }));
+    return () => setPlace({ visibility: "hidden" });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     setHi(Math.max(0, options.findIndex((o) => o.value === value)));
-    const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
+    const inList = (e: Event) => box.current?.contains(e.target as Node);
+    const away = (e: PointerEvent) => !root.current?.contains(e.target as Node) && !inList(e) && setOpen(false);
+    const moved = (e: Event) => !inList(e) && setOpen(false);
+    const resized = () => setOpen(false);
     document.addEventListener("pointerdown", away, true);
-    return () => document.removeEventListener("pointerdown", away, true);
+    document.addEventListener("scroll", moved, true);
+    window.addEventListener("resize", resized);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      document.removeEventListener("scroll", moved, true);
+      window.removeEventListener("resize", resized);
+    };
   }, [open, options, value]);
 
   const pick = (v: T) => {
@@ -57,15 +99,16 @@ export function Select<T extends string>({ value, options, onChange, prefix, lab
         </span>
         <ChevronIcon />
       </button>
-      {open && (
-        <ul className="select-list" role="listbox" id={list} aria-label={label}>
+      {open && createPortal(
+        <ul className="select-list" ref={box} role="listbox" id={list} aria-label={label} style={place}>
           {options.map((o, i) => (
             <li key={o.value} role="option" aria-selected={o.value === value} className={i === hi ? "hi" : undefined}
               onPointerEnter={() => setHi(i)} onClick={() => pick(o.value)}>
               {o.label}
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

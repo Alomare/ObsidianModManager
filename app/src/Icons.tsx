@@ -62,6 +62,13 @@ export const CloseIcon = () => <Icon><path d="M6 6l12 12M18 6L6 18" /></Icon>;
 export const UpdateIcon = () => <Icon><path d="M20 11a8 8 0 0 0-14.3-4.3L3.5 9M3.5 4v5h5M4 13a8 8 0 0 0 14.3 4.3L20.5 15M20.5 20v-5h-5" /></Icon>;
 export const ResetIcon = () => <Icon><path d="M4 4v6h6M4.5 15a8 8 0 1 0 1.5-8.5L4 10" /></Icon>;
 export const InfoIcon = () => <Icon><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.6v.1" strokeWidth={2.4} /></Icon>;
+/** Three sliders. */
+export const SlidersIcon = () => <Icon><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h7M15 17h5" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="13" cy="17" r="2" /></Icon>;
+export const KeyboardIcon = () => <Icon><rect x="2.5" y="6" width="19" height="12" rx="1.5" /><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M6.5 14h.01M17.5 14h.01M10 14h4" /></Icon>;
+/** A sheet with a folded corner. */
+export const FileIcon = () => <Icon><path d="M6 3.5h8l4.5 4.5v12.5H6z" /><path d="M13.5 3.5v5h5" /></Icon>;
+/** Two chain links. */
+export const LinkIcon = () => <Icon><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></Icon>;
 export const BellIcon = () => <Icon><path d="M6.4 15.6V9.8a5.6 5.6 0 0 1 11.2 0v5.8l1.6 2H4.8z" /><path d="M10.2 20.2h3.6" /></Icon>;
 export const ExternalIcon = () => <Icon width="14" height="14"><path d="M10 5H5v14h14v-5" /><path d="M14 4h6v6M20 4l-9 9" /></Icon>;
 export const DiscordIcon = () => (

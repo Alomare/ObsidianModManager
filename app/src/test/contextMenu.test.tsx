@@ -1,6 +1,6 @@
 import { act } from "react";
-import { createRoot } from "react-dom/client";
-import { describe, expect, it, vi } from "vitest";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -8,11 +8,16 @@ import { ContextMenu, type MenuItem } from "../ContextMenu";
 const COLORS = ["#111111", "#222222", "#333333"];
 const press = (key: string) => act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })); });
 
+let root: Root | undefined;
+afterEach(() => act(() => root?.unmount()));
+
+/** The menu sits on the body, wherever it was opened from. */
 function open(items: MenuItem[], onClose = vi.fn()) {
   const el = document.createElement("div");
   document.body.append(el);
-  act(() => createRoot(el).render(<ContextMenu x={10} y={10} items={items} onClose={onClose} />));
-  return el;
+  root = createRoot(el);
+  act(() => root!.render(<ContextMenu x={10} y={10} items={items} onClose={onClose} />));
+  return document.body;
 }
 
 describe("ContextMenu colors", () => {

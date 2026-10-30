@@ -1,6 +1,8 @@
 // A dialog that asks for one line of text, such as a profile name. Enter confirms, Esc cancels.
-// `onConfirm` returns false to keep the dialog open (the name was refused).
+// `onConfirm` returns false to keep the dialog open (the name was refused). It sits on the body, so
+// a folded corner's mask can't cut it off.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { t } from "./i18n";
 
 type Props = { title: string; label: string; initial?: string; confirm: string; onConfirm: (v: string) => Promise<boolean>; onCancel: () => void };
@@ -20,7 +22,7 @@ export function Prompt({ title, label, initial = "", confirm, onConfirm, onCance
     setBusy(true);
     if (!(await onConfirm(v.trim()))) setBusy(false);
   };
-  return (
+  return createPortal(
     <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onCancel()}>
       <form className="modal confirm" role="dialog" aria-modal="true" aria-label={title} onSubmit={(e) => { e.preventDefault(); go(); }}>
         <h2 className="cap">{title}</h2>
@@ -33,6 +35,7 @@ export function Prompt({ title, label, initial = "", confirm, onConfirm, onCance
           <button type="submit" className="btn play" disabled={!v.trim() || busy}>{confirm}</button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }

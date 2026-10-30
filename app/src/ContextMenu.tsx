@@ -1,7 +1,8 @@
 // A right-click menu. Items run and close it; an item with `sub` opens a menu to the side on
 // hover or Enter, and `colors` is a row of swatches to pick from. Esc, a click outside, a scroll
-// or leaving the window closes it.
+// or leaving the window closes it. It sits on the body, so a folded corner's mask can't cut it off.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronIcon } from "./Icons";
 
 export type MenuItem =
@@ -29,7 +30,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
       document.removeEventListener("scroll", gone, true);
     };
   }, []);
-  return <Menu x={x} y={y} items={items} onClose={onClose} root />;
+  return createPortal(<Menu x={x} y={y} items={items} onClose={onClose} root />, document.body);
 }
 
 function Menu({ x, y, items, onClose, root, keys }: { x: number; y: number; items: MenuItem[]; onClose: () => void; root?: boolean; keys?: boolean }) {

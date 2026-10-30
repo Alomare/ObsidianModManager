@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
-import { ArrowIcon, CloseIcon, ExternalIcon, ResetIcon } from "../Icons";
+import { ArrowIcon, CloseIcon, ExternalIcon, FileIcon, InfoIcon, KeyboardIcon, LinkIcon, ResetIcon, SlidersIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Select } from "../Select";
 import { Thumb } from "../Thumb";
@@ -39,6 +39,8 @@ export function Drawer({ view, mods, conflicts, order, names, onOpen, onClose }:
 
 type Tab = "options" | "keys" | "files" | "deps" | "about";
 
+const TAB_ICONS: Record<Tab, () => React.JSX.Element> = { options: SlidersIcon, keys: KeyboardIcon, files: FileIcon, deps: LinkIcon, about: InfoIcon };
+
 function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModRow; mods: ModRow[]; conflicts: ConflictRow[]; names: Map<string, string>; onOpen: (id: string) => void; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>(mod.options.length ? "options" : mod.keybinds.length ? "keys" : "about");
   const name = pick(mod.name, mod.id);
@@ -57,11 +59,15 @@ function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModR
         <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
       </div>
       <div className="dtabs" role="tablist">
-        {tabs.map(([id, n]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "cur" : undefined} onClick={() => setTab(id)}>
-            {t(`app.drawer.${id}`)}{n ? <span className="count">{n}</span> : null}
-          </button>
-        ))}
+        {tabs.map(([id, n]) => {
+          const TabIcon = TAB_ICONS[id];
+          const label = t(`app.drawer.${id}`);
+          return (
+            <button key={id} role="tab" aria-selected={tab === id} aria-label={label} data-tip={label} className={tab === id ? "cur" : undefined} onClick={() => setTab(id)}>
+              <TabIcon />{n ? <span className="count">{n}</span> : null}
+            </button>
+          );
+        })}
       </div>
       <div className="dbody">
         {tab === "options" && <OptionsTab mod={mod} />}
