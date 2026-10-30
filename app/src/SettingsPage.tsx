@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { call, errorText, run } from "./api";
+import { Confirm } from "./Confirm";
 import { ExternalIcon } from "./Icons";
 import { LANGUAGES, language, t } from "./i18n";
 import { LINKS } from "./links";
@@ -81,6 +82,7 @@ function SystemTab({ snap }: { snap: Snapshot }) {
   const settings = useAppSettings()!;
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [checking, setChecking] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   useEffect(() => {
     call<SystemInfo>("system_info").then(setInfo).catch((e) => notify("error", errorText(e)));
   }, [snap]);
@@ -93,6 +95,10 @@ function SystemTab({ snap }: { snap: Snapshot }) {
     setChecking(true);
     await run("check_game");
     setChecking(false);
+  };
+  const restore = async () => {
+    setRestoring(false);
+    if (await run("restore_starter_pack")) notify("info", t("app.settings.starterDone"));
   };
   const gameLine = t(`app.settings.build.${snap.game}`);
 
@@ -126,6 +132,12 @@ function SystemTab({ snap }: { snap: Snapshot }) {
         )}
       </Section>
 
+      <Section title={t("app.settings.starter")}>
+        <Row label={t("app.settings.starterLabel")} hint={t("app.settings.starterHint")}>
+          <button className="btn small" onClick={() => setRestoring(true)}>{t("app.settings.starterRestore")}</button>
+        </Row>
+      </Section>
+
       <Section title={t("app.settings.data")}>
         <Row label={info?.dataDir ?? ""} hint={snap.portable ? t("app.settings.portable") : t("app.settings.dataHint")}>
           {info && <button className="btn small" onClick={() => openFolder(info.dataDir)}>{t("app.settings.open")}</button>}
@@ -145,6 +157,11 @@ function SystemTab({ snap }: { snap: Snapshot }) {
           </ul>
         )}
       </Section>
+
+      {restoring && (
+        <Confirm title={t("app.settings.starterRestore")} text={t("app.settings.starterText", snap.profile)} confirm={t("app.settings.starterRestore")}
+          onCancel={() => setRestoring(false)} onConfirm={restore} />
+      )}
     </>
   );
 }

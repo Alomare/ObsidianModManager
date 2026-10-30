@@ -10,7 +10,7 @@ import { Thumb } from "../Thumb";
 import { offered } from "./modUpdates";
 import type { ConflictRow, ImageRef, ModRow } from "../types";
 import { conflictsOf } from "./conflicts";
-import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, OBSIDIAN, pinned, type Line, type Node } from "./layout";
+import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, pinned, type Line, type Node } from "./layout";
 
 export type MenuTarget = { kind: "mod"; id: string } | { kind: "folder"; id: string };
 
@@ -315,15 +315,11 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
                 <span className="fr-name">{f.name}</span>
                 <span className="fr-end">
                   {!ids.length && <span className="fr-count">{t("app.folder.empty")}</span>}
-                  {f.id === OBSIDIAN ? (
-                    <span className="fr-lock on" data-tip-title={t("app.folder.locked")} data-tip={t("app.folder.obsidianHint")}><LockIcon /></span>
-                  ) : (
-                    <button className={f.locked ? "bare fr-lock on" : "bare fr-lock"} aria-pressed={f.locked} aria-label={t(f.locked ? "app.menu.unlock" : "app.menu.lock")}
-                      data-tip-title={t(f.locked ? "app.folder.locked" : "app.menu.lock")} data-tip={t(f.locked ? "app.folder.lockedHint" : "app.folder.lockHint")}
-                      {...stop} onClick={() => onLock(f.id, !f.locked)}>
-                      {f.locked ? <LockIcon /> : <UnlockIcon />}
-                    </button>
-                  )}
+                  <button className={f.locked ? "bare fr-lock on" : "bare fr-lock"} aria-pressed={f.locked} aria-label={t(f.locked ? "app.menu.unlock" : "app.menu.lock")}
+                    data-tip-title={t(f.locked ? "app.folder.locked" : "app.menu.lock")} data-tip={t(f.locked ? "app.folder.lockedHint" : "app.folder.lockHint")}
+                    {...stop} onClick={() => onLock(f.id, !f.locked)}>
+                    {f.locked ? <LockIcon /> : <UnlockIcon />}
+                  </button>
                 </span>
               </div>
             );

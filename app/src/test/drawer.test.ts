@@ -1,9 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { conflictsOf, overrides, winners } from "../mods/conflicts";
+import { dependencies } from "../mods/deps";
 import { keyName } from "../mods/keyCapture";
 import { clampNumber } from "../mods/optionValue";
+import type { ModRow } from "../types";
 
 const key = (code: string, k = "") => ({ code, key: k }) as KeyboardEvent;
+
+describe("dependencies", () => {
+  const mod = (id: string, on: boolean, requires: string[] = []) => ({ id, on, requires }) as ModRow;
+  const mods = [mod("api", false), mod("trainer", true, ["api", "gone"]), mod("extra", false, ["trainer"])];
+  it("gives what a mod needs and what needs it, with their states", () => {
+    expect(dependencies(mods[1], mods)).toEqual({
+      needs: [{ id: "api", state: "off" }, { id: "gone", state: "missing" }],
+      neededBy: [{ id: "extra", state: "off" }],
+    });
+    expect(dependencies(mods[0], mods)).toEqual({ needs: [], neededBy: [{ id: "trainer", state: "on" }] });
+  });
+  it("leaves out mods two steps away", () => {
+    expect(dependencies(mods[2], mods).needs).toEqual([{ id: "trainer", state: "on" }]);
+  });
+});
 
 describe("clampNumber", () => {
   it("snaps to the step and stays in range", () => {

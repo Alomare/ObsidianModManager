@@ -1,7 +1,7 @@
 // The mod list as a tree: mods and folders at the top, mods inside folders. The load order is the
 // tree read top to bottom. An empty folder has no place in the load order, so it comes last.
 // A locked folder keeps the place and mods it has: it doesn't move, the mods in it don't leave, and no
-// mod goes in. The Obsidian folder (the bundled mods) is always locked and always first.
+// mod goes in.
 import type { Folder } from "../types";
 
 export type Node = { kind: "mod"; id: string } | { kind: "folder"; folder: Folder; ids: string[] };
@@ -10,13 +10,9 @@ export type Spot = { folder: string | null; index: number };
 /** One line on screen. */
 export type Line = { kind: "mod"; id: string; folder: string | null } | { kind: "folder"; folder: Folder; count: number };
 
-export const OBSIDIAN = "obsidian";
-
 /** True for a mod that sits in a locked folder. */
 export const pinned = (tree: Node[], id: string): boolean => tree.some((n) => n.kind === "folder" && n.folder.locked && n.ids.includes(id));
 const lockedFolder = (tree: Node[], id: string | null) => tree.some((n) => n.kind === "folder" && n.folder.id === id && n.folder.locked);
-/** Nothing goes above the Obsidian folder. */
-const floor = (tree: Node[]) => (tree[0]?.kind === "folder" && tree[0].folder.id === OBSIDIAN ? 1 : 0);
 
 export function toTree(entries: { id: string; folder: string | null }[], folders: Folder[]): Node[] {
   const out: Node[] = [];
@@ -68,7 +64,7 @@ export function moveMods(tree: Node[], ids: string[], spot: Spot): Node[] {
   if (!moving.length || lockedFolder(tree, spot.folder)) return tree;
   const out = without(tree, moving);
   if (spot.folder === null) {
-    out.splice(Math.max(floor(out), Math.min(spot.index, out.length)), 0, ...moving.map((id): Node => ({ kind: "mod", id })));
+    out.splice(Math.min(spot.index, out.length), 0, ...moving.map((id): Node => ({ kind: "mod", id })));
     return out;
   }
   return out.map((n) => {
@@ -84,7 +80,7 @@ export function moveFolder(tree: Node[], id: string, index: number): Node[] {
   const node = tree.find((n) => n.kind === "folder" && n.folder.id === id);
   if (!node || lockedFolder(tree, id)) return tree;
   const out = tree.filter((n) => n !== node);
-  out.splice(Math.max(floor(out), Math.min(index, out.length)), 0, node);
+  out.splice(Math.min(index, out.length), 0, node);
   return out;
 }
 

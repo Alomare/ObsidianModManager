@@ -1,5 +1,5 @@
-// The drawer beside the mod table (spec 4.2): one mod's Options, Keys, Files and About, or the
-// conflicts. With nothing selected it shows the conflicts, or a hint about importing.
+// The drawer beside the mod table (spec 4.2): one mod's Options, Keys, Files, Dependencies and About,
+// or the conflicts. With nothing selected it shows the conflicts, or a hint about importing.
 import { useEffect, useState } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
@@ -9,6 +9,7 @@ import { Select } from "../Select";
 import { Thumb } from "../Thumb";
 import type { ConflictRow, KeyRow, ModRow, OptionRow } from "../types";
 import { overrides, type Override } from "./conflicts";
+import { dependencies, type Dep } from "./deps";
 import { keyName } from "./keyCapture";
 import type { DrawerView } from "./ModsPage";
 import { clampNumber } from "./optionValue";
@@ -21,12 +22,13 @@ type Props = {
   conflicts: ConflictRow[];
   order: string[];
   names: Map<string, string>;
+  onOpen: (id: string) => void;
   onClose: () => void;
 };
 
-export function Drawer({ view, mods, conflicts, order, names, onClose }: Props) {
+export function Drawer({ view, mods, conflicts, order, names, onOpen, onClose }: Props) {
   const mod = view?.kind === "mod" ? mods.find((m) => m.id === view.id) : undefined;
-  if (mod) return <ModDrawer key={mod.id} mod={mod} conflicts={conflicts} names={names} onClose={onClose} />;
+  if (mod) return <ModDrawer key={mod.id} mod={mod} mods={mods} conflicts={conflicts} names={names} onOpen={onOpen} onClose={onClose} />;
   if (view?.kind === "conflicts" || conflicts.length) return <ConflictsView conflicts={conflicts} order={order} names={names} focus={view?.kind === "conflicts" ? view.focus : undefined} onClose={view ? onClose : undefined} />;
   return (
     <aside className="drawer idle">
@@ -35,12 +37,13 @@ export function Drawer({ view, mods, conflicts, order, names, onClose }: Props) 
   );
 }
 
-type Tab = "options" | "keys" | "files" | "about";
+type Tab = "options" | "keys" | "files" | "deps" | "about";
 
-function ModDrawer({ mod, conflicts, names, onClose }: { mod: ModRow; conflicts: ConflictRow[]; names: Map<string, string>; onClose: () => void }) {
+function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModRow; mods: ModRow[]; conflicts: ConflictRow[]; names: Map<string, string>; onOpen: (id: string) => void; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>(mod.options.length ? "options" : mod.keybinds.length ? "keys" : "about");
   const name = pick(mod.name, mod.id);
-  const tabs: [Tab, number | null][] = [["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["about", null]];
+  const { needs, neededBy } = dependencies(mod, mods);
+  const tabs: [Tab, number | null][] = [["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["deps", needs.length + neededBy.length], ["about", null]];
   return (
     <aside className={`drawer ${mod.scope}`} aria-label={name}>
       <div className="dh">
@@ -64,7 +67,8 @@ function ModDrawer({ mod, conflicts, names, onClose }: { mod: ModRow; conflicts:
         {tab === "options" && <OptionsTab mod={mod} />}
         {tab === "keys" && <KeysTab mod={mod} names={names} />}
         {tab === "files" && <FilesTab mod={mod} conflicts={conflicts} names={names} />}
-        {tab === "about" && <AboutTab mod={mod} names={names} onRemoved={onClose} />}
+        {tab === "deps" && <DepsTab needs={needs} neededBy={neededBy} names={names} onOpen={onOpen} />}
+        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
       </div>
     </aside>
   );
@@ -196,7 +200,34 @@ function FilesTab({ mod, conflicts, names }: { mod: ModRow; conflicts: ConflictR
   );
 }
 
-function AboutTab({ mod, names, onRemoved }: { mod: ModRow; names: Map<string, string>; onRemoved: () => void }) {
+function DepsTab({ needs, neededBy, names, onOpen }: { needs: Dep[]; neededBy: Dep[]; names: Map<string, string>; onOpen: (id: string) => void }) {
+  if (!needs.length && !neededBy.length) return <p className="muted pad">{t("app.drawer.noDeps")}</p>;
+  const list = (title: string, deps: Dep[]) => deps.length > 0 && (
+    <>
+      <h3 className="cap dep-head">{title}</h3>
+      <ul className="opts">
+        {deps.map((d) => (
+          <li key={d.id} className="opt">
+            <div className="opt-text">
+              {d.state === "missing" ? <div className="l">{d.id}</div> : <button className="link" onClick={() => onOpen(d.id)}>{names.get(d.id) ?? d.id}</button>}
+              {d.state === "missing" && <div className="d warn">{t("app.drawer.depMissingHint")}</div>}
+            </div>
+            <span className={`dep-state ${d.state}`}>{t(`app.drawer.dep.${d.state}`)}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+  return (
+    <>
+      <p className="muted pad dep-hint">{t("app.drawer.depsHint")}</p>
+      {list(t("app.drawer.requires"), needs)}
+      {list(t("app.drawer.neededBy"), neededBy)}
+    </>
+  );
+}
+
+function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
   const [ask, setAsk] = useState(false);
   const name = pick(mod.name, mod.id);
   const date = mod.import ? new Date(mod.import.date).toLocaleString(language(), { dateStyle: "medium", timeStyle: "short" }) : null;
@@ -206,11 +237,10 @@ function AboutTab({ mod, names, onRemoved }: { mod: ModRow; names: Map<string, s
       <dl className="facts">
         {mod.authors.length > 0 && <><dt>{t("app.drawer.authors")}</dt><dd>{mod.authors.join(", ")}</dd></>}
         <dt>{t("app.drawer.id")}</dt><dd className="mono">{mod.id}</dd>
-        {mod.requires.length > 0 && <><dt>{t("app.drawer.requires")}</dt><dd>{mod.requires.map((id) => names.get(id) ?? id).join(", ")}</dd></>}
         {mod.source && <><dt>{t("app.drawer.source")}</dt><dd><button className="link" onClick={() => openUrl(mod.source!).catch(() => {})}>{mod.source} <ExternalIcon /></button></dd></>}
         {mod.import && <><dt>{t("app.drawer.imported")}</dt><dd>{date}</dd><dt>{t("app.drawer.file")}</dt><dd className="mono">{mod.import.file}</dd></>}
       </dl>
-      {!mod.bundled && <button className="btn small danger" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>}
+      <button className="btn small danger" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>
       {ask && (
         <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
           onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mods", { ids: [mod.id] })) onRemoved(); }} />

@@ -264,7 +264,7 @@ button.link:hover { filter: brightness(1.2); }
 .dh-text { flex: 1; min-width: 0; }
 .dh h2 { margin: 0; font-family: "Saira Variable", sans-serif; font-size: 1.15rem; font-weight: 660; overflow-wrap: anywhere; }
 .dh .meta { font-size: 0.8rem; color: var(--mu); margin-top: 0.25rem; }
-.dtabs { display: flex; padding: 0 0.3rem; border-bottom: 1px solid var(--ln); }
+.dtabs { display: flex; flex-wrap: wrap; padding: 0 0.3rem; border-bottom: 1px solid var(--ln); }
 .dtabs button { background: none; border: 0; padding: 0.42rem 0.6rem; color: var(--mu); cursor: pointer; font-size: 0.72rem; font-family: "Saira Variable", sans-serif; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 660; display: flex; align-items: center; gap: 0.35rem; transition: color var(--fast); }
 .dtabs button:hover { color: var(--tx); }
 .dtabs button.cur { color: var(--tx); box-shadow: inset 0 -2px 0 var(--gold); }
@@ -280,6 +280,12 @@ button.link:hover { filter: brightness(1.2); }
 .opt .d.warn { color: var(--warn); }
 .opt-ctl { display: flex; align-items: center; gap: 0.3rem; flex: none; }
 .opt-ctl .bare:disabled { opacity: 0.3; cursor: default; }
+.dep-hint { font-size: 0.8rem; line-height: 1.35; }
+.dep-head { margin: 0; padding: 0.3rem 0.8rem 0.2rem; font-size: 0.72rem; color: var(--mu); border-bottom: 1px solid var(--ln); }
+.opt .link { font-size: 0.92rem; font-weight: 600; }
+.dep-state { flex: none; font-size: 0.8rem; color: var(--mu); }
+.dep-state.on { color: var(--goldtx); }
+.dep-state.missing { color: var(--warn); }
 .num-ctl { display: flex; align-items: center; gap: 0.5rem; }
 .num-ctl input[type="range"] { width: 7rem; accent-color: var(--gold); }
 .num-ctl input[type="number"] { width: 4.2rem; height: 2rem; padding: 0 0.4rem; background: var(--row); border: 1px solid var(--ln); color: var(--tx); font-family: "Saira Variable", sans-serif; }

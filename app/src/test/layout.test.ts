@@ -42,17 +42,25 @@ describe("folder layout", () => {
   });
 
   it("keeps locked folders in place, whole and closed to new mods", () => {
-    // [obsidian: q] a [f1 (locked): b c] d
-    const t = toTree([e("q", "obsidian"), e("a"), e("b", "f1"), e("c", "f1"), e("d")], [F("obsidian", false, true), F("f1", false, true)]);
-    expect(flatten(toEnd(t, ["d"], "top"))).toEqual(["q", "d", "a", "b", "c"]);
+    // a [f1 (locked): b c] d
+    const t = toTree([e("a"), e("b", "f1"), e("c", "f1"), e("d")], [F("f1", false, true)]);
     expect(flatten(moveMods(t, ["b"], { folder: null, index: 0 }))).toEqual(flatten(t));
     expect(flatten(moveMods(t, ["a"], { folder: "f1", index: 0 }))).toEqual(flatten(t));
     expect(flatten(moveFolder(t, "f1", 0))).toEqual(flatten(t));
-    expect(flatten(nudge(t, "a", -1))).toEqual(flatten(t)); // nothing goes above the Obsidian folder
     const shown = lines(t).filter((l) => !(l.kind === "mod" && l.id === "d"));
-    // obsidian | q | a | f1 | b | c
-    expect(dropSpot(t, shown, 5, null, ["d"])).toEqual({ folder: null, index: 3 });
-    expect(dropSpot(t, shown, 1, "f1", ["d"])).toEqual({ folder: null, index: 3 });
+    // a | f1 | b | c
+    expect(dropSpot(t, shown, 3, null, ["d"])).toEqual({ folder: null, index: 2 });
+    expect(dropSpot(t, shown, 1, "f1", ["d"])).toEqual({ folder: null, index: 2 });
+  });
+
+  it("treats the starter pack folder like any other", () => {
+    // [obsidian: q] a
+    const t = toTree([e("q", "obsidian"), e("a")], [F("obsidian")]);
+    expect(flatten(toEnd(t, ["a"], "top"))).toEqual(["a", "q"]);
+    expect(flatten(nudge(t, "a", -1))).toEqual(["a", "q"]);
+    expect(flatten(moveFolder(t, "obsidian", 1))).toEqual(["a", "q"]);
+    expect(changes(t, moveMods(t, ["a"], { folder: "obsidian", index: 0 })).moves).toEqual([["a", "obsidian"]]);
+    expect(changes(t, moveMods(t, ["q"], { folder: null, index: 1 })).moves).toEqual([["q", null]]);
   });
 
   it("drops a folder only between top-level items", () => {

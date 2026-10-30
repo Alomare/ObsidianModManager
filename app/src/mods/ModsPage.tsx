@@ -15,7 +15,7 @@ import { CrashBanner } from "./CrashBanner";
 import { Drawer } from "./Drawer";
 import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
-import { changes, flatten, moveMods, nudge, OBSIDIAN, pinned, toEnd, toTree, type Node } from "./layout";
+import { changes, flatten, moveMods, nudge, pinned, toEnd, toTree, type Node } from "./layout";
 import { ModTable, type MenuTarget } from "./ModTable";
 import { checkModUpdates, offered, updateMod, useModUpdates } from "./modUpdates";
 import { filterMods } from "./rows";
@@ -91,7 +91,6 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
     const one = ids.length === 1 ? byId.get(ids[0]) : undefined;
     const allOn = ids.every((id) => byId.get(id)?.on);
     const allOff = ids.every((id) => !byId.get(id)?.on);
-    const removable = ids.filter((id) => !byId.get(id)?.bundled);
     const inFolder = ids.some((id) => byId.get(id)?.folder && !pinned(tree, id));
     const fixed = searching || ids.every((id) => pinned(tree, id));
     const update = one ? offered(modUpdates.found, one) : null;
@@ -118,7 +117,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         ],
       },
       "sep",
-      { label: removable.length > 1 ? t("app.menu.removeN", removable.length) : t("app.menu.remove"), icon: <TrashIcon />, danger: true, disabled: !removable.length, run: () => setAsk({ kind: "remove", ids: removable }) },
+      { label: ids.length > 1 ? t("app.menu.removeN", ids.length) : t("app.menu.remove"), icon: <TrashIcon />, danger: true, run: () => setAsk({ kind: "remove", ids }) },
     ];
   };
   /** Takes mods out of their folders, right after the folder they were in. */
@@ -135,12 +134,9 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const folderItems = (id: string): MenuItem[] => {
     const f = folderOf(id)!;
     const ids = membersOf(id);
-    const obsidian = id === OBSIDIAN;
     return [
       { label: f.collapsed ? t("app.menu.expand") : t("app.menu.collapse"), run: () => run("edit_folder", { id, collapsed: !f.collapsed }) },
-      ...(obsidian ? [] : [
-        { label: f.locked ? t("app.menu.unlock") : t("app.menu.lock"), icon: f.locked ? <UnlockIcon /> : <LockIcon />, run: () => run("edit_folder", { id, locked: !f.locked }) } as MenuItem,
-      ]),
+      { label: f.locked ? t("app.menu.unlock") : t("app.menu.lock"), icon: f.locked ? <UnlockIcon /> : <LockIcon />, run: () => run("edit_folder", { id, locked: !f.locked }) },
       { label: t("app.menu.editFolder"), disabled: f.locked, run: () => setAsk({ kind: "editFolder", id }) },
       { label: t("app.folder.color"), disabled: f.locked, sub: [{ colors: FOLDER_COLORS, current: f.color, pick: (color) => run("edit_folder", { id, color }) }] },
       "sep",
@@ -174,7 +170,6 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   };
 
   const sel = inOrder([...checked]);
-  const removable = sel.filter((id) => !byId.get(id)?.bundled);
   const askFolder = ask?.kind === "editFolder" || ask?.kind === "deleteFolder" ? folderOf(ask.id) : undefined;
 
   return (
@@ -217,7 +212,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
               <button className="btn small" data-pop onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4, target: { kind: "mod", id: sel[0] } }); }}>
                 <FolderIcon />{t("app.mods.moreActions")}
               </button>
-              <button className="btn small danger" disabled={!removable.length} onClick={() => setAsk({ kind: "remove", ids: removable })}><TrashIcon />{t("app.menu.remove")}</button>
+              <button className="btn small danger" onClick={() => setAsk({ kind: "remove", ids: sel })}><TrashIcon />{t("app.menu.remove")}</button>
               <button className="bare batch-x" onClick={() => setChecked(new Set())} aria-label={t("app.mods.uncheck")} data-tip={t("app.mods.uncheck")}><CloseIcon /></button>
             </div>
           )}
@@ -235,7 +230,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         </section>
         <div className="split" role="separator" aria-orientation="vertical" aria-label={t("app.mods.resize")} onPointerDown={resize}
           onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(DRAWER_KEY); } catch { /* fine */ } }} data-tip={t("app.mods.resizeHint")} />
-        <Drawer view={view} mods={snap.mods} conflicts={shownConflicts} order={order} names={names} onClose={() => setView(null)} />
+        <Drawer view={view} mods={snap.mods} conflicts={shownConflicts} order={order} names={names} onOpen={(id) => setView({ kind: "mod", id })} onClose={() => setView(null)} />
       </div>
       {profiles && <ProfilesDialog snap={snap} onClose={() => setProfiles(false)} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.target)} onClose={() => setMenu(null)} />}
