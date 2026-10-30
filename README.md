@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="app/src/assets/logo.png">
-    <img src="app/src/assets/logo-dark.png" alt="The Obsidian logo: a shield with a wrench on it" width="140">
+    <img src="app/src/assets/logo-dark.png" alt="The Obsidian logo: a shield with a wrench on it" width="220">
   </picture>
 </p>
 
