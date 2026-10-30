@@ -30,7 +30,7 @@ obsidian key <id> <keybind> <key>      change a mod key
 obsidian profile list|use|new <name>   switch between named sets of mods and settings
 ```
 
-Obsidian comes with Obsidian Quality of Life, a mod that is off until you enable it (`obsidian enable obsidian.qol`). It skips the intro, the login screen, war briefs and planet scanning, and removes the black bars on screens wider than 16:9. Each fix is an option, all on by default: `obsidian set obsidian.qol skip_login false` turns one off.
+Obsidian comes with Obsidian Quality of Life, a mod that is off until you enable it (`obsidian enable obsidian.qol`). It skips the intro, the login screen, war briefs and planet scanning, removes the black bars on screens wider than 16:9, and can speed up or skip the results screens after a mission. Each fix is an option. All are on by default except the mission end one, which starts off: `obsidian set obsidian.qol skip_login false` turns one off.
 
 Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your save folder is backed up before every deploy.
 

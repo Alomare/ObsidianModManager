@@ -360,6 +360,8 @@ button.link.small { font-size: 0.8rem; margin-top: 0.45rem; }
 .btn.profile-btn:hover:not(:disabled) { background: linear-gradient(90deg, color-mix(in srgb, var(--pc, var(--gold)) 32%, var(--btn-hi)), var(--btn-hi) 70%); }
 .profile-btn svg { color: var(--pc, var(--goldtx)); }
 .profile-label { font-family: "Saira Variable", sans-serif; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--pc, var(--goldtx)); }
+.mods .head { gap: 0.45rem; }
+.mods .head h1 { margin-right: 0.45rem; }
 .btn.head-btn { height: 2.3rem; width: 2.6rem; }
 .btn.head-btn.add { min-width: 4.2rem; background: linear-gradient(180deg, #3fcf9c, #239a70); color: #0d1f18; }
 .btn.head-btn.add:hover:not(:disabled) { background: linear-gradient(180deg, #55dcac, #2bab7e); }
@@ -587,7 +589,7 @@ button.thumb:hover { border-color: var(--gold); }
   -webkit-mask: linear-gradient(135deg, transparent var(--cut), #000 calc(var(--cut) + 0.5px)), linear-gradient(315deg, transparent var(--cut), #000 calc(var(--cut) + 0.5px));
   -webkit-mask-composite: source-in; mask-composite: intersect;
 }
-.btn:not(.actions .btn):not(.home-tuck):not(.profile-btn):not(.head-btn), .search, .select-btn, .key-btn, .wiki-find {
+.btn:not(.actions .btn):not(.home-tuck):not(.profile-btn):not(.head-btn), .btn.head-btn.add, .search, .select-btn, .key-btn, .wiki-find {
   -webkit-mask: linear-gradient(315deg, transparent var(--cut-sm), #000 calc(var(--cut-sm) + 0.5px));
 }
 

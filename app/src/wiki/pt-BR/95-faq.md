@@ -38,7 +38,7 @@ O que está mais abaixo na lista ([Ordem de carregamento](wiki:load-order)).
 
 ### O que é o Obsidian Qualidade de Vida? {#what-is-obsidian-quality-of-life}
 
-Um mod de cliente que vem com o Obsidian: ele pula a abertura, a tela de login, os resumos da guerra e a varredura de planetas, e tira as barras pretas em telas largas. Cada correção é uma opção. Ligue o mod na pasta Obsidian, no topo da lista.
+Um mod de cliente que vem com o Obsidian: ele pula a abertura, a tela de login, os resumos da guerra e a varredura de planetas, tira as barras pretas em telas largas e pode acelerar ou pular as telas de resultado depois de uma missão. Cada correção é uma opção. Ligue o mod na pasta Obsidian, no topo da lista.
 
 ## Criar mods {#making-mods}
 

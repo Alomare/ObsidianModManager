@@ -31,6 +31,8 @@ export function Tooltip() {
     const over = (e: Event) => {
       const el = (e.target as Element).closest?.<HTMLElement>("[data-tip], [data-tip-title]") ?? null;
       if (el === target) return;
+      // A click also focuses the button; only keyboard focus shows the tooltip.
+      if (e.type === "focusin" && el && !el.matches(":focus-visible")) return;
       hide();
       if (!el) return;
       target = el;

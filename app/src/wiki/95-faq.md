@@ -38,7 +38,7 @@ The one lower in the list ([Load order](wiki:load-order)).
 
 ### What is Obsidian Quality of Life?
 
-A client mod that comes with Obsidian: it skips the intro, the login screen, war briefs and planet scanning, and removes the black bars on wide screens. Each fix is an option. Turn it on in the Obsidian folder at the top of the list.
+A client mod that comes with Obsidian: it skips the intro, the login screen, war briefs and planet scanning, removes the black bars on wide screens, and can speed up or skip the results screens after a mission. Each fix is an option. Turn it on in the Obsidian folder at the top of the list.
 
 ## Making mods
 

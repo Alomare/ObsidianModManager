@@ -1,7 +1,7 @@
 {
   "obsidian": 1,
   "id": "obsidian.qol",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "name": { "en": "Obsidian Quality of Life", "pt-BR": "Obsidian Qualidade de Vida", "zh-CN": "Obsidian 便利改进", "fr": "Obsidian Confort", "es": "Obsidian Calidad de Vida" },
   "description": {
     "en": "Small fixes for the game, each one an option.",
@@ -29,6 +29,20 @@
       "description": { "en": "No planet discovery animation after a liberation or a new sector.", "pt-BR": "Sem animação de descoberta de planetas após uma libertação ou um novo setor.", "zh-CN": "解放行星或进入新星区后不显示行星发现动画。", "fr": "Pas d'animation de découverte de planètes après une libération ou un nouveau secteur.", "es": "Sin animación de descubrimiento de planetas tras una liberación o un sector nuevo." } },
     { "id": "widescreen", "type": "toggle", "default": true,
       "label": { "en": "Widescreen fixes", "pt-BR": "Correções para tela larga", "zh-CN": "宽屏修正", "fr": "Corrections grand écran", "es": "Arreglos de pantalla ancha" },
-      "description": { "en": "No black bars on screens wider than 16:9.", "pt-BR": "Sem barras pretas em telas mais largas que 16:9.", "zh-CN": "在宽于 16:9 的屏幕上不显示黑边。", "fr": "Pas de bandes noires sur les écrans plus larges que 16:9.", "es": "Sin franjas negras en pantallas más anchas que 16:9." } }
+      "description": { "en": "No black bars on screens wider than 16:9.", "pt-BR": "Sem barras pretas em telas mais largas que 16:9.", "zh-CN": "在宽于 16:9 的屏幕上不显示黑边。", "fr": "Pas de bandes noires sur les écrans plus larges que 16:9.", "es": "Sin franjas negras en pantallas más anchas que 16:9." } },
+    { "id": "expedite_mission_end", "type": "choice", "default": "off",
+      "choices": [
+        { "id": "off", "label": { "en": "Off", "pt-BR": "Desligado", "zh-CN": "关闭", "fr": "Désactivé", "es": "Desactivado" } },
+        { "id": "faster", "label": { "en": "Faster", "pt-BR": "Mais rápido", "zh-CN": "加快", "fr": "Plus rapide", "es": "Más rápido" } },
+        { "id": "instant", "label": { "en": "Instant", "pt-BR": "Instantâneo", "zh-CN": "立即", "fr": "Instantané", "es": "Instantáneo" } }
+      ],
+      "label": { "en": "Expedite mission end", "pt-BR": "Agilizar o fim da missão", "zh-CN": "加快任务结算", "fr": "Accélérer la fin de mission", "es": "Agilizar el final de la misión" },
+      "description": {
+        "en": "Faster gives each results screen about a second. Instant goes straight to the last screen. Either way your rewards are saved, and you are marked ready on the screens that wait for every player.",
+        "pt-BR": "Mais rápido deixa cada tela de resultados por cerca de um segundo. Instantâneo vai direto para a última tela. Nos dois casos as recompensas são salvas, e você fica pronto nas telas que esperam todos os jogadores.",
+        "zh-CN": "加快：每个结算画面约显示一秒。立即：直接跳到最后一个画面。两种方式都会保存奖励，并在需要所有玩家确认的画面上自动为你确认。",
+        "fr": "Plus rapide affiche chaque écran de résultats environ une seconde. Instantané passe directement au dernier écran. Dans les deux cas, vos récompenses sont enregistrées et vous êtes marqué prêt sur les écrans qui attendent tous les joueurs.",
+        "es": "Más rápido deja cada pantalla de resultados cerca de un segundo. Instantáneo va directo a la última pantalla. En ambos casos tus recompensas se guardan y quedas listo en las pantallas que esperan a todos los jugadores."
+      } }
   ]
 }

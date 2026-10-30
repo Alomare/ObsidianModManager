@@ -116,3 +116,92 @@ if get("widescreen") then
 		end
 	end)
 end
+
+-- The mission end screens are sub-states of StateMissionEnd: change_state(self, sub) calls
+-- sub.on_enter(self), and the state's update hands sub.update(self, dt) the frame time. Waiting
+-- for data writes the save and Done calls save_stats, so both always run at full length; the
+-- screens between them only show results. Three screens wait until every player presses
+-- continue, and this player's presses are made for them (other players still press their own).
+-- Instant goes from waiting for data straight to Done, as the game's own debug skip does.
+-- Faster runs each result screen in about a second: steps listed in sub_state_states are timed
+-- to fit, and a screen still showing after that runs ever faster until it ends.
+local expedite = get("expedite_mission_end")
+if expedite == "faster" or expedite == "instant" then
+	local SHOWN = {
+		"MissionEndStateMissionResult", "MissionEndStateMissionScore", "MissionEndStateGenocideResults",
+		"MissionEndStateExperienceDistribution", "MissionEndStateIndividualStats", "MissionEndStatePrePlanetPause",
+		"MissionEndStatePlanetCompleted", "MissionEndStatePlanetCompletedScore", "MissionEndStatePlanetCompletedReward",
+		"MissionEndStateEventCompletedScore", "MissionEndStateEventCompletedReward", "MissionEndStateProvinggroundsCompleted",
+		"MissionEndOverlayLevelUp",
+	}
+	local READY = {
+		MissionEndStateGenocideResults = "is_ready_genocide",
+		MissionEndStatePrePlanetPause = "is_ready_planet",
+		MissionEndStateDone = "is_ready",
+	}
+	local PHASE = 1
+	local phase = { elapsed = 0, speed = 1, pressed = false }
+
+	local function current(self)
+		for name in pairs(READY) do
+			if self.current_state ~= nil and self.current_state == rawget(_G, name) then return name end
+		end
+	end
+
+	-- Instant presses for all three screens at once: a host still showing one of them waits for
+	-- this player's press there.
+	local function press(self)
+		local name = current(self)
+		if not name or phase.pressed then return end
+		phase.pressed = true
+		for _, p in ipairs(self.players or {}) do
+			local go = p.player_go
+			if go and go:owned() then
+				if expedite == "instant" then
+					for _, flag in pairs(READY) do go:set(flag, true) end
+				else
+					go:set(READY[name], true)
+				end
+			end
+		end
+	end
+
+	obsidian.hook("StateMissionEnd", "change_state", function(original, self, sub, ...)
+		local done = rawget(_G, "MissionEndStateDone")
+		if expedite == "instant" and done and sub ~= nil and sub ~= done and sub ~= rawget(_G, "MissionEndStateWaitingForData") then
+			sub = done
+			obsidian.log("expedite mission end: results skipped")
+		end
+		local steps = self.sub_state_states
+		local r = { original(self, sub, ...) }
+		phase.elapsed, phase.pressed, phase.speed = 0, false, 2
+		if self.sub_state_states ~= steps and type(self.sub_state_states) == "table" then
+			local total = 0
+			for _, step in ipairs(self.sub_state_states) do
+				if type(step) == "table" and type(step.time) == "number" then total = total + step.time end
+			end
+			phase.speed = math.max(1, total / PHASE)
+		end
+		if expedite == "instant" then press(self) end
+		return unpack(r)
+	end)
+
+	if expedite == "faster" then
+		obsidian.hook("StateMissionEnd", "update", function(original, self, dt, ...)
+			if type(dt) == "number" then
+				phase.elapsed = phase.elapsed + dt
+				if phase.elapsed > PHASE then
+					phase.speed = math.min(phase.speed * 1.25, 1000)
+					press(self)
+				end
+			end
+			return original(self, dt, ...)
+		end)
+		for _, name in ipairs(SHOWN) do
+			obsidian.hook(name, "update", function(original, self, dt, ...)
+				if type(dt) == "number" then dt = dt * phase.speed end
+				return original(self, dt, ...)
+			end)
+		end
+	end
+end

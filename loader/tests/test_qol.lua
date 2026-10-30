@@ -6,10 +6,13 @@ local function test(name, fn) T[#T + 1] = { name, fn } end
 local IDS = { "skip_intro", "skip_login", "skip_war_briefs", "skip_planet_scanning", "widescreen" }
 
 -- off: option ids switched off in settings.txt; every other option keeps the default (on).
-local function engine(off)
+-- expedite: the mission end choice, off when not given.
+local function engine(off, expedite)
 	local options, lines = {}, {}
 	for _, id in ipairs(IDS) do options[#options + 1] = { id = id, type = "toggle", default = true } end
+	options[#options + 1] = { id = "expedite_mission_end", type = "choice", default = "off", choices = { "off", "faster", "instant" } }
 	for _, id in ipairs(off or {}) do lines[#lines + 1] = "option\tobsidian.qol\t" .. id .. "\ttoggle\t0\n" end
+	if expedite then lines[#lines + 1] = "option\tobsidian.qol\texpedite_mission_end\tchoice\t" .. expedite .. "\n" end
 	local e = E.new({
 		deploy = E.deploy({ mods = { E.mod("obsidian.qol", { options = options }) } }),
 		mods = { ["obsidian/mods/obsidian.qol/main"] = E.read("bundled/obsidian.qol/main.lua") },
@@ -137,6 +140,96 @@ test("widescreen_lifts_the_aspect_ratio_limit", function()
 	rawset(_G, "GameSettings", { max_aspect_ratio = 16 / 9 })
 	engine()
 	E.eq(rawget(_G, "GameSettings").max_aspect_ratio, 10)
+end)
+
+-- A small StateMissionEnd: change_state and update as the game has them, sub-states with step
+-- lists like the result screens, and one local and one remote player.
+local function mission_end(e)
+	local entered = {}
+	local function screen(name, steps)
+		local s = { name = name }
+		function s.on_enter(self)
+			entered[#entered + 1] = name
+			if steps then
+				local list = {}
+				for i, t in ipairs(steps) do list[i] = { name = "step" .. i, time = t } end
+				self.sub_state_states, self.sub_state_state = list, 1
+			end
+		end
+		function s.update(self, dt) self.seen_dt = dt end
+		rawset(_G, name, s)
+		return s
+	end
+	rawset(_G, "StateMissionEnd", {
+		change_state = function(self, sub)
+			self.current_state = sub
+			sub.on_enter(self)
+		end,
+		update = function(self, dt) self.current_state.update(self, dt) end,
+	})
+	screen("MissionEndStateWaitingForData")
+	screen("MissionEndStateMissionResult", { 0.5, 2, 1.5 })
+	screen("MissionEndStateMissionScore")
+	screen("MissionEndStatePrePlanetPause")
+	screen("MissionEndStateDone")
+	e.opts.modules["lua/states/state_mission_end"] = true
+	rawget(_G, "require")("lua/states/state_mission_end")
+	local function player(owned)
+		local go = { flags = {} }
+		function go:owned() return owned end
+		function go:set(k, v) self.flags[k] = v end
+		return { player_go = go }
+	end
+	local state = setmetatable({ players = { player(true), player(false) } }, { __index = rawget(_G, "StateMissionEnd") })
+	return state, entered
+end
+
+local function go(state, name) state:change_state(rawget(_G, name)) end
+
+test("expedite_instant_goes_from_waiting_to_done", function()
+	local e = engine(nil, "instant")
+	local state, entered = mission_end(e)
+	go(state, "MissionEndStateWaitingForData")
+	go(state, "MissionEndStateMissionResult")
+	E.eq(table.concat(entered, " "), "MissionEndStateWaitingForData MissionEndStateDone")
+	local mine, theirs = state.players[1].player_go.flags, state.players[2].player_go.flags
+	E.eq(mine.is_ready, true, "ready on Done")
+	E.eq(mine.is_ready_planet, true, "ready for a host still on the planet pause")
+	E.eq(mine.is_ready_genocide, true, "ready for a host still on the genocide results")
+	E.eq(theirs.is_ready, nil, "other players press their own")
+	E.has(e:log("obsidianqol"), "expedite mission end: results skipped")
+end)
+
+test("expedite_faster_fits_the_steps_in_a_second", function()
+	local e = engine(nil, "faster")
+	local state = mission_end(e)
+	go(state, "MissionEndStateMissionResult")
+	state:update(0.1)
+	E.eq(state.seen_dt, 0.4, "4 s of steps in 1 s")
+	go(state, "MissionEndStateWaitingForData")
+	state:update(0.1)
+	E.eq(state.seen_dt, 0.1, "waiting for data keeps the real time")
+end)
+
+test("expedite_faster_speeds_up_a_long_screen_and_presses_after_a_second", function()
+	local e = engine(nil, "faster")
+	local state = mission_end(e)
+	go(state, "MissionEndStateMissionScore")
+	state:update(0.5)
+	E.eq(state.seen_dt, 1, "twice as fast without a step list")
+	state:update(0.6)
+	local after = state.seen_dt
+	state:update(0.1)
+	E.eq(state.seen_dt > after / 0.6 * 0.1, true, "faster after a second")
+	go(state, "MissionEndStatePrePlanetPause")
+	state:update(0.5)
+	E.eq(state.players[1].player_go.flags.is_ready_planet, nil, "not before a second")
+	state:update(0.6)
+	E.eq(state.players[1].player_go.flags.is_ready_planet, true, "pressed after a second")
+	E.eq(state.players[1].player_go.flags.is_ready, nil, "only for this screen")
+	go(state, "MissionEndStateDone")
+	state:update(0.5)
+	E.eq(state.seen_dt, 0.5, "Done keeps the real time")
 end)
 
 test("options_off_change_nothing", function()
