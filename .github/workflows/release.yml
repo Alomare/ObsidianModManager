@@ -50,6 +50,9 @@ jobs:
         shell: cmd
         run: tools\test-loader.cmd
 
+      - name: Core and app tests
+        run: cargo test
+
       - name: Install the app's packages
         working-directory: app
         run: npm ci
@@ -61,8 +64,12 @@ jobs:
       - name: Draft release
         id: draft
         run: |
+          # GitHub's "latest" link skips prereleases, and the updater reads through it, so only a tag
+          # with a suffix (v1.1.0-beta.1) stays away from the updater.
+          pre=false
+          [[ "$GITHUB_REF_NAME" == *-* ]] && pre=true
           id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$GITHUB_REF_NAME" -f name="Obsidian ${GITHUB_REF_NAME#v}" \
-            -F draft=true -F prerelease=true -F generate_release_notes=true --jq .id)
+            -F draft=true -F prerelease=$pre -F generate_release_notes=true --jq .id)
           [ -n "$id" ] || { echo "no release id"; exit 1; }
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
