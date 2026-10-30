@@ -7,6 +7,7 @@
   --tx: #ecebe7; --mu: #a7a8a6; --ln: rgba(255, 255, 255, 0.09); --row: rgba(255, 255, 255, 0.04);
   --gold: #f0b429; --goldtx: #f0b429; --on: #1b1b1b;
   --warn: #ff9b5e; --client: #2fb889; --session: #e8891c; --go: #2fb889;
+  --logo: #2ec4b6;
   --scale: 1; --text: 1;
   --fast: 120ms;
   color-scheme: dark;
@@ -23,7 +24,7 @@
   --p1: rgba(250, 250, 249, 0.95); --p2: rgba(234, 235, 236, 0.95);
   --bar: rgba(255, 255, 255, 0.55);
   --tx: #1d1f22; --mu: #53575c; --ln: rgba(0, 0, 0, 0.1); --row: rgba(0, 0, 0, 0.035);
-  --goldtx: #8a5d00; --warn: #a54300; --go: #1d8a64;
+  --goldtx: #8a5d00; --warn: #a54300; --go: #1d8a64; --logo: #13897e;
   color-scheme: light;
 }
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after {
@@ -55,7 +56,6 @@ button.bare:hover { color: var(--tx); }
 
 .nav { display: flex; align-items: center; gap: 0.4rem; padding: 0 1.25rem; height: 4rem; background: var(--bar); border-bottom: 1px solid var(--ln); }
 .brand { display: flex; align-items: center; gap: 0.75rem; padding-right: 1.5rem; }
-.brand-logo { width: 1.75rem; height: 1.75rem; color: var(--gold); }
 .brand span { font-size: 1.1rem; }
 .tabs { display: flex; height: 100%; }
 .tab { display: flex; align-items: center; gap: 0.6rem; height: 100%; padding: 0 1rem; background: none; border: 0; color: var(--mu); cursor: pointer; font-size: 0.8rem; transition: color var(--fast); }
@@ -125,10 +125,12 @@ button.bare:hover { color: var(--tx); }
 .list { flex: 1; min-width: 0; display: flex; flex-direction: column; background: linear-gradient(160deg, var(--p1), var(--p2)); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
 .table { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .tbody { overflow: auto; min-height: 0; }
-.th, .tr { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) 7rem 6.25rem 3.5rem; gap: 0.75rem; align-items: center; padding: 0 1rem; }
+.th, .tr { display: grid; grid-template-columns: 1.75rem 3.25rem minmax(0, 1fr) 7rem; gap: 0.75rem; align-items: center; padding: 0 1rem; }
 .th { padding-top: 0.6rem; padding-bottom: 0.6rem; font-size: 0.7rem; color: var(--mu); border-bottom: 1px solid var(--ln); }
 .tr { padding-top: 0.7rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--ln); cursor: pointer; outline-offset: -2px; touch-action: none; }
+.tr { transition: background var(--fast); }
 .tr:hover { background: var(--row); }
+.ver { margin-left: 0.6rem; font-weight: 400; font-size: 0.8rem; color: var(--mu); }
 .tr.sel { background: var(--row); box-shadow: inset 3px 0 0 var(--gold); }
 .tr.dragging { background: rgba(240, 180, 41, 0.12); box-shadow: inset 3px 0 0 var(--gold), 0 4px 16px rgba(0, 0, 0, 0.3); cursor: grabbing; position: relative; z-index: 1; }
 .num { font-family: Saira, sans-serif; color: var(--mu); font-size: 0.8rem; }
@@ -175,7 +177,7 @@ button.link:hover { filter: brightness(1.2); }
 .modal { width: min(34rem, 92vw); max-height: 88vh; overflow: auto; padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 0.9rem; background: linear-gradient(160deg, var(--p1), var(--p2)); border-top: 4px solid var(--gold); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); outline: 0; animation: rise 160ms ease-out; }
 @keyframes fade { from { opacity: 0; } }
 .about-head { display: flex; align-items: center; gap: 0.9rem; }
-.about-logo { width: 2.75rem; height: 2.75rem; color: var(--gold); }
+.about-logo { width: 2.75rem; height: 2.75rem; color: var(--logo); }
 .about-name { flex: 1; display: flex; flex-direction: column; }
 .about-name b { font-size: 1.2rem; }
 .about-name span { color: var(--mu); font-size: 0.85rem; }
@@ -192,3 +194,12 @@ button.link:hover { filter: brightness(1.2); }
 
 .crash { padding: 2rem; user-select: text; }
 .crash pre { white-space: pre-wrap; font-size: 0.8rem; color: var(--mu); }
+
+/* Motion (off with Animations off) */
+.view { height: 100%; animation: view-in 180ms ease-out; }
+@keyframes view-in { from { opacity: 0; transform: translateY(0.35rem); } }
+.sb-busy { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--tx); }
+.sb-busy i { width: 0.5rem; height: 0.5rem; background: var(--gold); transform: rotate(45deg); animation: pulse 900ms ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; transform: rotate(225deg); } }
+.btn.icon.go { animation: glow 2.4s ease-in-out infinite; }
+@keyframes glow { 50% { filter: brightness(1.2); } }

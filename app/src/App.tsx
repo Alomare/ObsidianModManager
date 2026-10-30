@@ -25,8 +25,10 @@ export default function App() {
     <div className="app">
       <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => {}} onDeploy={() => {}} onPlay={() => {}} />
       <main className="page">
-        {snap && tab === "mods" && <ModsPage snap={snap} />}
-        {tab !== "mods" && <h1 className="cap">{t(`app.nav.${tab}`)}</h1>}
+        <div className="view" key={tab}>
+          {snap && tab === "mods" && <ModsPage snap={snap} />}
+          {tab !== "mods" && <h1 className="cap">{t(`app.nav.${tab}`)}</h1>}
+        </div>
       </main>
       <StatusBar version={snap?.version ?? null} onUpdates={() => setTab("settings")} />
       {dropping && <div className="dropzone cap">{t("app.mods.dropHere")}</div>}

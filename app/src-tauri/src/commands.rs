@@ -96,11 +96,12 @@ fn import_one(data: &Path, game: Option<&GameInstall>, path: &Path) -> obsidian_
     let lib = Library::open(data)?;
     let r = import_path(path, game, &lib)?;
     let m = load_manifest(&lib.mod_dir(&r.id))?;
-    let version = (!r.legacy).then(|| r.version.to_string());
+    let versioned = !r.legacy || r.version != semver::Version::new(0, 0, 0);
+    let version = versioned.then(|| r.version.to_string());
     let (kind, old_version) = match r.outcome {
         InstallOutcome::Added => ("installed", None),
         InstallOutcome::Replaced { old_version } if old_version == r.version => ("reinstalled", None),
-        InstallOutcome::Replaced { old_version } => ("updated", (!r.legacy).then(|| old_version.to_string())),
+        InstallOutcome::Replaced { old_version } => ("updated", versioned.then(|| old_version.to_string())),
     };
     Ok(ImportResult { file: String::new(), ok: true, kind, name: m.name, version, old_version, error: None })
 }

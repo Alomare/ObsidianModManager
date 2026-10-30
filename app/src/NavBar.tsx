@@ -1,6 +1,6 @@
 // The navigation bar: logo, tabs, game and deploy state, and Purge, Deploy and Play (spec section 3).
 import type { ComponentType } from "react";
-import { CogIcon, DeployIcon, Logo, ModsIcon, PlayIcon, ProfilesIcon, PurgeIcon } from "./Icons";
+import { CogIcon, DeployIcon, ModsIcon, PlayIcon, ProfilesIcon, PurgeIcon } from "./Icons";
 import { t } from "./i18n";
 import type { Snapshot } from "./types";
 
@@ -16,7 +16,7 @@ type Props = {
   onPlay: () => void;
 };
 
-const TABS: [Tab, ComponentType][] = [["mods", ModsIcon], ["profiles", ProfilesIcon], ["settings", CogIcon]];
+const TABS: [Tab, ComponentType][] = [["profiles", ProfilesIcon], ["mods", ModsIcon], ["settings", CogIcon]];
 
 export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
@@ -26,7 +26,6 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
   return (
     <nav className="nav">
       <div className="brand">
-        <Logo className="brand-logo" />
         <span className="cap">Obsidian</span>
       </div>
       <div className="tabs" role="tablist">

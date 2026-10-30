@@ -108,11 +108,16 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
             src.display()
         )));
     }
+    // A Nexus download keeps the same id across versions, so a newer file updates the mod.
+    let (id, version, name) = match nexus_file(&stem) {
+        Some(n) => (format!("legacy.nexus-{}", n.mod_id), n.version, n.name),
+        None => (legacy_id(&stem), semver::Version::new(0, 0, 0), stem),
+    };
     let m = Manifest {
         obsidian: 1,
-        id: legacy_id(&stem),
-        version: semver::Version::new(0, 0, 0),
-        name: [("en".to_string(), stem)].into(),
+        id,
+        version,
+        name: [("en".to_string(), name)].into(),
         description: None,
         authors: Vec::new(),
         scope: Scope::Session,
@@ -154,6 +159,42 @@ fn hex16(h: u64) -> String {
     format!("{h:016x}")
 }
 
+/// What a file name from Nexus Mods tells: Nexus names downloads
+/// `<file name> <mod id> <version> <upload time> <code>`.
+#[derive(Debug, PartialEq)]
+struct NexusFile {
+    /// The file name without version tokens such as "V1.2".
+    name: String,
+    mod_id: u64,
+    version: semver::Version,
+}
+
+fn nexus_file(stem: &str) -> Option<NexusFile> {
+    let words: Vec<&str> = stem.split_whitespace().collect();
+    let [head @ .., id, version, time, code] = words.as_slice() else { return None };
+    let is_time = time.len() == 17 && time.as_bytes()[10] == b'T' && time.ends_with('Z') && time.bytes().filter(u8::is_ascii_digit).count() == 12;
+    if head.is_empty() || !is_time || !code.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let mod_id = id.parse().ok()?;
+    let looks_like_version = |w: &&str| {
+        let w = w.trim_start_matches(['v', 'V']);
+        w.contains('.') && w.split('.').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+    };
+    let name: Vec<&str> = head.iter().copied().filter(|w| !looks_like_version(w)).collect();
+    Some(NexusFile { name: if name.is_empty() { head.join(" ") } else { name.join(" ") }, mod_id, version: lenient_version(version) })
+}
+
+/// "1.2" is 1.2.0, "1.0.4b" is 1.0.4; anything without a leading number is 0.0.0.
+fn lenient_version(v: &str) -> semver::Version {
+    let mut n = v.trim_start_matches(['v', 'V']).split('.').map(|p| p.chars().take_while(char::is_ascii_digit).collect::<String>().parse::<u64>().ok());
+    let mut part = || n.next().flatten();
+    match part() {
+        Some(major) => semver::Version::new(major, part().unwrap_or(0), part().unwrap_or(0)),
+        None => semver::Version::new(0, 0, 0),
+    }
+}
+
 /// `legacy.` plus the name lowercased, with every run of other characters turned into one `-`.
 fn legacy_id(stem: &str) -> String {
     let mut slug = String::new();
@@ -172,6 +213,24 @@ fn legacy_id(stem: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nexus_file_names_give_a_stable_id_a_clean_name_and_the_version() {
+        let tpc12 = nexus_file("ThirdPersonCamera V1.2 Manual 12 1.2 2026-10-28T10-41Z 6ZKn90ihp").unwrap();
+        let tpc15 = nexus_file("ThirdPersonCamera V1.5 Manual 12 1.5 2026-10-29T20-32Z UQhsN6aoF").unwrap();
+        assert_eq!((tpc12.name.as_str(), tpc12.mod_id, tpc12.version.to_string()), ("ThirdPersonCamera Manual", 12, "1.2.0".to_string()));
+        assert_eq!((tpc15.name, tpc15.mod_id, tpc15.version.to_string()), (tpc12.name, 12, "1.5.0".to_string()));
+        let rip = nexus_file("RIP THEM APART FOR SUPER EARTH 11 1 2026-10-28T18-46Z ym1oMPKH7").unwrap();
+        assert_eq!((rip.name.as_str(), rip.mod_id, rip.version.to_string()), ("RIP THEM APART FOR SUPER EARTH", 11, "1.0.0".to_string()));
+        assert_eq!(nexus_file("Odd 3 1.0.4b 2026-01-02T03-04Z abc").unwrap().version.to_string(), "1.0.4");
+    }
+
+    #[test]
+    fn other_file_names_are_not_nexus_files() {
+        for n in ["My Mod (v2)", "HD2CAM", "Mod 12 1.2", "Mod x 1.2 2026-10-28T10-41Z code", "12 1.2 2026-10-28T10-41Z code"] {
+            assert!(nexus_file(n).is_none(), "{n}");
+        }
+    }
     use crate::bundle::{Bundle, Variant};
     use crate::hash::hash_name;
     use crate::testutil::spaced_tempdir;

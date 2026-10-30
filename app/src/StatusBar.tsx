@@ -3,6 +3,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useRef, useState } from "react";
 import { AboutDialog } from "./About";
+import { useBusy } from "./busy";
 import { BellIcon, DiscordIcon, InfoIcon } from "./Icons";
 import { language, t } from "./i18n";
 import { LINKS } from "./links";
@@ -18,12 +19,15 @@ function shownTime(at: number) {
 export function StatusBar({ version, onUpdates }: { version: string | null; onUpdates: () => void }) {
   const [about, setAbout] = useState(false);
   const [log, setLog] = useState(false);
+  const busy = useBusy();
   return (
     <footer className="statusbar">
       <button className="sb-btn" onClick={() => openUrl(LINKS.discord).catch(() => {})} title={t("app.status.discordHint")}>
         <DiscordIcon />
         <span>dsc.gg/hd1modding</span>
       </button>
+      <span className="spacer" />
+      {busy && <span className="sb-busy"><i />{busy}</span>}
       <span className="spacer" />
       {version && (
         <button className="sb-btn" onClick={onUpdates} title={t("app.status.updates")}>v{version}</button>

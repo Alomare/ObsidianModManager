@@ -2555,9 +2555,10 @@ dependencies = [
 
 [[package]]
 name = "obsidian-app"
-version = "0.1.0-beta.1"
+version = "0.1.0"
 dependencies = [
  "obsidian-core",
+ "semver",
  "serde",
  "serde_json",
  "tauri",
@@ -2571,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "obsidian-core"
-version = "0.1.0-beta.1"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "chrono",

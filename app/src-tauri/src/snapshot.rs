@@ -214,13 +214,14 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         let mut overlaps: Vec<String> = conflicts.iter().filter(|c| c.mods.contains(&m.id)).flat_map(|c| c.mods.iter().filter(|id| **id != m.id).cloned()).collect();
         overlaps.sort();
         overlaps.dedup();
-        let legacy = m.extra.get("legacy") == Some(&Value::Bool(true));
+        // An imported legacy mod has no version of its own unless its Nexus file name gave one.
+        let unversioned = m.extra.get("legacy") == Some(&Value::Bool(true)) && m.version == semver::Version::new(0, 0, 0);
         mods.push(ModRow {
             id: m.id.clone(),
             name: m.name.clone(),
             description: m.description.clone().unwrap_or_default(),
             authors: m.authors.clone(),
-            version: if legacy { None } else { Some(m.version.to_string()) },
+            version: if unversioned { None } else { Some(m.version.to_string()) },
             scope: if m.scope == Scope::Client { "client" } else { "session" },
             bundled: m.is_bundled(),
             on: e.enabled,
@@ -272,11 +273,11 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let data = t.path().join("data");
         let lib = Library::open(&data).unwrap();
-        for (id, legacy) in [("a.one", false), ("legacy.two", true)] {
+        for (id, legacy, version) in [("a.one", false, "1.2.0"), ("legacy.two", true, "0.0.0")] {
             let d = t.path().join(id);
             let extra = if legacy { r#","legacy":true"# } else { "" };
             put(&d, "obsidian.json", &format!(
-                r##"{{"obsidian":1,"id":"{id}","version":"1.2.0","name":{{"en":"{id}"}},"scope":"client","entry":"main.lua"{extra},
+                r##"{{"obsidian":1,"id":"{id}","version":"{version}","name":{{"en":"{id}"}},"scope":"client","entry":"main.lua"{extra},
                    "options":[{{"id":"fast","type":"toggle","default":false,"label":{{"en":"Fast"}}}}],
                    "keybinds":[{{"id":"toggle","default":"f8"}}],
                    "resources":[{{"type":"#0000000000000001","name":"#00000000000000f0","bundle":"00000000000000aa","data":"r.bin"}}]}}"##

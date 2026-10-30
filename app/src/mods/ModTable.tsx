@@ -73,10 +73,9 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
     <div className="table" role="table">
       <div className="th cap" role="row">
         <span title={canDrag ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
+        <span>{t("app.mods.colOn")}</span>
         <span>{t("app.mods.colMod")}</span>
         <span>{t("app.mods.colScope")}</span>
-        <span>{t("app.mods.colVersion")}</span>
-        <span>{t("app.mods.colOn")}</span>
       </div>
       <div ref={body} className="tbody">
         {rows.map((m, i) => {
@@ -86,21 +85,21 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
             <div key={m.id} role="row" tabIndex={0} className={cls} aria-selected={selected === m.id}
               onPointerDown={(e) => down(e, m.id, i)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => key(e, m.id, i)}>
               <span className="num">{order.indexOf(m.id) + 1}</span>
+              <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"}
+                onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onClick={() => onToggle(m.id, !m.on)} />
               <div className="who">
                 <div className="nm">
                   {name}
+                  <span className="ver">{m.version ?? t("app.mods.imported")}</span>
                   {m.bundled && <span className="tag">{t("app.mods.bundled")}</span>}
                 </div>
                 {m.overlaps.length > 0 ? (
                   <div className="sub warn">{t("app.mods.overlaps", m.overlaps.map((id) => names.get(id) ?? id).join(", "))}</div>
                 ) : (
-                  <div className="sub">{pick(m.description)}</div>
+                  <div className="sub">{pick(m.description) || " "}</div>
                 )}
               </div>
               <span className={`scope ${m.scope}`}><i />{t(`app.scope.${m.scope}`)}</span>
-              <span className="sub">{m.version ?? t("app.mods.imported")}</span>
-              <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"}
-                onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onClick={() => onToggle(m.id, !m.on)} />
             </div>
           );
         })}
