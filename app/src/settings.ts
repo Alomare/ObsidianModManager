@@ -16,8 +16,16 @@ function apply(s: AppSettings) {
   listeners.forEach((f) => f());
 }
 
+const DEFAULTS: AppSettings = { theme: "default", nav: "top", scale: 100, text: "normal", motion: null, language: null, updates: "prompt", gameDir: null };
+
+/** Loads the saved settings. If that fails the window still opens, with the defaults. */
 export async function loadSettings() {
-  apply(await call<AppSettings>("get_app_settings"));
+  try {
+    apply(await call<AppSettings>("get_app_settings"));
+  } catch (e) {
+    apply(DEFAULTS);
+    notify("error", errorText(e));
+  }
 }
 
 export async function updateSettings(patch: Partial<AppSettings>) {

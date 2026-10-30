@@ -1,0 +1,60 @@
+import { describe, expect, it } from "vitest";
+import { groupConflicts, winners } from "../mods/conflicts";
+import { keyName } from "../mods/keyCapture";
+import { clampNumber } from "../mods/optionValue";
+
+const key = (code: string, k = "") => ({ code, key: k }) as KeyboardEvent;
+
+describe("clampNumber", () => {
+  it("snaps to the step and stays in range", () => {
+    const spec = { min: 0, max: 10, step: 0.5 };
+    expect(clampNumber(3.3, spec)).toBe(3.5);
+    expect(clampNumber(-4, spec)).toBe(0);
+    expect(clampNumber(99, spec)).toBe(10);
+    expect(clampNumber(7.24, { min: 1, max: null, step: 0.1 })).toBe(7.2);
+    expect(clampNumber(NaN, spec)).toBe(0);
+  });
+  it("counts steps from the minimum", () => {
+    expect(clampNumber(4, { min: 1, max: 10, step: 2 })).toBe(5);
+  });
+});
+
+describe("keyName", () => {
+  it("maps letters, digits, F keys and a few named keys", () => {
+    expect(keyName(key("KeyQ", "q"))).toBe("q");
+    expect(keyName(key("Digit7", "7"))).toBe("7");
+    expect(keyName(key("F11", "F11"))).toBe("f11");
+    expect(keyName(key("Space", " "))).toBe("space");
+    expect(keyName(key("Insert", "Insert"))).toBe("insert");
+  });
+  it("returns null for Esc and for keys the loader cannot read", () => {
+    expect(keyName(key("Escape", "Escape"))).toBeNull();
+    expect(keyName(key("ShiftLeft", "Shift"))).toBeNull();
+    expect(keyName(key("Numpad5", "5"))).toBeNull();
+  });
+});
+
+describe("winners", () => {
+  const rows = [{ resource: "a/x", mods: ["tpc", "cam"], winner: "cam" }];
+  it("picks the mod lowest in the given order", () => {
+    expect(winners(rows, ["qol", "cam", "tpc"])[0]).toEqual({ resource: "a/x", mods: ["cam", "tpc"], winner: "tpc" });
+    expect(winners(rows, ["tpc", "cam"])[0].winner).toBe("cam");
+  });
+  it("keeps mods missing from the order at the top", () => {
+    expect(winners(rows, ["cam"])[0].mods).toEqual(["tpc", "cam"]);
+  });
+});
+
+describe("groupConflicts", () => {
+  it("puts conflicts between the same mods with the same winner together", () => {
+    const g = groupConflicts([
+      { resource: "a/1", mods: ["x", "y"], winner: "y" },
+      { resource: "a/2", mods: ["x", "y"], winner: "y" },
+      { resource: "a/3", mods: ["x", "y", "z"], winner: "z" },
+    ]);
+    expect(g).toEqual([
+      { mods: ["x", "y"], winner: "y", resources: ["a/1", "a/2"] },
+      { mods: ["x", "y", "z"], winner: "z", resources: ["a/3"] },
+    ]);
+  });
+});

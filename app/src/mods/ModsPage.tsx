@@ -1,11 +1,13 @@
-// The Mods page: header, crash banner, the table and (Task 6) the drawer (spec 4.1).
+// The Mods page: header, crash banner, the table and the drawer (spec 4.1 and 4.2).
 import { useMemo, useState } from "react";
 import { run } from "../api";
 import { CloseIcon, SearchIcon, WarnIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { Select } from "../Select";
 import type { Snapshot } from "../types";
+import { winners } from "./conflicts";
 import { CrashBanner } from "./CrashBanner";
+import { Drawer } from "./Drawer";
 import { pickAndImport } from "./dropImport";
 import { ModTable } from "./ModTable";
 import { filterMods } from "./rows";
@@ -23,6 +25,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const rows = filterMods(order.flatMap((id) => byId.get(id) ?? []), query);
   const searching = query.trim() !== "";
   const conflicts = snap.conflicts.length;
+  const shownConflicts = useMemo(() => (pending ? winners(snap.conflicts, pending) : snap.conflicts), [snap.conflicts, pending]);
 
   const drop = async (ids: string[]) => {
     setPending(ids);
@@ -62,6 +65,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             <button className="link" onClick={() => pickAndImport(true)}>{t("app.mods.importFolder")}</button>
           </div>
         </section>
+        <Drawer view={view} mods={snap.mods} conflicts={shownConflicts} order={order} names={names} onClose={() => setView(null)} />
       </div>
     </div>
   );

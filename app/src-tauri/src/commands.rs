@@ -175,6 +175,42 @@ pub async fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult
     Ok(ImportBatch { snapshot: fresh(&ctx)?, results })
 }
 
+/// Saves a change to options or keys and writes the settings file the loader reads, so the change
+/// reaches the game at the next launch (also while the game runs).
+fn live_edit(ctx: &Ctx, f: impl FnOnce(&Library, &mut Profile) -> obsidian_core::Result<()>) -> CmdResult<Snapshot> {
+    let lib = Library::open(&ctx.data)?;
+    let mut p = Profile::load(&ctx.data)?;
+    p.sync(&lib)?;
+    f(&lib, &mut p)?;
+    p.save(&ctx.data)?;
+    if let Some(g) = find(&AppSettings::load(&ctx.data)) {
+        obsidian_core::edit::write_settings(&lib, &p, &g.saves_dir)?;
+    }
+    fresh(ctx)
+}
+
+/// `value` null resets the option to its default.
+#[tauri::command]
+pub async fn set_option(ctx: State<'_, Ctx>, id: String, option: String, value: Option<serde_json::Value>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    live_edit(&ctx, |lib, p| obsidian_core::edit::set_option(lib, p, &id, &option, value.as_ref()).map(|_| ()))
+}
+
+/// `key` null resets the keybind to the mod's default.
+#[tauri::command]
+pub async fn set_key(ctx: State<'_, Ctx>, id: String, keybind: String, key: Option<String>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    live_edit(&ctx, |lib, p| obsidian_core::edit::set_key(lib, p, &id, &keybind, key.as_deref()))
+}
+
+/// Deletes a mod from the library; it leaves every profile. Bundled mods are refused.
+#[tauri::command]
+pub async fn remove_mod(ctx: State<'_, Ctx>, id: String) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    Library::open(&ctx.data)?.remove(&id)?;
+    live_edit(&ctx, |_, _| Ok(()))
+}
+
 const STEAM_LAUNCH: &str = "steam://rungameid/394510";
 
 fn game_of(ctx: &Ctx) -> CmdResult<GameInstall> {

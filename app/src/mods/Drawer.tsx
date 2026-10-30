@@ -1,0 +1,252 @@
+// The drawer beside the mod table (spec 4.2): one mod's Options, Keys, Files and About, or the
+// conflicts. With nothing selected it shows the conflicts, or a hint about importing.
+import { useEffect, useState } from "react";
+import { run } from "../api";
+import { Confirm } from "../Confirm";
+import { CloseIcon, ExternalIcon, ResetIcon } from "../Icons";
+import { language, pick, t } from "../i18n";
+import { Select } from "../Select";
+import type { ConflictRow, KeyRow, ModRow, OptionRow } from "../types";
+import { groupConflicts, type ConflictGroup } from "./conflicts";
+import { keyName } from "./keyCapture";
+import type { DrawerView } from "./ModsPage";
+import { clampNumber } from "./optionValue";
+import { openUrl } from "@tauri-apps/plugin-opener";
+
+type Props = {
+  view: DrawerView;
+  mods: ModRow[];
+  /** Conflicts for the order on screen (a drag may be under way). */
+  conflicts: ConflictRow[];
+  order: string[];
+  names: Map<string, string>;
+  onClose: () => void;
+};
+
+export function Drawer({ view, mods, conflicts, order, names, onClose }: Props) {
+  const mod = view?.kind === "mod" ? mods.find((m) => m.id === view.id) : undefined;
+  if (mod) return <ModDrawer key={mod.id} mod={mod} conflicts={conflicts} names={names} onClose={onClose} />;
+  if (view?.kind === "conflicts" || conflicts.length) return <ConflictsView conflicts={conflicts} order={order} names={names} onClose={view ? onClose : undefined} />;
+  return (
+    <aside className="drawer idle">
+      <p className="muted">{t("app.drawer.hint")}</p>
+    </aside>
+  );
+}
+
+type Tab = "options" | "keys" | "files" | "about";
+
+function ModDrawer({ mod, conflicts, names, onClose }: { mod: ModRow; conflicts: ConflictRow[]; names: Map<string, string>; onClose: () => void }) {
+  const [tab, setTab] = useState<Tab>(mod.options.length ? "options" : mod.keybinds.length ? "keys" : "about");
+  const name = pick(mod.name, mod.id);
+  const tabs: [Tab, number | null][] = [["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["about", null]];
+  return (
+    <aside className={`drawer ${mod.scope}`} aria-label={name}>
+      <div className="dh">
+        <div className="dh-text">
+          <h2>{name}</h2>
+          <div className="meta">
+            {[mod.authors.join(", "), mod.version ?? t("app.mods.imported"), t(`app.scope.${mod.scope}`)].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+        <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
+      </div>
+      <div className="dtabs" role="tablist">
+        {tabs.map(([id, n]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "cur" : undefined} onClick={() => setTab(id)}>
+            {t(`app.drawer.${id}`)}{n ? <span className="count">{n}</span> : null}
+          </button>
+        ))}
+      </div>
+      <div className="dbody">
+        {tab === "options" && <OptionsTab mod={mod} />}
+        {tab === "keys" && <KeysTab mod={mod} names={names} />}
+        {tab === "files" && <FilesTab mod={mod} conflicts={conflicts} names={names} />}
+        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
+      </div>
+    </aside>
+  );
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+function OptionsTab({ mod }: { mod: ModRow }) {
+  if (!mod.options.length) return <p className="muted pad">{t("app.drawer.noOptions")}</p>;
+  return (
+    <ul className="opts">
+      {mod.options.map((o) => (
+        <li key={o.id} className="opt">
+          <div className="opt-text">
+            <div className="l">{pick(o.label, o.id)}</div>
+            {pick(o.description) && <div className="d">{pick(o.description)}</div>}
+            {o.deploy && <div className="d note">{t("app.drawer.afterDeploy")}</div>}
+          </div>
+          <div className="opt-ctl">
+            <OptionControl mod={mod} o={o} />
+            <button className="bare" disabled={same(o.value, o.default)} onClick={() => run("set_option", { id: mod.id, option: o.id, value: null })}
+              aria-label={t("app.drawer.reset")} data-tip={t("app.drawer.reset")}><ResetIcon /></button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function OptionControl({ mod, o }: { mod: ModRow; o: OptionRow }) {
+  const set = (value: unknown) => run("set_option", { id: mod.id, option: o.id, value });
+  const label = pick(o.label, o.id);
+  if (o.kind === "toggle") {
+    return <button role="switch" aria-checked={o.value === true} aria-label={label} className={o.value === true ? "sw on" : "sw"} onClick={() => set(o.value !== true)} />;
+  }
+  if (o.kind === "choice") {
+    return <Select value={String(o.value)} options={o.choices.map((c) => ({ value: c, label: c }))} label={label} onChange={set} />;
+  }
+  if (o.kind === "number") return <NumberControl o={o} label={label} onSet={set} />;
+  if (o.kind === "key") return <KeyButton value={String(o.value)} label={label} onSet={set} />;
+  return <span className="muted">{String(o.value)}</span>;
+}
+
+function NumberControl({ o, label, onSet }: { o: OptionRow; label: string; onSet: (v: number) => void }) {
+  const [v, setV] = useState(Number(o.value));
+  useEffect(() => setV(Number(o.value)), [o.value]);
+  const commit = (n: number) => {
+    const c = clampNumber(n, o);
+    setV(c);
+    if (c !== Number(o.value)) onSet(c);
+  };
+  return (
+    <div className="num-ctl">
+      {o.min !== null && o.max !== null && (
+        <input type="range" min={o.min} max={o.max} step={o.step ?? "any"} value={v} aria-label={label}
+          onChange={(e) => setV(Number(e.target.value))} onPointerUp={() => commit(v)} onKeyUp={() => commit(v)} />
+      )}
+      <input type="number" value={v} min={o.min ?? undefined} max={o.max ?? undefined} step={o.step ?? "any"} aria-label={label}
+        onChange={(e) => setV(Number(e.target.value))} onBlur={() => commit(v)} onKeyDown={(e) => e.key === "Enter" && commit(v)} />
+    </div>
+  );
+}
+
+/** Shows a key; a click waits for the next key press, Esc cancels. */
+function KeyButton({ value, label, onSet, clash }: { value: string; label: string; onSet: (k: string) => void; clash?: boolean }) {
+  const [waiting, setWaiting] = useState(false);
+  return (
+    <button className={["key-btn", waiting && "waiting", clash && "clash"].filter(Boolean).join(" ")} aria-label={`${label}: ${value}`}
+      data-tip={waiting ? undefined : t("app.drawer.keyHint")}
+      onClick={() => setWaiting(true)} onBlur={() => setWaiting(false)}
+      onKeyDown={(e) => {
+        if (!waiting) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === "Escape") return setWaiting(false);
+        const k = keyName(e.nativeEvent);
+        if (k) {
+          setWaiting(false);
+          if (k !== value) onSet(k);
+        }
+      }}>
+      {waiting ? t("app.drawer.pressKey") : value}
+    </button>
+  );
+}
+
+function KeysTab({ mod, names }: { mod: ModRow; names: Map<string, string> }) {
+  if (!mod.keybinds.length) return <p className="muted pad">{t("app.drawer.noKeys")}</p>;
+  return (
+    <ul className="opts">
+      {mod.keybinds.map((k: KeyRow) => {
+        const key = k.key ?? k.default;
+        return (
+          <li key={k.id} className="opt">
+            <div className="opt-text">
+              <div className="l">{pick(k.label, k.id)}</div>
+              {k.clash.length > 0 && <div className="d warn">{t("app.drawer.keyClash", [pick(mod.name, mod.id), ...k.clash.map((id) => names.get(id) ?? id)].join(", "))}</div>}
+            </div>
+            <div className="opt-ctl">
+              <KeyButton value={key} label={pick(k.label, k.id)} clash={k.clash.length > 0} onSet={(v) => run("set_key", { id: mod.id, keybind: k.id, key: v })} />
+              <button className="bare" disabled={k.key === null} onClick={() => run("set_key", { id: mod.id, keybind: k.id, key: null })}
+                aria-label={t("app.drawer.reset")} data-tip={t("app.drawer.resetKey", k.default)}><ResetIcon /></button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function FilesTab({ mod, conflicts, names }: { mod: ModRow; conflicts: ConflictRow[]; names: Map<string, string> }) {
+  if (!mod.files.length) return <p className="muted pad">{t("app.drawer.noFiles")}</p>;
+  const others = new Map(conflicts.map((c) => [c.resource, c.mods.filter((id) => id !== mod.id)]));
+  return (
+    <ul className="files">
+      {mod.files.map((f) => {
+        const o = others.get(f) ?? [];
+        return (
+          <li key={f}>
+            <span className="f">{f}</span>
+            {o.length > 0 && <span className="warn">{t("app.drawer.alsoChangedBy", o.map((id) => names.get(id) ?? id).join(", "))}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
+  const [ask, setAsk] = useState(false);
+  const name = pick(mod.name, mod.id);
+  const date = mod.import ? new Date(mod.import.date).toLocaleString(language(), { dateStyle: "medium", timeStyle: "short" }) : null;
+  return (
+    <div className="about-mod pad">
+      {pick(mod.description) && <p>{pick(mod.description)}</p>}
+      <dl className="facts">
+        {mod.authors.length > 0 && <><dt>{t("app.drawer.authors")}</dt><dd>{mod.authors.join(", ")}</dd></>}
+        <dt>{t("app.drawer.id")}</dt><dd className="mono">{mod.id}</dd>
+        {mod.source && <><dt>{t("app.drawer.source")}</dt><dd><button className="link" onClick={() => openUrl(mod.source!).catch(() => {})}>{mod.source} <ExternalIcon /></button></dd></>}
+        {mod.import && <><dt>{t("app.drawer.imported")}</dt><dd>{date}</dd><dt>{t("app.drawer.file")}</dt><dd className="mono">{mod.import.file}</dd></>}
+      </dl>
+      {!mod.bundled && <button className="btn small warn-outline" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>}
+      {ask && (
+        <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
+          onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mod", { id: mod.id })) onRemoved(); }} />
+      )}
+    </div>
+  );
+}
+
+function ConflictEntry({ g, at, names }: { g: ConflictGroup; at: (id: string) => number; names: Map<string, string> }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="cf">
+      <div className="w">{t("app.drawer.wins")} <b>{names.get(g.winner) ?? g.winner}</b> <span className="muted">({at(g.winner)})</span></div>
+      {g.mods.filter((id) => id !== g.winner).reverse().map((id) => (
+        <div key={id} className="l">{names.get(id) ?? id} ({at(id)})</div>
+      ))}
+      <button className="link small" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {t(g.resources.length === 1 ? "app.drawer.oneFile" : "app.drawer.files_n", g.resources.length)}
+      </button>
+      {open && <ul className="files">{g.resources.map((r) => <li key={r}><span className="f">{r}</span></li>)}</ul>}
+    </div>
+  );
+}
+
+function ConflictsView({ conflicts, order, names, onClose }: { conflicts: ConflictRow[]; order: string[]; names: Map<string, string>; onClose?: () => void }) {
+  const at = (id: string) => order.indexOf(id) + 1;
+  return (
+    <aside className="drawer conflicts" aria-label={t("app.drawer.conflicts")}>
+      <div className="dh">
+        <div className="dh-text">
+          <h2 className="cap">{t("app.drawer.conflicts")}</h2>
+          <div className="meta">{t("app.drawer.conflictsMeta")}</div>
+        </div>
+        {onClose && <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>}
+      </div>
+      <div className="dbody">
+        {conflicts.length === 0 && <p className="muted pad">{t("app.drawer.noConflicts")}</p>}
+        {groupConflicts(conflicts).map((g) => (
+          <ConflictEntry key={g.mods.join("+") + g.winner} g={g} at={at} names={names} />
+        ))}
+        {conflicts.length > 0 && <p className="muted pad">{t("app.drawer.conflictsNote")}</p>}
+      </div>
+    </aside>
+  );
+}
