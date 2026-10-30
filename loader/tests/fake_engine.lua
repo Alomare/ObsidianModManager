@@ -4,8 +4,14 @@
 local E = {}
 local SRC = "loader/src/"
 
+local WINDOWS = package.config:sub(1, 1) == "\\"
+
 local function mkdir(path)
-	os.execute('mkdir "' .. path:gsub("/", "\\") .. '" >nul 2>nul')
+	if WINDOWS then
+		os.execute('mkdir "' .. path:gsub("/", "\\") .. '" >nul 2>nul')
+	else
+		os.execute('mkdir -p "' .. path .. '"')
+	end
 end
 
 local function read(path)
@@ -35,7 +41,7 @@ end
 function E.new(opts)
 	opts = opts or {}
 	local e = { opts = opts, loaded = {} }
-	e.root = (os.getenv("TEMP") or ".") .. "/obsidian-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
+	e.root = (os.getenv("TEMP") or (WINDOWS and "." or "/tmp")) .. "/obsidian-test-" .. tostring(os.time()) .. "-" .. tostring(math.random(1, 1e9))
 	e.obsidian_dir = e.root .. "/Arrowhead/Helldivers/ObsidianModManager"
 	mkdir(e.obsidian_dir .. "/logs")
 	-- opts.settings: the text of settings.txt; nil leaves the file missing.
