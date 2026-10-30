@@ -58,7 +58,7 @@ enum Command {
     Set { id: String, option: String, value: String },
     /// Delete a mod from the library
     Remove { id: String },
-    /// Put the starter pack back as it came, in the active profile
+    /// Put the Obsidian Kit back as it came, in the active profile
     RestoreStarter,
     /// Set a mod key, for example: obsidian key author.mod toggle f9
     Key { id: String, keybind: String, key: String },
@@ -299,7 +299,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Command::RestoreStarter => {
             starter::restore(&lib, &mut profile)?;
-            live_change(&profile, &data, &lib, &game()?, "The starter pack is back as it came")?;
+            live_change(&profile, &data, &lib, &game()?, "The Obsidian Kit is back as it came")?;
         }
         Command::Key { id, keybind, key } => {
             obsidian_core::edit::set_key(&lib, &mut profile, &id, &keybind, Some(&key))?;

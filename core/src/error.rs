@@ -42,7 +42,7 @@ pub enum ObsidianError {
     ReservedResource { mod_id: String, name: String },
     #[error("Obsidian Loader files were not found (looked in {0})")]
     LoaderMissing(String),
-    #[error("this copy of Obsidian has no starter pack to restore")]
+    #[error("this copy of Obsidian has no Obsidian Kit to restore")]
     NoStarterPack,
     #[error("{mod_id} has no keybind {keybind}")]
     UnknownKeybind { mod_id: String, keybind: String },

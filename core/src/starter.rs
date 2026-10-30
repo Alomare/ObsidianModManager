@@ -1,6 +1,7 @@
-//! The starter pack: the mods that come with Obsidian. They are mods like any other, which the
-//! player can turn off, move, update from their own repositories and delete, so they go into a data
-//! folder once, the first time it is used, and after that only when the player asks (`restore`).
+//! The starter pack, which the player sees as the Obsidian Kit: the mods that come with Obsidian. They
+//! are mods like any other, which the player can turn off, move, update from their own repositories
+//! and delete, so they go into a data folder once, the first time it is used, and after that only
+//! when the player asks (`restore`).
 
 use std::path::Path;
 
@@ -19,7 +20,7 @@ const FOLDER: &str = "obsidian";
 const SEEDED: &str = "starter-pack.txt";
 
 fn folder() -> Folder {
-    Folder { id: FOLDER.into(), name: "STARTER PACK".into(), color: "#8a9099".into(), collapsed: true, locked: false }
+    Folder { id: FOLDER.into(), name: "Obsidian Kit".into(), color: "#4a90d9".into(), collapsed: true, locked: true }
 }
 
 /// Copies the shipped mods into the library. A newer copy, from an update, stays.
@@ -134,7 +135,7 @@ mod tests {
     }
     fn folders_ok(p: &Profile) {
         assert_eq!(p.folders, [folder()]);
-        assert_eq!((p.folders[0].name.as_str(), p.folders[0].color.as_str(), p.folders[0].collapsed, p.folders[0].locked), ("STARTER PACK", "#8a9099", true, false));
+        assert_eq!((p.folders[0].name.as_str(), p.folders[0].color.as_str(), p.folders[0].collapsed, p.folders[0].locked), ("Obsidian Kit", "#4a90d9", true, true));
         assert!(p.mods.iter().take(3).all(|m| m.folder.as_deref() == Some(FOLDER)));
     }
     /// The values the game gets for the Quality of Life mod.
@@ -170,7 +171,9 @@ mod tests {
         lib.install(&stage(t.path(), "obsidian.api", "9.0.0", "")).unwrap();
         let mut p = Profile::load(t.path()).unwrap();
         p.sync(&lib).unwrap();
-        assert_eq!(p.delete_folder(FOLDER), ["obsidian.api", "obsidian.qol"]);
+        assert!(p.delete_folder(FOLDER).is_empty() && p.folders.len() == 1, "the folder starts locked");
+        p.edit_folder(FOLDER, None, None, None, Some(false)).unwrap();
+        assert_eq!(p.delete_folder(FOLDER), ["obsidian.api", "obsidian.qol"], "and unlocks like any other");
         p.set_enabled(ON, false).unwrap();
         p.save(t.path()).unwrap();
 
@@ -195,9 +198,8 @@ mod tests {
         p.set_order(&["my.mod".into(), "my.other".into()]);
         p.set_enabled("my.mod", true).unwrap();
         p.switch(&lib, "obsidian.trainer", true).unwrap();
-        p.edit_folder(FOLDER, Some("Mine"), Some("#ffffff"), Some(false), None).unwrap();
+        p.edit_folder(FOLDER, Some("Mine"), Some("#ffffff"), Some(false), Some(false)).unwrap();
         p.arrange(&[], &[("my.other".into(), Some(FOLDER.into()))]);
-        p.edit_folder(FOLDER, None, None, None, Some(true)).unwrap();
         p.options.insert(ON.into(), [("skip_intro".to_string(), json!(true))].into());
         p.options.insert("my.mod".into(), [("speed".to_string(), json!(3))].into());
         p.keys.insert("obsidian.trainer".into(), [("open".to_string(), "f9".to_string())].into());

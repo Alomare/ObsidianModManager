@@ -20,7 +20,7 @@ On Linux you also need the [system packages Tauri lists](https://v2.tauri.app/st
 
 Some tests read your own game files and are skipped unless you point them at the game with `OBSIDIAN_GAME_DIR`. Game files are never committed.
 
-## The starter pack
+## The Obsidian Kit
 
 Obsidian API, Obsidian Trainer and Obsidian Quality of Life each have their own repository, under the MIT License. `bundled/` holds a copy of each one for the installer and the tests, so change a mod in its repository, not there. With the repositories cloned into `../Bundled`, `python tools/starter_pack.py` refreshes the copy from what they have committed.
 
@@ -36,4 +36,4 @@ Include the output of `obsidian status`, the file `%APPDATA%\Arrowhead\Helldiver
 
 ## License
 
-By contributing, you agree that your contribution is licensed under the [Apache License 2.0](LICENSE), the same as the rest of Obsidian. The starter pack repositories are under the MIT License.
+By contributing, you agree that your contribution is licensed under the [Apache License 2.0](LICENSE), the same as the rest of Obsidian. The Obsidian Kit repositories are under the MIT License.

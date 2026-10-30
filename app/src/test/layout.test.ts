@@ -53,7 +53,7 @@ describe("folder layout", () => {
     expect(dropSpot(t, shown, 1, "f1", ["d"])).toEqual({ folder: null, index: 2 });
   });
 
-  it("treats the starter pack folder like any other", () => {
+  it("treats the Obsidian Kit folder, once unlocked, like any other", () => {
     // [obsidian: q] a
     const t = toTree([e("q", "obsidian"), e("a")], [F("obsidian")]);
     expect(flatten(toEnd(t, ["a"], "top"))).toEqual(["a", "q"]);
