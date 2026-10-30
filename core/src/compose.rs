@@ -173,7 +173,8 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
     if with_data {
         for c in &mods {
             if let Some(id) = c.manifest.requires.iter().find(|id| !mods.iter().any(|m| m.manifest.id == **id)) {
-                return Err(ObsidianError::MissingRequirement { mod_id: c.manifest.id.clone(), requires: id.clone() });
+                let (mod_id, requires) = (c.manifest.id.clone(), id.clone());
+                return Err(if lib.mod_dir(id).is_dir() { ObsidianError::MissingRequirement { mod_id, requires } } else { ObsidianError::RequirementNotInstalled { mod_id, requires } });
             }
         }
     }

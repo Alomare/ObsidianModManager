@@ -195,9 +195,6 @@ fn check_path(mod_dir: &Path, p: &Path, field: &str) -> Result<()> {
 
 impl Manifest {
     /// Ships with Obsidian: always in the library, can't be removed.
-    pub fn is_bundled(&self) -> bool {
-        self.extra.get("bundled") == Some(&Value::Bool(true))
-    }
     pub fn validate(&self, mod_dir: &Path) -> Result<()> {
         if self.obsidian != 1 {
             return Err(bad("obsidian", "only version 1 is supported"));

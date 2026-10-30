@@ -1,4 +1,4 @@
--- Obsidian Quality of Life: small fixes for the game, each one an option (all on by default).
+-- Obsidian Quality of Life: small fixes for the game, each one an option.
 local get = obsidian.settings.get
 
 -- Changes a settings table as soon as the game defines it, and again if the game ever replaces the

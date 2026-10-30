@@ -30,22 +30,6 @@ pub enum InstallOutcome {
 }
 
 /// Copies a folder tree.
-/// True when every file in `a` exists in `b` with the same bytes.
-fn same_files(a: &Path, b: &Path) -> Result<bool> {
-    if !b.is_dir() {
-        return Ok(false);
-    }
-    for e in std::fs::read_dir(a)? {
-        let e = e?;
-        let other = b.join(e.file_name());
-        let same = if e.file_type()?.is_dir() { same_files(&e.path(), &other)? } else { other.is_file() && std::fs::read(e.path())? == std::fs::read(&other)? };
-        if !same {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
 pub(crate) fn copy_dir(from: &Path, to: &Path) -> Result<()> {
     std::fs::create_dir_all(to)?;
     for e in std::fs::read_dir(from)? {
@@ -69,25 +53,6 @@ impl Library {
     pub fn mod_dir(&self, id: &str) -> PathBuf {
         self.root.join(id)
     }
-    /// Installs every bundled mod (a subfolder of `dir` with `obsidian.json`) that is missing or
-    /// differs from the copy in the library. A new mod joins the profile switched off at sync.
-    pub fn install_bundled(&self, dir: &Path) -> Result<()> {
-        if !dir.is_dir() {
-            return Ok(());
-        }
-        for e in std::fs::read_dir(dir)? {
-            let src = e?.path();
-            if !src.join(crate::manifest::FILE).is_file() {
-                continue;
-            }
-            let id = crate::manifest::load_manifest(&src)?.id;
-            if !same_files(&src, &self.mod_dir(&id))? {
-                self.install(&src)?;
-            }
-        }
-        Ok(())
-    }
-
     /// Copies a staged folder holding `obsidian.json` into `mods/<id>`, replacing an older copy.
     pub fn install(&self, staged: &Path) -> Result<InstallOutcome> {
         let m = load_manifest(staged)?;
@@ -115,10 +80,7 @@ impl Library {
     /// Deletes a mod from the library. Profiles drop it at their next sync.
     pub fn remove(&self, id: &str) -> Result<()> {
         let dir = self.mod_dir(id);
-        let m = load_manifest(&dir).map_err(|_| ObsidianError::ModMissing(id.to_string()))?;
-        if m.is_bundled() {
-            return Err(ObsidianError::BundledMod(id.to_string()));
-        }
+        load_manifest(&dir).map_err(|_| ObsidianError::ModMissing(id.to_string()))?;
         crate::manifest::forget(&dir);
         std::fs::remove_dir_all(dir)?;
         Ok(())
@@ -187,7 +149,10 @@ impl Profile {
     }
     /// Saves as the active profile.
     pub fn save(&self, data_dir: &Path) -> Result<()> {
-        let path = crate::profiles::path(data_dir, &crate::profiles::active(data_dir)?);
+        self.save_named(data_dir, &crate::profiles::active(data_dir)?)
+    }
+    pub fn save_named(&self, data_dir: &Path, name: &str) -> Result<()> {
+        let path = crate::profiles::path(data_dir, name);
         std::fs::create_dir_all(path.parent().expect("profiles folder"))?;
         std::fs::write(path, serde_json::to_string_pretty(self)? + "\n")?;
         Ok(())
@@ -221,7 +186,7 @@ impl Profile {
             if on {
                 let needs = manifests.iter().find(|m| m.id == next).map(|m| m.requires.clone()).unwrap_or_default();
                 if let Some(gone) = needs.iter().find(|r| !self.mods.iter().any(|m| m.id == **r)) {
-                    return Err(ObsidianError::MissingRequirement { mod_id: next, requires: gone.clone() });
+                    return Err(ObsidianError::RequirementNotInstalled { mod_id: next, requires: gone.clone() });
                 }
                 todo.extend(needs);
             } else {
@@ -230,8 +195,7 @@ impl Profile {
         }
         Ok(changed)
     }
-    /// Appends newly installed mods as disabled, drops entries whose mod is gone, and keeps the
-    /// bundled mods first, in the locked Obsidian folder.
+    /// Appends newly installed mods as disabled and drops entries whose mod is gone.
     pub fn sync(&mut self, lib: &Library) -> Result<()> {
         let installed = lib.list()?;
         self.mods.retain(|m| installed.iter().any(|i| i.id == m.id));
@@ -240,8 +204,7 @@ impl Profile {
                 self.mods.push(ProfileEntry { id: m.id.clone(), enabled: false, folder: None });
             }
         }
-        let bundled: Vec<&str> = installed.iter().filter(|m| m.is_bundled()).map(|m| m.id.as_str()).collect();
-        self.pin_bundled(&bundled);
+        self.tidy_folders();
         Ok(())
     }
 }
@@ -294,7 +257,7 @@ mod tests {
         let mut p = Profile::default();
         p.sync(&lib).unwrap();
         let e = p.switch(&lib, "top", true).unwrap_err();
-        assert_eq!(e.to_string(), "top needs gone, which is not switched on");
+        assert_eq!(e.to_string(), "top needs gone, which is not installed");
     }
 
     #[test]
@@ -306,17 +269,6 @@ mod tests {
         assert!(lib.list().unwrap().is_empty());
         assert!(!lib.mod_dir("a").exists());
         assert!(matches!(lib.remove("a"), Err(ObsidianError::ModMissing(_))));
-    }
-
-    #[test]
-    fn remove_refuses_bundled() {
-        let t = spaced_tempdir();
-        let lib = Library::open(&t.path().join("data")).unwrap();
-        let d = t.path().join("stage-b");
-        put(&d, "obsidian.json", br#"{"obsidian":1,"id":"b","version":"1.0.0","name":{"en":"b"},"bundled":true}"#);
-        lib.install(&d).unwrap();
-        assert!(matches!(lib.remove("b"), Err(ObsidianError::BundledMod(_))));
-        assert!(lib.mod_dir("b").exists());
     }
 
     #[test]

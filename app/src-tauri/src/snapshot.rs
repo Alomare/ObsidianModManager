@@ -13,7 +13,7 @@ use obsidian_core::images::{self, Owner};
 use obsidian_core::library::{ImportInfo, Library, Profile};
 use obsidian_core::manifest::{Localized, Manifest, Scope};
 use obsidian_core::options::{OptionKind, effective_values, parse_keybinds};
-use obsidian_core::{Result, loader, profiles};
+use obsidian_core::{Result, profiles, starter};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -85,7 +85,6 @@ pub struct ModRow {
     /// `None` for an imported legacy mod, which has no version number.
     pub version: Option<String>,
     pub scope: &'static str,
-    pub bundled: bool,
     pub on: bool,
     pub options: Vec<OptionRow>,
     pub keybinds: Vec<KeyRow>,
@@ -229,10 +228,8 @@ fn option_rows(m: &Manifest, profile: &Profile) -> Result<Vec<OptionRow>> {
 }
 
 pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Result<Snapshot> {
+    starter::seed(data)?;
     let lib = Library::open(data)?;
-    if let Some(dir) = loader::find_bundled_dir() {
-        lib.install_bundled(&dir)?;
-    }
     let mut profile = Profile::load(data)?;
     profile.sync(&lib)?;
     profile.save(data)?;
@@ -283,7 +280,6 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             authors: m.authors.clone(),
             version: if unversioned { None } else { Some(m.version.to_string()) },
             scope: if m.scope == Scope::Client { "client" } else { "session" },
-            bundled: m.is_bundled(),
             on: e.enabled,
             options: option_rows(m, &profile)?,
             keybinds,
@@ -396,7 +392,7 @@ mod tests {
             .map(|_| {
                 let t0 = std::time::Instant::now();
                 let s = snapshot(&data, &settings, &mut GateCache::default()).unwrap();
-                assert_eq!(s.mods.len(), 201);
+                assert_eq!(s.mods.len(), 200 + starter::MODS.len());
                 assert!(s.conflicts.len() >= 199 * 4, "neighbours share files");
                 t0.elapsed().as_secs_f64() * 1000.0
             })

@@ -1,5 +1,5 @@
 //! A profile as a ZIP to share: the load order, folders, option values and keys, the profile image,
-//! and the files of every enabled mod. Bundled mods come with Obsidian, so only their entries go in.
+//! and the files of every enabled mod.
 //!
 //! ```text
 //! obsidian-profile.json   {"obsidianProfile": 1, "name": "...", "profile": {...}}
@@ -54,16 +54,11 @@ pub fn export(data: &Path, name: &str, dest: &Path) -> Result<usize> {
     let mut z = zip::ZipWriter::new(std::fs::File::create(dest)?);
     let mut shipped = Vec::new();
     for e in profile.mods.iter().filter(|m| m.enabled) {
-        let dir = lib.mod_dir(&e.id);
-        if load_manifest(&dir)?.is_bundled() {
-            continue;
-        }
-        add_dir(&mut z, &dir, &format!("mods/{}", e.id))?;
+        add_dir(&mut z, &lib.mod_dir(&e.id), &format!("mods/{}", e.id))?;
         shipped.push(e.id.clone());
     }
-    // Disabled mods stay home; the bundled ones are in every install.
-    let bundled = |id: &str| load_manifest(&lib.mod_dir(id)).is_ok_and(|m| m.is_bundled());
-    profile.mods.retain(|m| shipped.contains(&m.id) || bundled(&m.id));
+    // Disabled mods stay home.
+    profile.mods.retain(|m| shipped.contains(&m.id));
     profile.options.retain(|id, _| profile.mods.iter().any(|m| &m.id == id));
     profile.keys.retain(|id, _| profile.mods.iter().any(|m| &m.id == id));
     let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);

@@ -68,8 +68,6 @@ fn with_profile(data: &Path, f: impl FnOnce(&mut Profile) -> obsidian_core::Resu
     let mut p = Profile::load(data)?;
     p.sync(&lib)?;
     f(&mut p)?;
-    // Again, so no change can take the bundled mods out of their folder.
-    p.sync(&lib)?;
     p.save(data)?;
     Ok(())
 }
@@ -222,8 +220,7 @@ pub async fn edit_folder(ctx: State<'_, Ctx>, id: String, name: Option<String>, 
     fresh(&ctx)
 }
 
-/// Deletes a folder. The mods in it stay in the list, or with `remove_mods` leave the library (bundled
-/// mods stay either way).
+/// Deletes a folder. The mods in it stay in the list, or with `remove_mods` leave the library.
 #[tauri::command]
 pub async fn delete_folder(ctx: State<'_, Ctx>, id: String, remove_mods: bool) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
@@ -238,14 +235,10 @@ pub async fn delete_folder(ctx: State<'_, Ctx>, id: String, remove_mods: bool) -
     live_edit(&ctx, |_, _| Ok(()))
 }
 
-/// Removes mods from the library, skipping bundled ones.
 fn remove_from_library(data: &Path, ids: &[String]) -> CmdResult<()> {
     let lib = Library::open(data)?;
     for id in ids {
-        match lib.remove(id) {
-            Err(ObsidianError::BundledMod(_)) => {}
-            r => r?,
-        }
+        lib.remove(id)?;
     }
     Ok(())
 }
@@ -439,17 +432,19 @@ pub async fn set_key(ctx: State<'_, Ctx>, id: String, keybind: String, key: Opti
     live_edit(&ctx, |lib, p| obsidian_core::edit::set_key(lib, p, &id, &keybind, key.as_deref()))
 }
 
-/// Deletes mods from the library; they leave every profile. Bundled mods are refused, alone, or
-/// skipped among others.
+/// Deletes mods from the library; they leave every profile.
 #[tauri::command]
 pub async fn remove_mods(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
-    if let [id] = ids.as_slice() {
-        Library::open(&ctx.data)?.remove(id)?;
-    } else {
-        remove_from_library(&ctx.data, &ids)?;
-    }
+    remove_from_library(&ctx.data, &ids)?;
     live_edit(&ctx, |_, _| Ok(()))
+}
+
+/// Puts the starter pack back as it came, in the active profile.
+#[tauri::command]
+pub async fn restore_starter_pack(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    live_edit(&ctx, obsidian_core::starter::restore)
 }
 
 const STEAM_LAUNCH: &str = "steam://rungameid/394510";

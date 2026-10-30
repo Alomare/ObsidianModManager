@@ -24,7 +24,7 @@ fn bundle_with(data: &[u8]) -> Bundle {
 fn help_lists_every_command() {
     let out = Command::cargo_bin("obsidian").unwrap().arg("--help").assert().success().get_output().stdout.clone();
     let text = String::from_utf8(out).unwrap();
-    for cmd in ["game", "import", "list", "order", "enable", "disable", "conflicts", "deploy", "purge", "status", "updates", "update"] {
+    for cmd in ["game", "import", "list", "order", "enable", "disable", "conflicts", "deploy", "purge", "status", "updates", "update", "restore-starter"] {
         assert!(text.contains(cmd), "missing {cmd}");
     }
 }
@@ -72,7 +72,7 @@ fn settings_path(appdata: &std::path::Path) -> std::path::PathBuf {
 }
 
 #[test]
-fn consent_and_set_write_settings_for_the_bundled_mod() {
+fn consent_and_set_write_settings_for_a_starter_mod() {
     let t = spaced();
     let game = t.path().join("game");
     std::fs::create_dir_all(game.join("contents")).unwrap();
@@ -83,8 +83,7 @@ fn consent_and_set_write_settings_for_the_bundled_mod() {
         c
     };
     let list = String::from_utf8(run(&["list"]).assert().success().get_output().stdout.clone()).unwrap();
-    assert!(list.contains("[off] obsidian.qol"), "the bundled mod is in the library, switched off: {list}");
-    run(&["enable", "obsidian.qol"]).assert().success();
+    assert!(list.contains("[on ] obsidian.qol") && list.contains("[off] obsidian.trainer"), "only Quality of Life starts on: {list}");
     run(&["consent", "on"]).assert().success();
     run(&["set", "obsidian.qol", "skip_intro", "false"]).assert().success();
     let s = std::fs::read_to_string(settings_path(&appdata)).unwrap();
@@ -135,7 +134,6 @@ fn removed_mod_leaves_every_profile() {
     run(&["import", m.to_str().unwrap()]).assert().success();
     run(&["enable", "legacy.my-mod-v2"]).assert().success();
     run(&["profile", "new", "Other", "--copy", "Default"]).assert().success();
-    run(&["remove", "obsidian.qol"]).assert().failure();
     run(&["remove", "legacy.my-mod-v2"]).assert().success();
     for name in ["Default", "Other"] {
         run(&["profile", "use", name]).assert().success();
@@ -144,6 +142,26 @@ fn removed_mod_leaves_every_profile() {
         let saved = std::fs::read_to_string(data.join(format!("profiles/{name}.json"))).unwrap();
         assert!(!saved.contains("my-mod"), "{name}: {saved}");
     }
+}
+
+#[test]
+fn the_starter_pack_stays_deleted_until_it_is_restored() {
+    let t = spaced();
+    let game = t.path().join("game");
+    std::fs::create_dir_all(game.join("contents")).unwrap();
+    let (data, appdata) = (t.path().join("data"), t.path().join("appdata"));
+    let run = |args: &[&str]| {
+        let mut c = obsidian(&game, &data);
+        c.env("OBSIDIAN_APPDATA", &appdata).args(args);
+        c
+    };
+    let list = || String::from_utf8(run(&["list"]).assert().success().get_output().stdout.clone()).unwrap();
+    assert!(list().contains("1. [off] obsidian.api"), "first in the load order");
+    run(&["remove", "obsidian.qol"]).assert().success();
+    assert!(!list().contains("obsidian.qol"), "and it stays gone at the next start");
+    run(&["restore-starter"]).assert().success();
+    let back = list();
+    assert!(back.contains("3. [on ] obsidian.qol"), "{back}");
 }
 
 #[test]

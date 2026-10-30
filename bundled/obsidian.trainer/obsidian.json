@@ -21,7 +21,7 @@
   ],
   "scope": "session",
   "entry": "main.lua",
-  "bundled": true,
+  "source": "https://github.com/Alomare/ObsidianTrainer",
   "modules": [
     "pages/ui.lua",
     "pages/player.lua",

@@ -39,11 +39,8 @@ pub fn github_repo(source: &str) -> Option<Repo> {
     (fits(owner) && fits(name)).then(|| Repo { owner: owner.to_string(), name: name.to_string() })
 }
 
-/// The repository a mod updates from. The mods that come with Obsidian update with the app.
+/// The repository a mod updates from.
 pub fn source_of(m: &Manifest) -> Option<Repo> {
-    if m.is_bundled() {
-        return None;
-    }
     github_repo(m.extra.get("source")?.as_str()?)
 }
 
@@ -258,14 +255,6 @@ mod tests {
         for bad in ["http://github.com/me/mod", "https://gitlab.com/me/mod", "https://github.com/me", "https://github.com/../mod", "https://github.com/me/a b", "me/mod"] {
             assert_eq!(repo(bad), None, "{bad}");
         }
-    }
-
-    #[test]
-    fn mods_from_obsidian_never_update_from_a_source() {
-        let mut m = installed("a.mod", "1.0.0");
-        assert!(source_of(&m).is_some());
-        m.extra.insert("bundled".into(), serde_json::Value::Bool(true));
-        assert!(source_of(&m).is_none());
     }
 
     #[test]

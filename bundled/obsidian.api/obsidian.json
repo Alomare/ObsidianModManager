@@ -21,7 +21,7 @@
   ],
   "scope": "session",
   "entry": "main.lua",
-  "bundled": true,
+  "source": "https://github.com/Alomare/ObsidianAPI",
   "modules": [
     "lib/game.lua",
     "lib/effects.lua",

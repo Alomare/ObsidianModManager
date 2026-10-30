@@ -13,8 +13,7 @@ use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
-use obsidian_core::loader::find_bundled_dir;
-use obsidian_core::profiles;
+use obsidian_core::{profiles, starter};
 use obsidian_core::updates::{self, GitHub};
 use obsidian_core::{ObsidianError, Result};
 
@@ -57,8 +56,10 @@ enum Command {
     Consent { state: OnOff },
     /// Set a mod option, for example: obsidian set author.mod distance 7
     Set { id: String, option: String, value: String },
-    /// Delete a mod from the library (bundled mods can only be turned off)
+    /// Delete a mod from the library
     Remove { id: String },
+    /// Put the starter pack back as it came, in the active profile
+    RestoreStarter,
     /// Set a mod key, for example: obsidian key author.mod toggle f9
     Key { id: String, keybind: String, key: String },
     /// Ask GitHub for new versions of the mods that name a repository
@@ -113,13 +114,11 @@ fn run(cli: Cli) -> Result<()> {
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
             | Command::Consent { .. } | Command::Set { .. } | Command::Key { .. } | Command::Profile { .. }
-            | Command::Remove { .. } | Command::Updates | Command::Update { .. }
+            | Command::Remove { .. } | Command::RestoreStarter | Command::Updates | Command::Update { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
-        if let Some(dir) = find_bundled_dir() {
-            lib.install_bundled(&dir)?;
-        }
+        starter::seed(&data)?;
         profile = Profile::load(&data)?;
         profile.sync(&lib)?;
         profile.save(&data)?;
@@ -297,6 +296,10 @@ fn run(cli: Cli) -> Result<()> {
             lib.remove(&id)?;
             profile.sync(&lib)?;
             live_change(&profile, &data, &lib, &game()?, &format!("Removed {id}"))?;
+        }
+        Command::RestoreStarter => {
+            starter::restore(&lib, &mut profile)?;
+            live_change(&profile, &data, &lib, &game()?, "The starter pack is back as it came")?;
         }
         Command::Key { id, keybind, key } => {
             obsidian_core::edit::set_key(&lib, &mut profile, &id, &keybind, Some(&key))?;

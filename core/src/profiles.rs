@@ -95,7 +95,7 @@ fn check_name(name: &str) -> Result<()> {
     if bad { Err(ObsidianError::ProfileName(name.to_string())) } else { Ok(()) }
 }
 
-/// A new profile, empty or a copy of `copy_of`. It does not become active.
+/// A new profile, with nothing on or a copy of `copy_of`. It does not become active.
 pub fn create(data: &Path, name: &str, copy_of: Option<&str>) -> Result<()> {
     check_name(name)?;
     if find(data, name)?.is_some() {
@@ -109,7 +109,7 @@ pub fn create(data: &Path, name: &str, copy_of: Option<&str>) -> Result<()> {
             let text = if from.is_file() { std::fs::read_to_string(from)? } else { "{\"mods\":[]}\n".to_string() };
             std::fs::write(path(data, name), text)?;
         }
-        None => std::fs::write(path(data, name), "{\"mods\":[]}\n")?,
+        None => crate::starter::blank_profile(data)?.save_named(data, name)?,
     }
     Ok(())
 }

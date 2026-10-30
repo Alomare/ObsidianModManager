@@ -27,7 +27,7 @@ const LANGUAGES: [&str; 4] = ["en", "fr", "es", "pt-BR"];
 
 /// `rel` in the app's resources, beside the exe, then in this workspace. Debug builds look in the
 /// workspace first: the copy beside a dev exe is only refreshed when the Rust side rebuilds, so it
-/// goes stale after a change to a bundled mod or the loader alone.
+/// goes stale after a change to a starter mod or the loader alone.
 fn candidates(rel: &str) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = crate::paths::resource_dir().map(|d| d.join(rel)).into_iter().collect();
     if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
@@ -42,7 +42,7 @@ fn candidates(rel: &str) -> Vec<PathBuf> {
     out
 }
 
-/// The bundled mods folder (`bundled/` beside the exe, then in this workspace), if there is one.
+/// The folder of the starter pack (`bundled/` beside the exe, then in this workspace), if there is one.
 pub fn find_bundled_dir() -> Option<PathBuf> {
     candidates("bundled").into_iter().find(|d| d.is_dir())
 }
@@ -417,17 +417,16 @@ mod tests {
     }
 
     #[test]
-    fn the_bundled_mods_compile_and_the_trainer_brings_the_api() {
+    fn the_starter_mods_compile_and_the_trainer_brings_the_api() {
         let t = spaced_tempdir();
         let lib = Library::open(&t.path().join("data")).unwrap();
-        lib.install_bundled(&find_bundled_dir().unwrap()).unwrap();
         let mut profile = Profile::default();
-        profile.sync(&lib).unwrap();
+        crate::starter::restore(&lib, &mut profile).unwrap();
         assert_eq!(profile.switch(&lib, "obsidian.trainer", true).unwrap(), ["obsidian.api"]);
         let comp = compose(&lib, &profile).unwrap();
         let table = deploy_table(&comp, json!({})).unwrap();
         let ids: Vec<&str> = table["mods"].as_array().unwrap().iter().map(|m| m["id"].as_str().unwrap()).collect();
-        assert_eq!(ids, ["obsidian.api", "obsidian.trainer"]);
+        assert_eq!(ids, ["obsidian.api", "obsidian.trainer", "obsidian.qol"]);
         assert_eq!(table["has_session"], true, "session mods, so the shared war stays out of it");
         assert_eq!(table["has_static_session"], false, "both can switch off live");
         assert_eq!(table["mods"][1]["keybinds"][0]["default"], "f6");

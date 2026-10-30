@@ -30,6 +30,8 @@ pub enum ObsidianError {
     ModMissing(String),
     #[error("{mod_id} needs {requires}, which is not switched on")]
     MissingRequirement { mod_id: String, requires: String },
+    #[error("{mod_id} needs {requires}, which is not installed")]
+    RequirementNotInstalled { mod_id: String, requires: String },
     #[error("the LuaJIT 2.0 compiler was not found (looked in {0}); run tools/build-luajit.cmd or set OBSIDIAN_LUAJIT")]
     CompilerUnavailable(String),
     #[error("Lua error in {chunk}: {message}")]
@@ -40,8 +42,8 @@ pub enum ObsidianError {
     ReservedResource { mod_id: String, name: String },
     #[error("Obsidian Loader files were not found (looked in {0})")]
     LoaderMissing(String),
-    #[error("{0} comes with Obsidian and can't be removed; turn it off instead")]
-    BundledMod(String),
+    #[error("this copy of Obsidian has no starter pack to restore")]
+    NoStarterPack,
     #[error("{mod_id} has no keybind {keybind}")]
     UnknownKeybind { mod_id: String, keybind: String },
     #[error("{0:?} can't be a profile name: use 1 to 40 characters, none of \\ / : * ? \" < > |")]
@@ -62,7 +64,7 @@ pub enum ObsidianError {
     ForeignPatchGap { bundle: String, missing: u32 },
     #[error("{0} is not an image Obsidian can use: PNG, JPG or WebP, up to 4 MB")]
     BadImage(String),
-    #[error("the folder is locked; the Obsidian folder always is")]
+    #[error("the folder is locked")]
     LockedFolder,
     #[error("close the game first")]
     GameRunning,

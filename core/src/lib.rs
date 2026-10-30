@@ -23,6 +23,7 @@ pub mod paths;
 pub mod profile_zip;
 pub mod profiles;
 pub mod settings;
+pub mod starter;
 #[cfg(test)]
 pub(crate) mod testutil;
 pub mod updates;

@@ -179,9 +179,6 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     }
     let previous = load_state(data_dir)?;
     let lib = Library::open(data_dir)?;
-    if let Some(dir) = loader::find_bundled_dir() {
-        lib.install_bundled(&dir)?;
-    }
     let mut profile = Profile::load(data_dir)?;
     profile.sync(&lib)?;
     let mut comp = compose(&lib, &profile)?;
