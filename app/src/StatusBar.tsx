@@ -16,7 +16,7 @@ function shownTime(at: number) {
   return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString(language(), { month: "short", day: "numeric" })} ${time}`;
 }
 
-export function StatusBar({ version, onUpdates }: { version: string | null; onUpdates: () => void }) {
+export function StatusBar({ version, updateFound, onUpdates }: { version: string | null; updateFound: boolean; onUpdates: () => void }) {
   const [about, setAbout] = useState(false);
   const [log, setLog] = useState(false);
   const busy = useBusy();
@@ -30,7 +30,10 @@ export function StatusBar({ version, onUpdates }: { version: string | null; onUp
       {busy && <span className="sb-busy"><i />{busy}</span>}
       <span className="spacer" />
       {version && (
-        <button className="sb-btn" onClick={onUpdates} data-tip-title={`Obsidian ${version}`} data-tip={t("app.status.updates")}>v{version}</button>
+        <button className={updateFound ? "sb-btn lit" : "sb-btn"} onClick={onUpdates} data-tip-title={`Obsidian ${version}`}
+          data-tip={updateFound ? t("app.status.updateFound") : t("app.status.updates")}>
+          v{version}{updateFound && <i className="sb-dot" aria-hidden="true" />}
+        </button>
       )}
       <button className={about ? "sb-btn round on" : "sb-btn round"} onClick={() => setAbout(true)} aria-label={t("app.about.title")} data-tip-title={t("app.about.title")} data-tip={t("app.status.aboutHint")}>
         <InfoIcon />

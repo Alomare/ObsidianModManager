@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import { t } from "./i18n";
 
-type Props = { title: string; text: string; confirm: string; onConfirm: () => void; onCancel: () => void };
+type Props = { title: string; text: string; confirm: string; onConfirm: () => void; onCancel: () => void; tone?: "warn" | "go" };
 
-export function Confirm({ title, text, confirm, onConfirm, onCancel }: Props) {
+export function Confirm({ title, text, confirm, onConfirm, onCancel, tone = "warn" }: Props) {
   const ok = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     ok.current?.focus();
@@ -20,7 +20,7 @@ export function Confirm({ title, text, confirm, onConfirm, onCancel }: Props) {
         <p>{text}</p>
         <div className="modal-foot">
           <button className="btn" onClick={onCancel}>{t("app.cancel")}</button>
-          <button className="btn warn" ref={ok} onClick={onConfirm}>{confirm}</button>
+          <button className={tone === "go" ? "btn play" : "btn warn"} ref={ok} onClick={onConfirm}>{confirm}</button>
         </div>
       </div>
     </div>

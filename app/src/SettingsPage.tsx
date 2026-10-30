@@ -12,6 +12,7 @@ import { Select } from "./Select";
 import { updateSettings, useAppSettings } from "./settings";
 import { motionOn, systemReducesMotion } from "./theme";
 import type { AppSettings, Snapshot } from "./types";
+import { checkForUpdate, installUpdate, useUpdates } from "./updates";
 
 type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null };
 
@@ -122,9 +123,7 @@ function SystemTab({ snap }: { snap: Snapshot }) {
       </Section>
 
       <Section title={t("app.settings.updates")}>
-        <Row label={t("app.settings.version", snap.version)} hint={snap.portable ? t("app.settings.portableHint") : undefined}>
-          <button className="btn small" onClick={() => openUrl(LINKS.releases).catch(() => {})}>{t("app.settings.releases")} <ExternalIcon /></button>
-        </Row>
+        <UpdateRow snap={snap} />
         {!snap.portable && (
           <Row label={t("app.settings.updateMode")} hint={t(`app.settings.updates.${settings.updates}Hint`)}>
             <Select<AppSettings["updates"]> value={settings.updates} label={t("app.settings.updateMode")}
@@ -154,6 +153,27 @@ function SystemTab({ snap }: { snap: Snapshot }) {
         )}
       </Section>
     </>
+  );
+}
+
+function UpdateRow({ snap }: { snap: Snapshot }) {
+  const u = useUpdates();
+  const busy = u.phase === "checking" || u.phase === "downloading" || u.phase === "installing";
+  const pct = u.total ? Math.round((u.got / u.total) * 100) : 0;
+  const line =
+    u.phase === "checking" ? t("app.update.checking")
+    : u.phase === "none" ? t("app.update.none")
+    : u.phase === "found" ? t("app.update.found", u.version ?? "") + (u.error ? ` ${t("app.update.failedInstall", u.error)}` : "")
+    : u.phase === "failed" ? t("app.update.failed")
+    : u.phase === "downloading" ? t("app.update.downloading", pct)
+    : u.phase === "installing" ? t("app.update.installing")
+    : snap.portable ? t("app.settings.portableHint") : "";
+  return (
+    <Row label={t("app.settings.version", snap.version)} hint={line || undefined}>
+      {u.phase === "found" && !snap.portable && <button className="btn small play" onClick={installUpdate}>{t("app.update.install")}</button>}
+      <button className="btn small" disabled={busy} onClick={() => checkForUpdate()}>{t("app.update.checkNow")}</button>
+      <button className="btn small" onClick={() => openUrl(LINKS.releases).catch(() => {})}>{t("app.settings.releases")} <ExternalIcon /></button>
+    </Row>
   );
 }
 

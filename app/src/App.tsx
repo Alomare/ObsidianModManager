@@ -14,6 +14,7 @@ import { Notices } from "./NoticeList";
 import { loadSettings, useAppSettings } from "./settings";
 import { StatusBar } from "./StatusBar";
 import { Tooltip } from "./Tooltip";
+import { installUpdate, startupUpdate, useUpdates } from "./updates";
 
 export default function App() {
   const snap = useSnapshot();
@@ -23,6 +24,13 @@ export default function App() {
   const [dropping, setDropping] = useState(false);
   const [askPurge, setAskPurge] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("system");
+  const [askUpdate, setAskUpdate] = useState(false);
+  const update = useUpdates();
+  const ready = !!snap && !!settings;
+  // The update check runs once per launch, as soon as the window knows whether it is a portable copy.
+  useEffect(() => {
+    if (snap && settings) startupUpdate(settings.updates, snap.portable).then((a) => setAskUpdate(a === "ask"));
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadSettings();
@@ -51,11 +59,15 @@ export default function App() {
           {snap && tab === "settings" && <SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} />}
         </div>
       </main>
-      <StatusBar version={snap?.version ?? null} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />
+      <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />
       {dropping && <div className="dropzone cap">{t("app.mods.dropHere")}</div>}
       {askPurge && (
         <Confirm title={t("app.purge.title")} text={t("app.purge.text")} confirm={t("app.action.purge")}
           onCancel={() => setAskPurge(false)} onConfirm={() => { setAskPurge(false); purge(); }} />
+      )}
+      {askUpdate && (
+        <Confirm title={t("app.update.title", update.version ?? "")} text={t("app.update.text")} confirm={t("app.update.install")}
+          tone="go" onCancel={() => setAskUpdate(false)} onConfirm={() => { setAskUpdate(false); installUpdate(); }} />
       )}
       <Notices />
       <Tooltip />

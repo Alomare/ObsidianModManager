@@ -1,0 +1,82 @@
+# A release: pushing a tag like v0.2.0 builds the installer (signed for the updater, with its .sig and
+# latest.json) and the portable ZIP, and puts them in a draft release. Publishing the draft makes it the
+# release the app's updater sees.
+#
+# Needs the repository secret TAURI_SIGNING_PRIVATE_KEY: the content of the updater key file
+# (internal/release/obsidian-updater.key, never committed). The key has no password.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The tag matches the version in every file
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          for f in app/package.json app/src-tauri/tauri.conf.json; do
+            grep -q "\"version\": \"$v\"" "$f" || { echo "$f does not say $v"; exit 1; }
+          done
+          for f in app/src-tauri/Cargo.toml core/Cargo.toml; do
+            grep -q "^version = \"$v\"" "$f" || { echo "$f does not say $v"; exit 1; }
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: The LuaJIT 2.0 compiler
+        shell: cmd
+        run: tools\build-luajit.cmd
+
+      - name: Loader tests
+        shell: cmd
+        run: tools\test-loader.cmd
+
+      - name: Install the app's packages
+        working-directory: app
+        run: npm ci
+
+      - name: UI tests
+        working-directory: app
+        run: npm test
+
+      - name: Draft release
+        id: draft
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$GITHUB_REF_NAME" -f name="Obsidian ${GITHUB_REF_NAME#v}" \
+            -F draft=true -F prerelease=true -F generate_release_notes=true --jq .id)
+          [ -n "$id" ] || { echo "no release id"; exit 1; }
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: The installer, its signature and latest.json
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          projectPath: app
+          releaseId: ${{ steps.draft.outputs.id }}
+
+      - name: The portable ZIP
+        run: |
+          python tools/portable.py
+          gh release upload "$GITHUB_REF_NAME" target/release/bundle/portable/*.zip

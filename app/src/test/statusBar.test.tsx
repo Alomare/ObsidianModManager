@@ -12,7 +12,7 @@ describe("StatusBar", () => {
     const el = document.createElement("div");
     document.body.append(el);
     const onUpdates = vi.fn();
-    act(() => createRoot(el).render(<StatusBar version="0.1.0-beta.1" onUpdates={onUpdates} />));
+    act(() => createRoot(el).render(<StatusBar version="0.1.0-beta.1" updateFound={false} onUpdates={onUpdates} />));
     const ver = [...el.querySelectorAll("button")].find((b) => b.textContent === "v0.1.0-beta.1")!;
     act(() => ver.click());
     expect(onUpdates).toHaveBeenCalled();

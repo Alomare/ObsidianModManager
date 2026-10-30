@@ -192,5 +192,17 @@
   "app.status.noNotifications": "还没有通知。",
   "app.status.notifications": "通知",
   "app.status.notificationsHint": "目前显示过的提示，可再次查看",
-  "app.status.updates": "版本与更新"
+  "app.status.updateFound": "有新版本可用",
+  "app.status.updates": "版本与更新",
+  "app.update.checkNow": "立即检查",
+  "app.update.checking": "正在检查新版本…",
+  "app.update.downloading": "正在下载新版本：%s %",
+  "app.update.failed": "无法访问发布页面。请检查网络连接后重试。",
+  "app.update.failedInstall": "安装已停止：%s",
+  "app.update.found": "Obsidian %s 可用。",
+  "app.update.install": "安装",
+  "app.update.installing": "正在安装。完成后 Obsidian 会重新打开。",
+  "app.update.none": "已是最新版本。",
+  "app.update.text": "现在安装吗？Obsidian 会关闭、安装新版本，然后重新打开。",
+  "app.update.title": "Obsidian %s 已发布"
 }
