@@ -18,6 +18,21 @@ Switch on **Obsidian Trainer** in the Mods list and deploy. Obsidian API, the mo
 | Tab | Filter the list |
 | Esc, or Q | Go back, and close |
 
+The menu also works with the mouse, using your normal system cursor.
+
+| Mouse | What it does |
+|---|---|
+| Point at a row | Select it |
+| Click a row | Use it |
+| Click `<` or `>` | Change a value, and hold to keep changing it |
+| Click a number | Type a value |
+| Wheel, or the bar at the side | Scroll the list |
+| Right click | Go back |
+| Title bar | Drag to move the window |
+| Bottom right corner | Drag to resize the window |
+
+The window remembers its place and size.
+
 The menu blocks your character while it's open, and it closes by itself when the game changes screens, such as at the start of a mission. A gamepad can move around the menu, but F6 opens it.
 
 ## What's in it

@@ -91,7 +91,7 @@ function G.start(ids, opts)
 	end
 	local e = E.new({ deploy = E.deploy({ mods = deploy_mods, has_session = true, texts = { en = {
 		menu_title = "Obsidian", menu_empty = "No pages", menu_failed = "Page failed", menu_unavailable = "Not now",
-		menu_filter = "Filter", menu_on = "ON", menu_off = "OFF", menu_keys = "Keys",
+		menu_filter = "Filter", menu_keys = "Keys",
 	} } }), mods = mods, lobby = opts.lobby })
 
 	-- string and table helpers the game adds, then the rest of the game.
@@ -123,7 +123,6 @@ function G.start(ids, opts)
 		box = function(t, v) t.x, t.y, t.z = v.x, v.y, v.z return t end,
 		unbox = function(t) return v3(t.x, t.y, t.z) end,
 	})
-	rawset(_G, "Mouse", { axis_index = function() return 1 end, axis = function() return v3(10, 10, 0) end })
 	rawset(_G, "Camera", { world_position = function() return v3(0, 0, 20) end })
 	rawset(_G, "PhysicsWorld", {
 		immediate_raycast = function() return true, v3(5, 5, 0) end,

@@ -333,8 +333,6 @@
   "menu_failed": "This page failed to open. See the log.",
   "menu_filter": "Filter",
   "menu_keys": "Arrows move, Enter selects, Tab filters, Esc goes back",
-  "menu_off": "OFF",
-  "menu_on": "ON",
   "menu_title": "Obsidian",
   "menu_unavailable": "Not available right now.",
   "mod_failed": "Obsidian: %s failed and is off until the game restarts.",

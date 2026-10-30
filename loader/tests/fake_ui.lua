@@ -61,6 +61,80 @@ function F.install(e, opts)
 	keyboard.pressed = function(i) return ui.tapped[KEYS[i]] == true end
 	keyboard.button = function(i) return (ui.down[KEYS[i]] or ui.tapped[KEYS[i]]) and 1 or 0 end
 
+	-- The mouse, read raw. The cursor shares the gui's origin, the bottom left of the screen.
+	ui.mouse = { x = 10, y = 10, wheel = 0, held = false }
+	rawset(_G, "Mouse", {
+		axis_index = function(name) return name end,
+		button_index = function(name) return name end,
+		axis = function(i)
+			if i == "wheel" then return { x = 0, y = ui.mouse.wheel, z = 0 } end
+			return rawget(_G, "Vector3")(ui.mouse.x, ui.mouse.y, 0)
+		end,
+		button = function(i) return (i == "left" and ui.mouse.held) and 1 or 0 end,
+		pressed = function(i) return ui.mouse[i] == true end,
+	})
+
+	-- The game's cursor manager, and the engine under it. system is true while the arrow is the
+	-- operating system's.
+	ui.cursor = { name = "hud/cursors/game", shown = true, clipped = true, system = false, refuse_system = false }
+	rawset(_G, "Window", {
+		set_cursor = function(path)
+			if path == nil and ui.cursor.refuse_system then error("set_cursor needs a path") end
+			ui.cursor.system = path == nil
+		end,
+	})
+	rawset(_G, "CursorManager", {
+		set_cursor = function(_, name) ui.cursor.name, ui.cursor.shown, ui.cursor.system = name, true, false end,
+		get_current_cursor = function() return ui.cursor.name end,
+		set_show_cursor = function(_, on)
+			if ui.cursor.shown ~= on then ui.cursor.shown, ui.cursor.system = on, false end
+		end,
+		is_shown = function() return ui.cursor.shown end,
+		set_clip_cursor = function(_, on) ui.cursor.clipped = on end,
+	})
+
+	-- A frame with the cursor here.
+	function ui.move(x, y)
+		ui.mouse.x, ui.mouse.y = x, y
+		ui.frame()
+	end
+
+	-- A frame with a button going down, which stays held until ui.release().
+	function ui.press(x, y, button)
+		ui.mouse.x, ui.mouse.y = x, y
+		button = button or "left"
+		ui.mouse[button] = true
+		if button == "left" then ui.mouse.held = true end
+		ui.frame()
+		ui.mouse[button] = false
+	end
+
+	function ui.release()
+		ui.mouse.held = false
+		ui.frame()
+	end
+
+	function ui.click(x, y, button)
+		ui.press(x, y, button)
+		ui.release()
+	end
+
+	-- A frame with the wheel turned, positive away from the player.
+	function ui.scroll(amount)
+		ui.mouse.wheel = amount
+		ui.frame()
+		ui.mouse.wheel = 0
+		ui.frame()
+	end
+
+	-- A text drawn in the last frame, by part of it, or by all of it when exact.
+	function ui.find(needle, exact)
+		for _, t in ipairs(ui.texts) do
+			if (exact and t.text == needle) or (not exact and string.find(t.text, needle, 1, true)) then return t end
+		end
+		error("not drawn: " .. needle, 2)
+	end
+
 	-- One frame with these keys going down.
 	function ui.tap(...)
 		for _, k in ipairs({ ... }) do ui.tapped[k] = true end

@@ -6,7 +6,7 @@ local function test(name, fn) T[#T + 1] = { name, fn } end
 
 local TEXTS = { en = {
 	menu_title = "Obsidian", menu_empty = "No pages", menu_failed = "Failed", menu_unavailable = "Not now",
-	menu_filter = "Filter", menu_on = "ON", menu_off = "OFF", menu_keys = "Keys",
+	menu_filter = "Filter", menu_keys = "Keys",
 } }
 
 -- Runs a mod that adds a page through `source`, with the menu's game side in place.
@@ -321,6 +321,290 @@ test("an_overlay_draws_every_frame", function()
 	]])
 	ui.frame()
 	E.eq(ui.shown("Speed 1920"), true)
+end)
+
+-- A long page, for scrolling and resizing.
+local LONG = [[
+	VALUES = {}
+	obsidian.menu.add("Long", function(page)
+		for i = 1, 90 do
+			page:action("Row " .. i .. ".", function() VALUES.ran = i end, { help = "Help for " .. i .. "." })
+		end
+	end)
+]]
+
+local function open_root(ui)
+	rawget(_G, "obsidian").menu.open()
+	ui.frame()
+end
+
+-- Clicks on a drawn text, a little inside it.
+local function click_on(ui, needle, exact)
+	local t = ui.find(needle, exact)
+	ui.click(t.pos.x + 2, t.pos.y + 4)
+	ui.frame()
+end
+
+local function panel(ui)
+	return ui.rects[1]
+end
+
+local function rows_shown(ui)
+	local n = 0
+	for _, t in ipairs(ui.texts) do
+		if string.find(t.text, "^Row %d+%.") then n = n + 1 end
+	end
+	return n
+end
+
+test("a_click_opens_a_page_flips_a_toggle_and_runs_an_action", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	click_on(ui, "Player")
+	E.eq(ui.shown("God mode"), true, "the page opened")
+	click_on(ui, "God mode")
+	E.eq(values().god, true, "the toggle flipped")
+	click_on(ui, "Heal")
+	E.eq(values().runs, 1, "the action ran")
+	click_on(ui, "Section")
+	E.eq(values().runs, 1, "a header does nothing")
+end)
+
+test("the_arrows_of_a_number_step_and_holding_repeats", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	click_on(ui, "Player")
+	local v = ui.find("< 5 >")
+	ui.press(v.pos.x, v.pos.y + 4)
+	E.eq(values().speed, 3, "the left arrow takes a step away")
+	for _ = 1, 24 do ui.frame() end
+	E.eq(values().speed, 3, "no repeat before the first delay")
+	for _ = 1, 3 do ui.frame() end
+	E.eq(values().speed, 1, "held, it repeats")
+	ui.release()
+	ui.frame()
+	v = ui.find("< 1 >")
+	ui.click(v.pos.x + 4 * 8, v.pos.y + 4)
+	E.eq(values().speed, 3, "the right arrow adds a step")
+end)
+
+test("clicking_the_value_of_a_number_types_it_and_a_click_elsewhere_keeps_it", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	click_on(ui, "Player")
+	local v = ui.find("< 5 >")
+	ui.click(v.pos.x + 2 * 8 + 2, v.pos.y + 4)
+	E.eq(values().speed, 5, "nothing changes yet")
+	ui.typed = { "7" }
+	ui.frame()
+	E.eq(ui.shown("Speed: 7_"), true, "the line being typed shows")
+	ui.click(5, 5)
+	E.eq(values().speed, 7, "a click ends typing, as Enter does")
+end)
+
+test("a_choice_steps_with_a_click_either_way", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	click_on(ui, "Player")
+	click_on(ui, "< First >")
+	E.eq(values().mode, "b", "the arrows of a choice step it")
+end)
+
+test("back_right_click_and_close", function()
+	local e, ui = start(PAGE)
+	local menu = rawget(_G, "obsidian").menu
+	open_root(ui)
+	E.eq(ui.shown("God mode"), false)
+	click_on(ui, "Player")
+	click_on(ui, "<", true)
+	E.eq(ui.shown("God mode"), false, "the back button leaves the page")
+	click_on(ui, "Player")
+	ui.click(700, 500, "right")
+	ui.frame()
+	E.eq(ui.shown("God mode"), false, "a right click goes back too")
+	click_on(ui, "x", true)
+	E.eq(menu.is_open(), false, "the close button closes")
+end)
+
+test("the_filter_button_starts_the_filter", function()
+	local e, ui = start(LONG)
+	open_root(ui)
+	click_on(ui, "Long")
+	click_on(ui, "Filter", true)
+	ui.typed = { "Row 7" }
+	ui.frame()
+	ui.typed = { "enter" }
+	ui.frame()
+	ui.frame()
+	E.eq(ui.shown("Filter: Row 7"), true, "the title bar shows it")
+	E.eq(ui.shown("Row 70."), true, "the filter applies")
+	E.eq(ui.shown("Row 8."), false)
+end)
+
+test("the_title_bar_moves_the_window_and_it_stays_on_screen", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	local before = panel(ui).pos
+	local title = ui.find("Obsidian", true)
+	ui.press(title.pos.x + 200, title.pos.y + 4)
+	ui.move(title.pos.x + 300, title.pos.y - 96)
+	E.eq(panel(ui).pos.x, before.x + 100, "it follows the cursor")
+	E.eq(panel(ui).pos.y, before.y - 100, "up and down too")
+	ui.move(-4000, -4000)
+	E.eq(panel(ui).pos.x, 0, "stopped at the left edge")
+	E.eq(panel(ui).pos.y, 0, "stopped at the bottom edge")
+	ui.move(9000, 9000)
+	E.eq(panel(ui).pos.x + panel(ui).size.x, 1920, "stopped at the right edge")
+	E.eq(panel(ui).pos.y + panel(ui).size.y, 1080, "stopped at the top edge")
+	ui.release()
+	local x = panel(ui).pos.x
+	ui.move(100, 100)
+	E.eq(panel(ui).pos.x, x, "let go, it stays")
+end)
+
+test("the_grip_resizes_the_window_and_more_rows_show", function()
+	local e, ui = start(LONG)
+	open_root(ui)
+	click_on(ui, "Long")
+	local p = panel(ui)
+	local right, bottom, width, height = p.pos.x + p.size.x, p.pos.y, p.size.x, p.size.y
+	local before = rows_shown(ui)
+	ui.press(right - 3, bottom + 3)
+	ui.move(right + 197, bottom - 177)
+	E.eq(panel(ui).size.x, width + 200, "wider")
+	E.eq(panel(ui).size.y, height + 180, "taller, with the top staying put")
+	E.eq(panel(ui).pos.y + panel(ui).size.y, p.pos.y + height, "the title bar didn't move")
+	E.eq(rows_shown(ui), before + 7, "the extra height holds more rows")
+	ui.move(-9000, 9000)
+	E.eq(panel(ui).size.x, 37 * 8, "not narrower than the rows need")
+	E.eq(rows_shown(ui) >= 4, true, "not so short that no rows fit")
+	ui.release()
+end)
+
+test("the_window_is_remembered", function()
+	local e, ui = start(PAGE)
+	local menu = rawget(_G, "obsidian").menu
+	open_root(ui)
+	local title = ui.find("Obsidian", true)
+	ui.press(title.pos.x + 200, title.pos.y + 4)
+	ui.move(title.pos.x + 300, title.pos.y - 96)
+	ui.release()
+	local x, y = panel(ui).pos.x, panel(ui).pos.y
+	menu.close()
+	open_root(ui)
+	E.eq(panel(ui).pos.x, x, "while the game runs")
+	menu.close()
+	e.loaded["obsidian/loader/storage"].loaded = {}
+	e.loaded["obsidian/loader/menu"].win = nil
+	open_root(ui)
+	E.eq(panel(ui).pos.x, x, "and from the file at the next launch")
+	E.eq(panel(ui).pos.y, y)
+end)
+
+test("the_wheel_and_the_scroll_bar_scroll_and_the_keys_bring_the_selection_back", function()
+	local e, ui = start(LONG)
+	open_root(ui)
+	click_on(ui, "Long")
+	E.eq(ui.shown("Row 1."), true)
+	ui.scroll(-1)
+	E.eq(ui.shown("Row 1."), false, "the wheel scrolled away from the selection")
+	E.eq(ui.shown("Row 4."), true, "by three rows")
+	ui.scroll(1)
+	E.eq(ui.shown("Row 1."), true, "and back")
+	ui.scroll(1)
+	E.eq(ui.shown("Row 1."), true, "not past the top")
+	local p = panel(ui)
+	local track_x = p.pos.x + p.size.x - 6
+	ui.press(track_x, p.pos.y + 120)
+	ui.release()
+	E.eq(ui.shown("Row 90."), true, "the bar jumped to the end")
+	ui.tap("down")
+	ui.frame()
+	E.eq(ui.shown("Row 2."), true, "moving the selection brings it into view")
+end)
+
+test("hovering_selects_a_row_and_a_resting_cursor_leaves_the_keys_alone", function()
+	local e, ui = start(LONG)
+	open_root(ui)
+	click_on(ui, "Long")
+	local row = ui.find("Row 5.")
+	ui.move(row.pos.x + 2, row.pos.y + 4)
+	ui.frame()
+	E.eq(ui.shown("Help for 5."), true, "the row under the cursor is selected")
+	ui.tap("down")
+	ui.tap("down")
+	ui.frame()
+	E.eq(ui.shown("Help for 7."), true, "the keys move on from there, the cursor resting")
+end)
+
+test("without_a_mouse_the_keys_still_work", function()
+	local e, ui = start(PAGE)
+	rawset(_G, "Mouse", nil)
+	open_player(e, ui)
+	ui.tap("enter")
+	E.eq(values().god, true)
+end)
+
+test("a_broken_mouse_is_logged_once_and_the_keys_still_work", function()
+	local e, ui = start(PAGE)
+	rawget(_G, "Mouse").axis = function() error("no such axis") end
+	open_player(e, ui)
+	ui.frame()
+	ui.tap("enter")
+	E.eq(values().god, true)
+	E.eq(rawget(_G, "obsidian").menu.is_open(), true, "the menu stays open")
+	E.eq(E.count(e:log(), "menu: no mouse"), 1)
+end)
+
+test("the_menu_shows_the_system_cursor_and_gives_the_game_its_own_back", function()
+	local e, ui = start(PAGE)
+	local menu = rawget(_G, "obsidian").menu
+	ui.cursor.shown, ui.cursor.clipped = false, true
+	open_root(ui)
+	E.eq(ui.cursor.system, true, "the arrow of the operating system")
+	E.eq(ui.cursor.shown, true)
+	E.eq(ui.cursor.clipped, false, "free to leave the aim area")
+	menu.close()
+	E.eq(ui.cursor.system, false, "not left behind")
+	E.eq(ui.cursor.name, "hud/cursors/game")
+	E.eq(ui.cursor.shown, false, "hidden again")
+	E.eq(ui.cursor.clipped, true, "clipped again")
+end)
+
+test("where_the_engine_refuses_the_system_cursor_the_pause_menus_is_left", function()
+	local e, ui = start(PAGE)
+	ui.cursor.refuse_system = true
+	open_root(ui)
+	E.eq(ui.cursor.system, false)
+	E.eq(ui.cursor.name, "hud/cursors/menu", "still a visible cursor")
+	E.eq(ui.cursor.shown, true)
+	E.eq(rawget(_G, "obsidian").menu.is_open(), true)
+	E.has(e:log(), "no system cursor")
+end)
+
+test("a_game_that_hides_the_cursor_behind_the_menu_loses_that_fight", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	ui.cursor.shown, ui.cursor.system = false, false
+	ui.frame()
+	E.eq(ui.cursor.shown, true, "shown again")
+	E.eq(ui.cursor.system, true)
+	ui.cursor.name, ui.cursor.system = "hud/cursors/game", false
+	ui.frame()
+	E.eq(ui.cursor.name, "hud/cursors/menu", "swapped back")
+	E.eq(ui.cursor.system, true)
+end)
+
+test("a_new_state_keeps_the_cursor_it_set_for_itself", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	ui.state = "menu"
+	ui.cursor.name, ui.cursor.shown = "hud/cursors/menu", false
+	ui.frame()
+	E.eq(rawget(_G, "obsidian").menu.is_open(), false, "the state change closed the menu")
+	E.eq(ui.cursor.shown, false, "the new state's choice stands")
+	E.eq(ui.cursor.system, false)
+	E.eq(ui.cursor.clipped, false, "and so does its clipping")
 end)
 
 return T

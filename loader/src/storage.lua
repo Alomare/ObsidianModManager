@@ -86,6 +86,18 @@ local function caller()
 	return state.id
 end
 
+-- The loader's own values, kept the same way under an id no mod uses.
+function M.own(id)
+	return {
+		get = function(key) return values_of(id)[key] end,
+		put = function(values)
+			local all = values_of(id)
+			for k, v in B.pairs(values) do all[k] = v end
+			return write(id)
+		end,
+	}
+end
+
 function M.api()
 	return {
 		get = function(key, default)

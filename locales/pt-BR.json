@@ -333,8 +333,6 @@
   "menu_failed": "Esta página não abriu. Veja o log.",
   "menu_filter": "Filtro",
   "menu_keys": "Setas movem, Enter escolhe, Tab filtra, Esc volta",
-  "menu_off": "DESLIGADO",
-  "menu_on": "LIGADO",
   "menu_title": "Obsidian",
   "menu_unavailable": "Indisponível agora.",
   "mod_failed": "Obsidian: %s falhou e fica desligado até o jogo reiniciar.",

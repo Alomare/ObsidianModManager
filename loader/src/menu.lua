@@ -5,14 +5,20 @@
 -- loaded, and they cover Latin-1. They are monospaced, so widths need no engine call.
 -- Gui, World and Color are read through _G each frame: the engine defines them, and the game's
 -- strict mode forbids touching undeclared globals by name from here.
+-- The mouse is read raw, as the keyboard is. Its cursor axis shares the gui's origin, the bottom left
+-- of the screen: the game's menus test the raw cursor against what they draw, with no flip.
 local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
+local storage = require("obsidian/loader/storage")
 
 local IFACE = "obsidian_menu"
 local MATERIAL = "foundation/gui/gui"
 local LAYER_BACK, LAYER_MARK, LAYER_TEXT, LAYER_TOAST = 880, 884, 888, 896
 local FIRST_REPEAT, NEXT_REPEAT = 0.4, 0.08
 local CLOSED_STATES = { logos = true, cutscene = true, transition = true }
+local MENU_CURSOR = "hud/cursors/menu"
+local MIN_COLUMNS, MIN_ROWS, WHEEL_ROWS, TRACK_W = 34, 4, 3, 6
+local WINDOW_KEYS = { "x", "top", "w", "h" }
 
 local NAV_KEYS = {
 	up = { "up", "w" }, down = { "down", "s" }, left = { "left", "a" }, right = { "right", "d" },
@@ -20,9 +26,11 @@ local NAV_KEYS = {
 }
 local REPEATS = { up = true, down = true, left = true, right = true }
 
-local YELLOW, WHITE, GREY, GREEN, RED, DARK = { 255, 220, 100 }, { 235, 235, 235 }, { 150, 150, 150 }, { 120, 230, 120 }, { 255, 110, 100 }, { 12, 14, 16 }
+-- Obsidian's default theme.
+local GOLD, WHITE, GREY, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 255, 155, 94 }, { 15, 17, 19 }
+local PANEL, HEADER, LINE = { 33, 35, 39 }, { 48, 51, 56 }, { 255, 255, 255 }
 
-local M = { is_open = false, roots = {}, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, field = nil, state_name = nil }
+local M = { is_open = false, roots = {}, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil }
 
 local function global(name)
 	return B.rawget(B.G, name)
@@ -168,7 +176,7 @@ local function build(frame)
 end
 
 local function push(title, the_build, state)
-	local frame = { title = title, build = the_build, state = state, selected = 1, top = 1 }
+	local frame = { title = title, build = the_build, state = state, selected = 1, top = 1, follow = true }
 	build(frame)
 	B.insert(M.stack, frame)
 end
@@ -225,13 +233,53 @@ local function can_open()
 	return not (ok and B.type(st) == "table" and st.text_chat and st.text_chat.active)
 end
 
+-- The game's cursors nearly vanish away from the aim, so the menu asks for the system arrow: no path
+-- gives it, where the engine allows that. The pause menu's cursor stays set for when it doesn't.
+local function show_cursor()
+	local cursors = global("CursorManager")
+	cursors:set_cursor(MENU_CURSOR)
+	cursors:set_show_cursor(true)
+	cursors:set_clip_cursor(false)
+	local ok, err = B.pcall(global("Window").set_cursor)
+	if not ok then log.limited("menu cursor", "menu: no system cursor: " .. B.tostring(err)) end
+end
+
+local function open_cursor()
+	local cursors = global("CursorManager")
+	M.cursor = { name = cursors:get_current_cursor(), shown = cursors:is_shown(), state = state_name() }
+	show_cursor()
+end
+
+-- Every frame while open: the game may hide or swap the cursor behind the menu.
+local function hold_cursor()
+	local cursors = global("CursorManager")
+	if not cursors:is_shown() or cursors:get_current_cursor() ~= MENU_CURSOR then show_cursor() end
+end
+
+-- Puts back what the state had. A state that came up meanwhile set its own cursor, so only the
+-- system arrow has to go.
+local function close_cursor()
+	local c, cursors = M.cursor, global("CursorManager")
+	M.cursor = nil
+	if not c then return end
+	local same = c.state == state_name()
+	local name, shown = c.name, c.shown
+	if not same then name, shown = cursors:get_current_cursor(), cursors:is_shown() end
+	cursors:set_cursor(name)
+	cursors:set_show_cursor(shown)
+	if same then cursors:set_clip_cursor(name ~= MENU_CURSOR) end
+end
+
 function M.close()
 	if not M.is_open then return end
 	M.is_open = false
-	M.field = nil
+	M.field, M.drag, M.hold, M.hits = nil, nil, nil, nil
+	M.mouse_x, M.mouse_y = nil, nil
 	M.stack = {}
 	local ok, err = B.pcall(drop_focus)
 	if not ok then log.limited("menu focus", "menu: could not release input: " .. B.tostring(err)) end
+	ok, err = B.pcall(close_cursor)
+	if not ok then log.limited("menu cursor", "menu: could not restore the cursor: " .. B.tostring(err)) end
 end
 
 function M.open()
@@ -245,6 +293,11 @@ function M.open()
 		log.limited("menu open", "menu: could not take input: " .. B.tostring(err))
 		B.pcall(drop_focus)
 		return false
+	end
+	ok, err = B.pcall(open_cursor)
+	if not ok then
+		M.cursor = nil
+		log.limited("menu cursor", "menu: could not show the cursor: " .. B.tostring(err))
 	end
 	M.is_open = true
 	M.state_name = state_name()
@@ -335,7 +388,7 @@ local function begin_filter(frame)
 	M.field = { text = frame.filter or "", state = {}, max = 24, prompt = M.core.text("menu_filter"),
 		change = function(text)
 			frame.filter = text
-			frame.selected, frame.top = 1, 1
+			frame.selected, frame.top, frame.follow = 1, 1, true
 			settle(frame, rows(frame))
 		end,
 		done = function() end }
@@ -383,7 +436,7 @@ local function move(frame, list, direction)
 	for _ = 1, #list do
 		i = (i - 1 + direction) % #list + 1
 		if selectable(list[i]) then
-			frame.selected = i
+			frame.selected, frame.follow = i, true
 			return
 		end
 	end
@@ -453,22 +506,26 @@ local function read_field()
 	end
 end
 
+local function go_back(frame)
+	if frame.filter and frame.filter ~= "" then
+		frame.filter = nil
+		settle(frame, rows(frame))
+	elseif #M.stack > 1 then
+		B.remove(M.stack)
+		local back = M.stack[#M.stack]
+		build(back)
+	else
+		M.close()
+	end
+end
+
 local function handle(ev)
 	local frame = M.stack[#M.stack]
 	local list = rows(frame)
 	settle(frame, list)
 	local it = list[frame.selected]
 	if ev.back then
-		if frame.filter and frame.filter ~= "" then
-			frame.filter = nil
-			settle(frame, rows(frame))
-		elseif #M.stack > 1 then
-			B.remove(M.stack)
-			local back = M.stack[#M.stack]
-			build(back)
-		else
-			M.close()
-		end
+		go_back(frame)
 	elseif ev.up then
 		move(frame, list, -1)
 	elseif ev.down then
@@ -486,17 +543,16 @@ local function handle(ev)
 	end
 end
 
+-- A row's value as text and its color, or as the third result for a toggle, which draws a switch.
 local function value_text(frame, it)
 	if it.kind == "action" then return ">", GREY end
 	if it.kind == "input" then return "_", GREY end
-	if it.kind == "page" then return ">>", YELLOW end
+	if it.kind == "page" then return ">", GOLD end
 	if it.kind == "label" or it.kind == "header" then return nil end
 	local ok, value = run(frame.state, "get", it.get)
 	if not ok then return "?", RED end
-	if it.kind == "toggle" then
-		if value then return M.core.text("menu_on"), GREEN end
-		return M.core.text("menu_off"), GREY
-	elseif it.kind == "number" then
+	if it.kind == "toggle" then return nil, nil, value and true or false end
+	if it.kind == "number" then
 		if B.type(value) ~= "number" then return "-", GREY end
 		return "< " .. B.format(it.format or "%g", value) .. " >", WHITE
 	end
@@ -537,65 +593,157 @@ local function text(s, x, y, layer, c, alpha)
 	global("Gui").text(M.gui, s, path, size, material, global("Vector3")(x, y, layer), color(c, alpha))
 end
 
-local function draw_menu(w, h)
-	local _, size, _, advance, line = font()
+local function inside(area, x, y)
+	return area ~= nil and x >= area.x and x < area.x + area.w and y >= area.y and y < area.y + area.h
+end
+
+-- The window as the player left it, or near the top left corner on first use. Always on screen.
+local function place_window(sw, sh, min_h)
+	local _, _, _, advance = font()
+	local win = M.win
+	if not win then
+		local saved = storage.own("obsidian.menu")
+		win = { x = saved.get("x") or 40, top = saved.get("top") or sh - 60, w = saved.get("w") or 67 * advance, h = saved.get("h") or B.floor(sh * 0.72) }
+		M.win = win
+	end
+	win.w = B.max((MIN_COLUMNS + 3) * advance, B.min(win.w, sw))
+	win.h = B.max(min_h, B.min(win.h, sh))
+	win.x = B.max(0, B.min(win.x, sw - win.w))
+	win.top = B.max(win.h, B.min(win.top, sh))
+	return win
+end
+
+local function draw_switch(right, y, h, on)
+	local _, _, _, advance = font()
+	local w, inset = advance * 4, 3
+	local knob = B.floor(w / 2) - inset
+	rect(right - w, y, w, h, LAYER_MARK, on and GOLD or DARK, on and 255 or 170)
+	rect(on and right - inset - knob or right - w + inset, y + inset, knob, h - inset * 2, LAYER_MARK + 1, on and DARK or GREY)
+end
+
+local function draw_menu(sw, sh)
+	local _, _, _, advance, line = font()
+	local row_h, bar_h = line + 4, line + 10
+	local win = place_window(sw, sh, bar_h + line * 4 + 10 + MIN_ROWS * row_h)
 	local frame = M.stack[#M.stack]
 	local list = rows(frame)
 	settle(frame, list)
-	local columns = B.min(64, B.floor((w - 80) / advance))
-	local panel_w = (columns + 2) * advance
-	local shown = B.max(4, B.floor((h * 0.72) / line) - 5)
-	if frame.selected < frame.top then frame.top = frame.selected end
-	if frame.selected >= frame.top + shown then frame.top = frame.selected - shown + 1 end
-	if frame.top > 1 and frame.top + shown - 1 > #list then frame.top = B.max(1, #list - shown + 1) end
+	local x, top, w, h = win.x, win.top, win.w, win.h
+	local bottom, pad = top - h, advance
+	local columns = B.floor((w - pad * 2 - TRACK_W) / advance)
+	local help_room = columns >= 44 and 2 or 3
+	local foot_h = line * (help_room + 1) + 10
+	local shown = B.max(1, B.floor((h - bar_h - foot_h) / row_h))
+	if frame.follow then
+		if frame.selected < frame.top then frame.top = frame.selected end
+		if frame.selected >= frame.top + shown then frame.top = frame.selected - shown + 1 end
+		frame.follow = false
+	end
+	frame.top = B.max(1, B.min(frame.top, #list - shown + 1))
+	local mx, my = M.mouse_x or -1, M.mouse_y or -1
+	local hits = { rows = {} }
+	M.hits = hits
 
-	local x = 40
-	local inner = x + advance
-	local top = h - 60
-	local count = B.min(shown, #list)
-	local help = {}
-	local selected = list[frame.selected]
-	if selected and selected.help then help = wrap(text_of(frame.state, selected.help, "help"), columns) end
-	local panel_h = line * (count + 4 + #help)
-	rect(x, top - panel_h, panel_w, panel_h, LAYER_BACK, DARK, 232)
-	rect(x, top - 2, panel_w, 2, LAYER_MARK, YELLOW)
+	rect(x, bottom, w, h, LAYER_BACK, PANEL, 245)
+	local bar_y = top - bar_h
+	rect(x, bar_y, w, bar_h, LAYER_BACK + 1, HEADER)
+	rect(x, top - 2, w, 2, LAYER_MARK, GOLD)
 
-	local y = top - line + B.floor((line - size) / 2)
+	-- The title bar: back, the path, the filter and close. The rest of it moves the window.
+	local bar_text = bar_y + B.floor((bar_h - line) / 2) + 4
+	local function button(area_x, area_w, label)
+		local area = { x = area_x, y = bar_y, w = area_w, h = bar_h }
+		local over = inside(area, mx, my)
+		if over then rect(area_x, bar_y, area_w, bar_h, LAYER_MARK, LINE, 20) end
+		text(label, area_x + B.floor((area_w - length(label) * advance) / 2), bar_text, LAYER_TEXT, over and GOLD or GREY)
+		return area
+	end
+	hits.title = { x = x, y = bar_y, w = w, h = bar_h }
+	hits.close = button(x + w - bar_h, bar_h, "x")
+	local filter = M.core.text("menu_filter")
+	if frame.filter and frame.filter ~= "" then filter = cut(filter .. ": " .. frame.filter, 22) end
+	local filter_w = (length(filter) + 2) * advance
+	hits.filter = button(x + w - bar_h - filter_w, filter_w, filter)
+	local title_x = x + pad
+	if #M.stack > 1 then
+		hits.back = button(x, bar_h, "<")
+		title_x = x + bar_h
+	end
 	local titles = {}
 	for i, f in B.ipairs(M.stack) do titles[i] = f.title end
-	text(cut(B.concat(titles, " / "), columns), inner, y, LAYER_TEXT, YELLOW)
-	y = y - line
-	if frame.filter and frame.filter ~= "" then
-		text(cut(M.core.text("menu_filter") .. ": " .. frame.filter, columns), inner, y, LAYER_TEXT, GREY)
-	end
-	y = y - line
+	local room = B.max(4, B.floor((x + w - bar_h - filter_w - title_x) / advance) - 1)
+	text(cut(B.concat(titles, " / "), room), title_x, bar_text, LAYER_TEXT, GOLD)
 
-	for i = frame.top, frame.top + count - 1 do
+	-- The rows.
+	local right = x + w - pad - TRACK_W
+	local y = bar_y
+	for i = frame.top, B.min(#list, frame.top + shown - 1) do
+		y = y - row_h
 		local it = list[i]
-		local active = i == frame.selected
-		local value, value_color = value_text(frame, it)
-		if active then rect(x, y - 4, panel_w, line, LAYER_MARK, YELLOW) end
-		local label = text_of(it.owner or frame.state, it.label, "label")
-		local c = it.kind == "header" and YELLOW or (it.kind == "label" and GREY or WHITE)
-		if active then c = DARK end
-		local room = columns - (value and length(value) + 2 or 0)
-		text(cut(label, room), inner, y, LAYER_TEXT, c)
-		if value then
-			text(value, inner + (columns - length(value)) * advance, y, LAYER_TEXT, active and DARK or value_color)
+		local row = { x = x, y = y, w = w - TRACK_W - 2, h = row_h, it = it, index = i }
+		B.insert(hits.rows, row)
+		if i == frame.selected and selectable(it) then
+			rect(x, y, row.w, row_h, LAYER_BACK + 2, LINE, 18)
+			rect(x, y, 3, row_h, LAYER_MARK, GOLD)
 		end
-		y = y - line
+		local baseline = y + B.floor((row_h - line) / 2) + 4
+		local value, value_color, switch = value_text(frame, it)
+		local label = text_of(it.owner or frame.state, it.label, "label")
+		local used = switch ~= nil and 6 or (value and length(value) + 2 or 0)
+		local c = it.kind == "header" and GOLD or (it.kind == "label" and GREY or WHITE)
+		text(cut(label, columns - used), x + pad, baseline, LAYER_TEXT, c)
+		if switch ~= nil then
+			draw_switch(right, y + 4, row_h - 8, switch)
+		elseif value then
+			local value_x = right - length(value) * advance
+			text(value, value_x, baseline, LAYER_TEXT, value_color)
+			if it.kind == "number" or it.kind == "choice" then
+				row.minus = { x = value_x - advance, y = y, w = advance * 3, h = row_h }
+				row.plus = { x = right - advance * 2, y = y, w = advance * 3, h = row_h }
+			end
+		end
 	end
 
-	y = y - line
-	for _, l in B.ipairs(help) do
-		text(l, inner, y, LAYER_TEXT, GREY)
-		y = y - line
+	-- The scroll bar, only when the rows don't fit.
+	if #list > shown then
+		local track_h = shown * row_h
+		local track_x, track_y = x + w - TRACK_W - 3, bar_y - track_h
+		local thumb = B.max(line, B.floor(track_h * shown / #list))
+		local span = #list - shown
+		local thumb_y = track_y + track_h - thumb - B.floor((track_h - thumb) * (frame.top - 1) / span)
+		hits.track = { x = track_x - 3, y = track_y, w = TRACK_W + 6, h = track_h, thumb = thumb, span = span }
+		local lit = inside(hits.track, mx, my) or (M.drag and M.drag.kind == "scroll")
+		rect(track_x, track_y, TRACK_W, track_h, LAYER_BACK + 2, LINE, 14)
+		rect(track_x, thumb_y, TRACK_W, thumb, LAYER_MARK, lit and GOLD or GREY)
+	end
+
+	-- The footer: help for the selected row, then the keys or the line being typed.
+	local foot_y = bottom + foot_h
+	rect(x, foot_y, w, 1, LAYER_BACK + 2, LINE, 26)
+	local selected = list[frame.selected]
+	if selected and selected.help then
+		local lines = wrap(text_of(frame.state, selected.help, "help"), columns)
+		if #lines > help_room then lines[help_room] = cut(lines[help_room], columns - 1) .. "~" end
+		local help_y = foot_y - line
+		for i = 1, B.min(help_room, #lines) do
+			text(lines[i], x + pad, help_y, LAYER_TEXT, GREY)
+			help_y = help_y - line
+		end
 	end
 	if M.field then
-		text(cut(M.field.prompt .. ": " .. M.field.text .. "_", columns), inner, y, LAYER_TEXT, YELLOW)
+		text(cut(M.field.prompt .. ": " .. M.field.text .. "_", columns - 2), x + pad, bottom + 8, LAYER_TEXT, GOLD)
 	else
 		local more = #list > shown and B.format(" (%d/%d)", frame.selected, #list) or ""
-		text(cut(M.core.text("menu_keys") .. more, columns), inner, y, LAYER_TEXT, GREY)
+		text(cut(M.core.text("menu_keys") .. more, columns - 2), x + pad, bottom + 8, LAYER_TEXT, GREY)
+	end
+
+	-- The grip that resizes the window: a corner of dots.
+	hits.grip = { x = x + w - line, y = bottom, w = line, h = line }
+	local grip = (inside(hits.grip, mx, my) or (M.drag and M.drag.kind == "size")) and GOLD or GREY
+	for row_at = 0, 2 do
+		for dot = 0, 2 - row_at do
+			rect(x + w - 5 - dot * 5, bottom + 3 + row_at * 5, 2, 2, LAYER_MARK, grip)
+		end
 	end
 end
 
@@ -610,7 +758,7 @@ local function draw_toasts(w, h, dt)
 	for _, t in B.ipairs(M.toasts) do
 		local alpha = B.min(t.left * 2, 1) * 255
 		local s = cut(t.text, B.floor((w - 60) / advance))
-		rect(15, y - 4, (length(s) + 1) * advance, line, LAYER_TOAST, DARK, alpha * 0.8)
+		rect(15, y - 4, (length(s) + 1) * advance, line, LAYER_TOAST, PANEL, alpha * 0.9)
 		text(s, 19, y, LAYER_TOAST + 1, WHITE, alpha)
 		y = y + line
 	end
@@ -644,6 +792,134 @@ local function setup_chat(hooks)
 	end)
 end
 
+-- The mouse this frame, or nil where the engine has none: the menu then runs on the keyboard alone.
+local function read_mouse()
+	local mouse = global("Mouse")
+	if not mouse or M.no_mouse then return nil end
+	local ok, m = B.pcall(function()
+		local ids = M.mouse_ids
+		if not ids then
+			ids = { cursor = mouse.axis_index("cursor"), wheel = mouse.axis_index("wheel"), left = mouse.button_index("left"), right = mouse.button_index("right") }
+			M.mouse_ids = ids
+		end
+		local at, wheel = mouse.axis(ids.cursor), mouse.axis(ids.wheel)
+		return { x = at.x, y = at.y, wheel = wheel.y, held = mouse.button(ids.left) > 0.5, left = mouse.pressed(ids.left) == true, right = mouse.pressed(ids.right) == true }
+	end)
+	if ok then return m end
+	M.no_mouse = true
+	log.limited("menu mouse", "menu: no mouse: " .. B.tostring(m))
+	return nil
+end
+
+local function save_window()
+	local values = {}
+	for _, key in B.ipairs(WINDOW_KEYS) do values[key] = M.win[key] end
+	storage.own("obsidian.menu").put(values)
+end
+
+local function scroll_to(frame, y)
+	local track = M.hits.track
+	local room = track.h - track.thumb
+	if room <= 0 then return end
+	local at = (track.y + track.h - track.thumb / 2 - y) / room
+	frame.top = 1 + B.floor(B.max(0, B.min(at, 1)) * track.span + 0.5)
+end
+
+local function click_row(frame, row, x, y)
+	local it = row.it
+	if not selectable(it) then return end
+	frame.selected = row.index
+	local direction = inside(row.minus, x, y) and -1 or (inside(row.plus, x, y) and 1 or nil)
+	if direction then
+		adjust(frame, it, direction)
+		M.hold = { it = it, direction = direction, wait = FIRST_REPEAT }
+	else
+		activate(frame, it)
+	end
+end
+
+local function press(frame, x, y)
+	local hits = M.hits
+	if inside(hits.close, x, y) then
+		M.close()
+	elseif inside(hits.back, x, y) then
+		go_back(frame)
+	elseif inside(hits.filter, x, y) then
+		begin_filter(frame)
+	elseif inside(hits.grip, x, y) then
+		M.drag = { kind = "size", x = x - M.win.w, y = y + M.win.h }
+	elseif inside(hits.track, x, y) then
+		M.drag = { kind = "scroll" }
+		scroll_to(frame, y)
+	elseif inside(hits.title, x, y) then
+		M.drag = { kind = "move", x = x - M.win.x, y = y - M.win.top }
+	else
+		for _, row in B.ipairs(hits.rows) do
+			if inside(row, x, y) then return click_row(frame, row, x, y) end
+		end
+	end
+end
+
+local function follow_drag(frame, drag, m)
+	if not m.held then
+		M.drag = nil
+		if drag.kind ~= "scroll" then save_window() end
+	elseif drag.kind == "move" then
+		M.win.x, M.win.top = m.x - drag.x, m.y - drag.y
+	elseif drag.kind == "size" then
+		M.win.w, M.win.h = m.x - drag.x, drag.y - m.y
+	else
+		scroll_to(frame, m.y)
+	end
+end
+
+local function mouse_input(dt)
+	local m = read_mouse()
+	if not m then return end
+	local moved = M.mouse_x ~= nil and (m.x ~= M.mouse_x or m.y ~= M.mouse_y)
+	M.mouse_x, M.mouse_y = m.x, m.y
+	-- A click elsewhere ends typing, as Enter does.
+	if M.field then
+		if m.left then
+			local field = M.field
+			M.field = nil
+			field.done(field.text)
+		end
+		return
+	end
+	local frame = M.stack[#M.stack]
+	if M.drag then return follow_drag(frame, M.drag, m) end
+	if M.hold then
+		if not m.held then
+			M.hold = nil
+			return
+		end
+		M.hold.wait = M.hold.wait - dt
+		if M.hold.wait <= 0 then
+			M.hold.wait = NEXT_REPEAT
+			adjust(frame, M.hold.it, M.hold.direction)
+		end
+		return
+	end
+	if not M.hits then return end
+	if m.wheel > 0 then
+		frame.top = frame.top - WHEEL_ROWS
+	elseif m.wheel < 0 then
+		frame.top = frame.top + WHEEL_ROWS
+	end
+	-- Only a moving mouse selects, so a resting cursor doesn't fight the keys.
+	if moved then
+		for _, row in B.ipairs(M.hits.rows) do
+			if selectable(row.it) and inside(row, m.x, m.y) then frame.selected = row.index end
+		end
+	end
+	if m.right then
+		go_back(frame)
+	elseif m.left then
+		press(frame, m.x, m.y)
+	end
+end
+
 function M.frame()
 	if M.is_open then
 		local name = state_name()
@@ -660,12 +936,14 @@ function M.frame()
 		local dt = global("ENGINE_DT") or 0
 		if M.is_open then
 			hold_focus()
+			if M.cursor then B.pcall(hold_cursor) end
 			if M.field then
 				read_field()
 			else
 				local ev = read_nav(dt)
 				handle(ev)
 			end
+			if M.is_open then mouse_input(dt) end
 		end
 		if M.is_open then
 			local frame = M.stack[#M.stack]

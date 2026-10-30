@@ -18,6 +18,21 @@ Ligue o **Obsidian Trainer** na lista de mods e aplique. O Obsidian API, o mod e
 | Tab | Filtrar a lista |
 | Esc, ou Q | Voltar e fechar |
 
+O menu também funciona com o mouse, usando o cursor normal do sistema.
+
+| Mouse | O que faz |
+|---|---|
+| Apontar para uma linha | Selecionar |
+| Clicar em uma linha | Usar |
+| Clicar em `<` ou `>` | Mudar um valor; segure para continuar mudando |
+| Clicar em um número | Digitar um valor |
+| Roda, ou a barra ao lado | Rolar a lista |
+| Botão direito | Voltar |
+| Barra de título | Arraste para mover a janela |
+| Canto inferior direito | Arraste para mudar o tamanho da janela |
+
+A janela lembra a posição e o tamanho.
+
 O menu trava o personagem enquanto está aberto, e fecha sozinho quando o jogo muda de tela, como no início de uma missão. Um controle navega pelo menu, mas quem abre é o F6.
 
 ## O que tem nele {#whats-in-it}
