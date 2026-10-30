@@ -10,7 +10,7 @@ use crate::compose::{ComposedMod, Composition, Planned};
 use crate::hash::hash_name;
 use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, unwrap_resource, wrap_resource};
-use crate::luajit::compile;
+use crate::luajit::compile_all;
 use crate::manifest::{Scope, load_manifest};
 use crate::modset::{SessionMod, modset_hash, open_pool_tag};
 use crate::options::{effective_values, value_text};
@@ -81,18 +81,24 @@ fn lua_resource(name: &str, bytecode: &[u8]) -> Planned {
     Planned::new(hash_name("lua"), hash_name(name), 0, wrap_resource(bytecode), "obsidian".into())
 }
 
+/// One script of a loader build: bytecode already, or source for the compiler with its chunk name.
+enum Script {
+    Bytecode(Vec<u8>),
+    Source(Vec<u8>, String),
+}
+
 /// An entry file is bytecode when the file starts with the LuaJIT header or the resource envelope,
 /// and source otherwise.
-fn entry_bytecode(bytes: &[u8], chunk: &str) -> Result<Vec<u8>> {
+fn entry_script(bytes: Vec<u8>, chunk: &str) -> Result<Script> {
     if bytes.starts_with(&[0x1b, 0x4c, 0x4a]) {
-        check_bytecode(bytes)?;
-        return Ok(bytes.to_vec());
+        check_bytecode(&bytes)?;
+        return Ok(Script::Bytecode(bytes));
     }
-    if let Ok(inner) = unwrap_resource(bytes) {
+    if let Ok(inner) = unwrap_resource(&bytes) {
         check_bytecode(inner)?;
-        return Ok(inner.to_vec());
+        return Ok(Script::Bytecode(inner.to_vec()));
     }
-    compile(bytes, chunk)
+    Ok(Script::Source(bytes, chunk.to_string()))
 }
 
 /// Every `<lang>.json` found in `dir`, as `{ lang: { key: text } }`.
@@ -238,27 +244,44 @@ pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
     if !files.iter().any(|p| p.file_stem().is_some_and(|s| s == "boot")) {
         return Err(ObsidianError::LoaderMissing(loader_dir.display().to_string()));
     }
-    let mut out = Vec::new();
+    let mut scripts = Vec::new();
     for p in files {
         let stem = p.file_stem().unwrap().to_string_lossy().to_string();
         let module = format!("obsidian/loader/{stem}");
-        let code = compile(&std::fs::read(&p)?, &module)?;
-        out.push(lua_resource(if stem == "boot" { ENTRY } else { &module }, &code));
+        let name = if stem == "boot" { ENTRY.to_string() } else { module.clone() };
+        scripts.push((name, Script::Source(std::fs::read(&p)?, module)));
     }
     for c in &comp.mods {
         if let Some(entry) = &c.manifest.entry {
             let name = entry_name(&c.manifest.id);
-            out.push(lua_resource(&name, &entry_bytecode(&std::fs::read(c.dir.join(entry))?, &name)?));
+            let script = entry_script(std::fs::read(c.dir.join(entry))?, &name)?;
+            scripts.push((name, script));
             for p in &c.manifest.modules {
                 let name = module_name(&c.manifest.id, p);
-                out.push(lua_resource(&name, &entry_bytecode(&std::fs::read(c.dir.join(p))?, &name)?));
+                let script = entry_script(std::fs::read(c.dir.join(p))?, &name)?;
+                scripts.push((name, script));
             }
         }
     }
     let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
     let source = format!("return {}\n", to_lua(&deploy_table(comp, texts)?));
-    out.push(lua_resource("obsidian/deploy", &compile(source.as_bytes(), "obsidian/deploy")?));
-    Ok(out)
+    scripts.push(("obsidian/deploy".to_string(), Script::Source(source.into_bytes(), "obsidian/deploy".to_string())));
+
+    let sources: Vec<(&[u8], &str)> = scripts
+        .iter()
+        .filter_map(|(_, s)| match s {
+            Script::Source(source, chunk) => Some((source.as_slice(), chunk.as_str())),
+            Script::Bytecode(_) => None,
+        })
+        .collect();
+    let mut compiled = compile_all(&sources)?.into_iter();
+    Ok(scripts
+        .iter()
+        .map(|(name, s)| match s {
+            Script::Bytecode(code) => lua_resource(name, code),
+            Script::Source(..) => lua_resource(name, &compiled.next().unwrap()),
+        })
+        .collect())
 }
 
 /// What `build` compiles, uncompiled: the loader sources, each mod entry and the deploy table.
