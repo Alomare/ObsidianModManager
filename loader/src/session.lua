@@ -48,18 +48,19 @@ function M.evaluate()
 		M.published, M.published_lobby = value, l
 	end
 	local me, list, signature = l.my_id, {}, {}
-	local identical, consenting = true, own_consent
+	-- My session mods run when every other player runs the same set or allows other players' mods.
+	-- My own consent is about their mods in my game, so it plays no part here.
+	local allowed = true
 	for _, peer in B.ipairs(l:members() or {}) do
 		if peer ~= me then
 			local d = M.parse(l:member_data(peer, "obsidian"))
 			B.insert(list, { peer = peer, obsidian = d ~= nil, modset = d and d.modset, consent = d and d.consent or false })
 			B.insert(signature, B.tostring(peer))
-			if not d or d.modset ~= deploy.modset then identical = false end
-			if not (d and d.consent) then consenting = false end
+			if not (d and (d.modset == deploy.modset or d.consent)) then allowed = false end
 		end
 	end
 	M.members = list
-	local on = #list == 0 or identical or consenting
+	local on = allowed
 	set_cleared(on)
 	-- Data overrides and legacy mods can't be switched off live, so everyone running Obsidian gets told.
 	if not on and deploy.has_static_session then

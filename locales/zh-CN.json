@@ -151,7 +151,7 @@
   "app.mods.withOneFile": "%s（1 个文件）",
   "app.mods.zipFilter": "模组压缩包",
   "app.nav.consent": "允许其他玩家的会话模组",
-  "app.nav.consentHint": "除非开启此项，否则其他 Obsidian 玩家的会话模组保持关闭。开启后，你会进入单独的大厅池，与同样允许的玩家匹配。保存在当前配置中。",
+  "app.nav.consentHint": "允许其他 Obsidian 玩家在一起游戏时于你的游戏中运行他们的会话模组。当其他所有人使用相同的模组组合或开启此项时，你自己的会话模组才会运行。保存在当前配置中。",
   "app.nav.consentTitle": "多人游戏（配置 %s）",
   "app.nav.home": "主页",
   "app.nav.mods": "模组",

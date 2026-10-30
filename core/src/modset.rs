@@ -14,7 +14,6 @@ pub struct SessionMod {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PoolTags {
     pub identical: String,
-    pub consent: String,
 }
 
 fn sha256_hex(text: &str) -> String {
@@ -36,9 +35,9 @@ pub fn modset_hash(mods: &[SessionMod]) -> String {
     sha256_hex(&lines.join("\n"))
 }
 
-/// Tags appended to the vanilla build hash: 12 lowercase hex digits each.
+/// The tag appended to the vanilla build hash for players with session content: 12 lowercase hex digits.
 pub fn pool_tags(modset: &str) -> PoolTags {
-    PoolTags { identical: sha256_hex(&format!("obsidian:{modset}"))[..12].to_string(), consent: sha256_hex("obsidian:consent:1")[..12].to_string() }
+    PoolTags { identical: sha256_hex(&format!("obsidian:{modset}"))[..12].to_string() }
 }
 
 #[cfg(test)]
@@ -75,11 +74,8 @@ mod tests {
     #[test]
     fn tags_are_12_lowercase_hex() {
         let t = pool_tags(&modset_hash(&[m("a", vec![])]));
-        for tag in [&t.identical, &t.consent] {
-            assert_eq!(tag.len(), 12);
-            assert!(tag.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
-        }
-        assert_ne!(t.identical, t.consent);
-        assert_eq!(t.consent, pool_tags("other").consent);
+        assert_eq!(t.identical.len(), 12);
+        assert!(t.identical.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        assert_ne!(t.identical, pool_tags("other").identical);
     }
 }

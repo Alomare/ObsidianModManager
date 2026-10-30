@@ -151,7 +151,7 @@
   "app.mods.withOneFile": "%s (1 file)",
   "app.mods.zipFilter": "Mod archive",
   "app.nav.consent": "Allow session mods from other players",
-  "app.nav.consentHint": "Session mods from other Obsidian players stay off unless you turn this on. You then join a separate lobby pool with players who allow them too. Saved in the active profile.",
+  "app.nav.consentHint": "Lets other Obsidian players run their session mods in your game when you play together. Your own session mods run when everyone else runs the same set or has this on. Saved in the active profile.",
   "app.nav.consentTitle": "Multiplayer (profile %s)",
   "app.nav.home": "Home",
   "app.nav.mods": "Mods",

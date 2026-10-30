@@ -158,7 +158,7 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
         "version": 1,
         "revision": REVISION,
         "modset": modset,
-        "hashes": { "identical": tags.identical, "consent": tags.consent },
+        "hashes": { "identical": tags.identical },
         "has_session": has_session,
         "has_static_session": has_static_session,
         "texts": texts,

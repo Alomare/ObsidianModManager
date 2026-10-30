@@ -6,13 +6,12 @@ local log = require("obsidian/loader/log")
 
 local M = {}
 
--- Returns the tag that was applied, or nil for the vanilla pool.
-function M.apply(deploy, consent_on)
+-- Returns the tag that was applied, or nil for the vanilla pool. Players with session content only
+-- match the same set; consent changes nothing here, only who may run mods in a shared lobby.
+function M.apply(deploy)
 	local hashes = deploy.hashes or {}
 	local tag, pool
-	if consent_on then
-		tag, pool = hashes.consent, "consent"
-	elseif deploy.has_session then
+	if deploy.has_session then
 		tag, pool = hashes.identical, "identical"
 	else
 		log.line("pool: vanilla")

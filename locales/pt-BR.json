@@ -151,7 +151,7 @@
   "app.mods.withOneFile": "%s (1 arquivo)",
   "app.mods.zipFilter": "Arquivo de mod",
   "app.nav.consent": "Permitir mods de sessão de outros jogadores",
-  "app.nav.consentHint": "Mods de sessão de outros jogadores do Obsidian ficam desligados, a menos que você ative isto. Você passa a entrar num grupo de lobbies separado, com jogadores que também os permitem. Fica salvo no perfil ativo.",
+  "app.nav.consentHint": "Permite que outros jogadores do Obsidian usem os mods de sessão deles no seu jogo quando vocês jogam juntos. Os seus mods de sessão funcionam quando todos os outros usam o mesmo conjunto ou têm isto ligado. Salvo no perfil ativo.",
   "app.nav.consentTitle": "Multijogador (perfil %s)",
   "app.nav.home": "Início",
   "app.nav.mods": "Mods",

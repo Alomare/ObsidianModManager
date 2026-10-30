@@ -232,7 +232,7 @@ function M.boot()
 	end
 
 	settings.load(M, game_side and (game_side .. "/settings.txt"))
-	local tag = pool.apply(deploy, M.consent())
+	local tag = pool.apply(deploy)
 
 	M.session = session
 	hooks.setup(M, session)

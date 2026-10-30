@@ -41,17 +41,24 @@ test("one_different_hash_is_not_cleared", function()
 	E.eq(cleared(), false)
 end)
 
-test("all_consenting_is_cleared", function()
+test("others_consenting_is_cleared_without_own_consent", function()
+	-- p2 lets anyone change the game; mine stays closed. My mods run; theirs would not.
 	local e = engine({ my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OTHER .. ";1" } })
-	e:core().consent_on = true
 	e:frames(31)
 	E.eq(cleared(), true)
 end)
 
-test("consent_needs_every_member", function()
-	local e = engine({ my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OTHER .. ";1" } })
+test("identical_or_consenting_mix_is_cleared", function()
+	local e = engine({ my_id = "me", members = { "me", "p2", "p3" }, data = { p2 = "1;" .. OWN .. ";0", p3 = "1;" .. OTHER .. ";1" } })
 	e:frames(31)
-	E.eq(cleared(), false, "own consent off")
+	E.eq(cleared(), true)
+end)
+
+test("own_consent_does_not_clear_my_mods", function()
+	local e = engine({ my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OTHER .. ";0" } })
+	e:core().consent_on = true
+	e:frames(31)
+	E.eq(cleared(), false, "p2 runs another set and does not consent")
 end)
 
 test("one_vanilla_member_is_not_cleared", function()
