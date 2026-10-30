@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
-import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon } from "../Icons";
+import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon, UpdateIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
@@ -17,6 +17,7 @@ import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
 import { changes, flatten, moveMods, nudge, OBSIDIAN, pinned, toEnd, toTree, type Node } from "./layout";
 import { ModTable, type MenuTarget } from "./ModTable";
+import { checkModUpdates, offered, updateMod, useModUpdates } from "./modUpdates";
 import { filterMods } from "./rows";
 
 /** A mod, or the conflicts with those of one mod first. */
@@ -51,6 +52,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [width, setWidth] = useState(savedWidth);
+  const modUpdates = useModUpdates();
   const body = useRef<HTMLDivElement>(null);
   const profileImage = snap.profileRows.find((p) => p.name === snap.profile)?.image ?? null;
 
@@ -92,8 +94,11 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
     const removable = ids.filter((id) => !byId.get(id)?.bundled);
     const inFolder = ids.some((id) => byId.get(id)?.folder && !pinned(tree, id));
     const fixed = searching || ids.every((id) => pinned(tree, id));
+    const update = one ? offered(modUpdates.found, one) : null;
     return [
-      ...(one ? [{ label: t("app.menu.details"), run: () => setView({ kind: "mod", id: one.id }) } as MenuItem, "sep" as const] : []),
+      ...(one ? [{ label: t("app.menu.details"), run: () => setView({ kind: "mod", id: one.id }) } as MenuItem] : []),
+      ...(one && update ? [{ label: t("app.mods.updateTo", update), run: () => updateMod(one.id, pick(one.name, one.id)) } as MenuItem] : []),
+      ...(one ? ["sep" as const] : []),
       { label: t("app.menu.enable"), disabled: allOn, run: () => run("set_enabled", { ids, on: true }) },
       { label: t("app.menu.disable"), disabled: allOff, run: () => run("set_enabled", { ids, on: false }) },
       "sep",
@@ -188,6 +193,12 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAddMenu({ x: r.left, y: r.bottom + 4 }); }}>
           <PlusIcon />
         </button>
+        {snap.mods.some((m) => m.updatable) && (
+          <button className="btn icon head-btn" disabled={modUpdates.checking} onClick={() => checkModUpdates(names)} aria-label={t("app.mods.checkUpdates")}
+            data-tip-title={t("app.mods.checkUpdates")} data-tip={t("app.mods.checkUpdatesHint")}>
+            <UpdateIcon />
+          </button>
+        )}
         <label className="search">
           <SearchIcon />
           <input type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
@@ -218,7 +229,8 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onArrange={arrange}
             onCollapse={(id, collapsed) => run("edit_folder", { id, collapsed })}
             onLock={(id, locked) => run("edit_folder", { id, locked })}
-            onMenu={(x, y, target) => setMenu({ x, y, target })} />
+            onMenu={(x, y, target) => setMenu({ x, y, target })}
+            updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
         </section>
         <div className="split" role="separator" aria-orientation="vertical" aria-label={t("app.mods.resize")} onPointerDown={resize}

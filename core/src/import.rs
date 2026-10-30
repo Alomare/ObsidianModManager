@@ -28,8 +28,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         src
     } else if src.extension().is_some_and(|x| x.eq_ignore_ascii_case("zip")) {
         extracted = tempfile::tempdir()?;
-        let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
-        z.extract(extracted.path()).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
+        unzip(src, extracted.path())?;
         extracted.path()
     } else {
         return Err(ObsidianError::UnsupportedArchive(src.display().to_string()));
@@ -38,11 +37,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
 
     let mut files = Vec::new();
     walk(root, &mut files)?;
-    let shallowest_manifest = files
-        .iter()
-        .filter(|p| p.file_name().is_some_and(|n| n == manifest::FILE))
-        .min_by_key(|p| p.components().count());
-    if let Some(m) = shallowest_manifest {
+    if let Some(m) = shallowest_manifest(&files) {
         let dir = m.parent().unwrap();
         let outcome = lib.install(dir)?;
         let m = manifest::load_manifest(dir)?;
@@ -137,6 +132,22 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
 ")?;
     let outcome = lib.install(staged.path())?;
     Ok(ImportReport { id: m.id, legacy: true, outcome, version: m.version, changed, added, removed_ignored })
+}
+
+pub(crate) fn unzip(src: &Path, to: &Path) -> Result<()> {
+    let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
+    z.extract(to).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))
+}
+
+fn shallowest_manifest(files: &[PathBuf]) -> Option<&PathBuf> {
+    files.iter().filter(|p| p.file_name().is_some_and(|n| n == manifest::FILE)).min_by_key(|p| p.components().count())
+}
+
+/// The folder under `root` that holds `obsidian.json`, nearest the top.
+pub(crate) fn mod_folder(root: &Path) -> Result<Option<PathBuf>> {
+    let mut files = Vec::new();
+    walk(root, &mut files)?;
+    Ok(shallowest_manifest(&files).and_then(|m| m.parent()).map(Path::to_path_buf))
 }
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {

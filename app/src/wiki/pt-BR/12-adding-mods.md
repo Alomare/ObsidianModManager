@@ -27,6 +27,12 @@ Mods antigos entram com o escopo **sessão**, porque o Obsidian não tem como sa
 
 Importe a versão nova do mesmo jeito. Um mod com o mesmo id substitui o que está na biblioteca, e a notificação mostra a versão antiga e a nova. Os valores das opções e as teclas continuam, exceto em opções cujo tipo o autor mudou.
 
+### Pelo GitHub {#from-github}
+
+Um mod pode indicar o repositório dele no GitHub. Quando algum indica, aparece um botão com duas setas ao lado do **+** verde na aba [Mods](app:mods). Ele pergunta ao GitHub se há versões novas, e cada mod que tiver uma mostra um botão **Atualizar para** ao lado da versão. Clique nele e depois aplique ao jogo.
+
+O Obsidian só fala com o GitHub quando você clica, e só instala uma versão mais alta do mesmo mod.
+
 ## Remover {#removing}
 
 Clique com o botão direito num mod e escolha **Remover**, ou marque vários mods e use **Remover** na barra acima da lista. Os mods que vêm com o Obsidian não podem ser removidos; eles ficam na pasta Obsidian, que é travada, e continuam desligados até você ligar.

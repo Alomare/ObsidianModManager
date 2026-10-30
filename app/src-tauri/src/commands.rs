@@ -10,6 +10,7 @@ use obsidian_core::game::{GameInstall, ensure_closed};
 use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::{Localized, load_manifest};
+use obsidian_core::updates::{self, GitHub};
 use obsidian_core::{ObsidianError, profiles};
 use serde::Serialize;
 use tauri::State;
@@ -358,6 +359,57 @@ pub async fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult
     Ok(ImportBatch { snapshot: fresh(&ctx)?, results })
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModUpdate {
+    pub id: String,
+    /// The newer version; `None` when the mod is up to date or the check failed.
+    pub version: Option<String>,
+    pub error: Option<CmdError>,
+}
+
+/// Asks GitHub about the mods that name a repository. Only reading the library takes a turn, so
+/// the other commands don't wait for the network.
+#[tauri::command]
+pub async fn check_mod_updates(ctx: State<'_, Ctx>) -> CmdResult<Vec<ModUpdate>> {
+    let mods = {
+        let _turn = ctx.turn();
+        Library::open(&ctx.data)?.list()?
+    };
+    let checked = updates::check(&GitHub::default(), &mods);
+    Ok(checked
+        .into_iter()
+        .map(|c| match c.result {
+            Ok(v) => ModUpdate { id: c.id, version: v.map(|v| v.to_string()), error: None },
+            Err(e) => ModUpdate { id: c.id, version: None, error: Some(e.into()) },
+        })
+        .collect())
+}
+
+/// Installs the latest release of a mod. The download runs outside the turn, as in
+/// `check_mod_updates`, and the mod is replaced at the end.
+#[tauri::command]
+pub async fn update_mod(ctx: State<'_, Ctx>, id: String) -> CmdResult<ImportBatch> {
+    let current = {
+        let _turn = ctx.turn();
+        load_manifest(&Library::open(&ctx.data)?.mod_dir(&id))?
+    };
+    let staged = updates::stage(&GitHub::default(), &current)?;
+    let _turn = ctx.turn();
+    staged.install(&Library::open(&ctx.data)?)?;
+    with_profile(&ctx.data, |_| Ok(()))?;
+    let result = ImportResult {
+        file: id,
+        ok: true,
+        kind: "updated",
+        name: staged.manifest.name.clone(),
+        version: Some(staged.manifest.version.to_string()),
+        old_version: Some(current.version.to_string()),
+        error: None,
+    };
+    Ok(ImportBatch { snapshot: fresh(&ctx)?, results: vec![result] })
+}
+
 /// Saves a change to options or keys and writes the settings file the loader reads, so the change
 /// reaches the game at the next launch (also while the game runs).
 fn live_edit(ctx: &Ctx, f: impl FnOnce(&Library, &mut Profile) -> obsidian_core::Result<()>) -> CmdResult<Snapshot> {
@@ -478,6 +530,14 @@ mod tests {
         assert_eq!(e.code, "LastProfile");
     }
 
+    /// A game folder `find_game` takes on every system: Linux wants a Proton prefix beside it.
+    fn fake_game(library: &std::path::Path) -> GameInstall {
+        std::fs::create_dir_all(library.join("steamapps/compatdata/394510/pfx")).unwrap();
+        let root = library.join(obsidian_core::game::STEAM_DIR);
+        std::fs::create_dir_all(root.join("contents")).unwrap();
+        obsidian_core::game::find_game(Some(&root)).unwrap()
+    }
+
     fn mod_folder(dir: &std::path::Path, version: &str) {
         std::fs::create_dir_all(dir).unwrap();
         std::fs::write(dir.join("obsidian.json"), format!(r#"{{"obsidian":1,"id":"a.drop","version":"{version}","name":{{"en":"Drop"}},"scope":"client","entry":"main.lua"}}"#)).unwrap();
@@ -489,8 +549,7 @@ mod tests {
     fn import_paths_reports_a_bad_drop() {
         let t = tempfile::tempdir().unwrap();
         let data = t.path().join("data");
-        std::fs::create_dir_all(t.path().join("game/contents")).unwrap();
-        let game = obsidian_core::game::find_game(Some(&t.path().join("game"))).unwrap();
+        let game = fake_game(t.path());
         let txt = t.path().join("notes.txt");
         std::fs::write(&txt, "hello").unwrap();
         let empty = t.path().join("empty");
@@ -510,8 +569,7 @@ mod tests {
     fn import_paths_says_installed_updated_or_reinstalled() {
         let t = tempfile::tempdir().unwrap();
         let data = t.path().join("data");
-        std::fs::create_dir_all(t.path().join("game/contents")).unwrap();
-        let game = obsidian_core::game::find_game(Some(&t.path().join("game"))).unwrap();
+        let game = fake_game(t.path());
         let (v1, v2) = (t.path().join("v1"), t.path().join("v2"));
         mod_folder(&v1, "1.0.0");
         mod_folder(&v2, "1.1.0");
@@ -530,8 +588,7 @@ mod tests {
     fn play_does_not_launch_after_a_failed_deploy() {
         let t = tempfile::tempdir().unwrap();
         let data = t.path().join("data");
-        std::fs::create_dir_all(t.path().join("game/contents")).unwrap();
-        let game = obsidian_core::game::find_game(Some(&t.path().join("game"))).unwrap();
+        let game = fake_game(t.path());
         let launched = std::cell::Cell::new(false);
         let launch = || {
             launched.set(true);

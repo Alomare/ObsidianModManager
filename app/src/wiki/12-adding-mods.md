@@ -27,6 +27,12 @@ Older mods are imported with the **session** scope, because Obsidian can't tell 
 
 Import the new version the same way. A mod with the same id replaces the one in the library, and the notification shows the old and new version numbers. Your option values and keys stay, except for options the author changed the type of.
 
+### From GitHub
+
+A mod can name its GitHub repository. When one does, a button with two arrows appears beside the green **+** in the [Mods](app:mods) tab. It asks GitHub for new versions, and each mod that has one shows an **Update to** button beside its version. Click that, then deploy.
+
+Obsidian only asks GitHub when you click, and it only installs a higher version of the same mod.
+
 ## Removing
 
 Right-click a mod and choose **Remove**, or check several mods and use **Remove** in the bar above the list. The mods that come with Obsidian can't be removed; they sit in the locked Obsidian folder and stay off until you turn them on.

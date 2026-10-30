@@ -7,6 +7,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSPr
 import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, WarnIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Thumb } from "../Thumb";
+import { offered } from "./modUpdates";
 import type { ConflictRow, ImageRef, ModRow } from "../types";
 import { conflictsOf } from "./conflicts";
 import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, OBSIDIAN, pinned, type Line, type Node } from "./layout";
@@ -32,6 +33,9 @@ type Props = {
   onCollapse: (folder: string, collapsed: boolean) => void;
   onLock: (folder: string, locked: boolean) => void;
   onMenu: (x: number, y: number, target: MenuTarget) => void;
+  /** New versions found by the last check, by mod id. */
+  updates: Record<string, string>;
+  onUpdate: (id: string) => void;
 };
 
 type Drag = { key: string; folder: string | null; ids: string[]; x0: number; y0: number; moved: boolean; gap: number; onto: string | null; fixed: boolean };
@@ -63,9 +67,10 @@ type Handlers = {
   check: (id: string, on: boolean, shift: boolean) => void;
   toggle: (id: string, on: boolean) => void;
   conflicts: (id: string) => void;
+  update: (id: string) => void;
 };
 type RowProps = {
-  id: string; folder: string | null; color: string | null; name: string; description: string; version: string | null;
+  id: string; folder: string | null; color: string | null; name: string; description: string; version: string | null; update: string | null;
   scope: string; on: boolean; imagePath: string | null; imageV: number; num: number; pinned: boolean; selected: boolean; checked: boolean;
   lifted: boolean; leaving: boolean; tips: string | null; lose: boolean; h: MutableRefObject<Handlers>;
   /** The UI language: the row's texts change with it. */
@@ -73,7 +78,7 @@ type RowProps = {
 };
 
 /** One mod. Every prop is a plain value, so a click elsewhere in a long list leaves this row alone. */
-const ModLine = memo(function ModLine({ id, folder, color, name, description, version, scope, on, imagePath, imageV, num, pinned: fixed, selected, checked, lifted, leaving, tips, lose, h }: RowProps) {
+const ModLine = memo(function ModLine({ id, folder, color, name, description, version, update, scope, on, imagePath, imageV, num, pinned: fixed, selected, checked, lifted, leaving, tips, lose, h }: RowProps) {
   const line: Line = { kind: "mod", id, folder };
   const image: ImageRef | null = useMemo(() => (imagePath ? { path: imagePath, v: imageV } : null), [imagePath, imageV]);
   const cls = ["tr", folder && "in", fixed && "pinned", selected && "sel", checked && "checked", lifted && "lifted", leaving && "leaving"].filter(Boolean).join(" ");
@@ -91,6 +96,7 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
           <div className="nm">
             {name}
             <span className="ver">{version ?? t("app.mods.imported")}</span>
+            {update && <button className="tag update-tag" data-tip={t("app.mods.updateHint")} {...stop} onClick={() => h.current.update(id)}>{t("app.mods.updateTo", update)}</button>}
           </div>
           {description && <div className="sub">{description}</div>}
         </div>
@@ -109,7 +115,7 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
 /** How long the mods of a closing folder take to fade before the rows below move up. */
 const CLOSE_MS = 140;
 
-export function ModTable({ tree: saved, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu }: Props) {
+export function ModTable({ tree: saved, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu, updates, onUpdate }: Props) {
   const body = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const before = useRef<Map<string, number> | null>(null);
@@ -279,7 +285,7 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
     return out;
   }, [conflicts, names]);
   const h = useRef<Handlers>(null!);
-  h.current = { down, move, up, key, menu, check, toggle: (id, on) => onToggle([id], on), conflicts: onConflicts };
+  h.current = { down, move, up, key, menu, check, toggle: (id, on) => onToggle([id], on), conflicts: onConflicts, update: onUpdate };
   const allState = visibleMods.length && visibleMods.every((id) => checked.has(id)) ? true : visibleMods.some((id) => checked.has(id)) ? "mixed" : false;
   const draggingKeys = new Set(drag.current?.moved ? (drag.current.folder ? [drag.current.key] : drag.current.ids) : []);
 
@@ -328,7 +334,7 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
           const folder = line.folder ? folders.get(line.folder) : undefined;
           return (
             <ModLine key={m.id} id={m.id} folder={line.folder} color={folder?.kind === "folder" ? folder.folder.color : null} name={names.get(m.id) ?? m.id}
-              description={pick(m.description)} version={m.version} scope={m.scope} on={m.on} imagePath={m.image?.path ?? null} imageV={m.image?.v ?? 0} num={position.get(m.id) ?? 0}
+              description={pick(m.description)} version={m.version} update={offered(updates, m)} scope={m.scope} on={m.on} imagePath={m.image?.path ?? null} imageV={m.image?.v ?? 0} num={position.get(m.id) ?? 0}
               pinned={!!folder && folder.kind === "folder" && folder.folder.locked} selected={selected === m.id} checked={checked.has(m.id)}
               lifted={draggingKeys.has(m.id)} leaving={leaving !== null && line.folder === leaving} tips={conflict?.tips ?? null} lose={conflict?.lose ?? false} h={h} lang={language()} />
           );

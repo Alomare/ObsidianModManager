@@ -42,6 +42,7 @@ summary: 描述模组的文件中的每个字段。
 | `description` | 否 | 各语言的一两句说明，显示在名称下方。 |
 | `authors` | 否 | 作者名单。 |
 | `image` | 否 | 模组文件夹中的正方形 PNG、JPG 或 WebP 图片，最大 4 MB。 |
+| `source` | 否 | 模组的地址，显示在模组详情中。如果是 GitHub 仓库（例如 `https://github.com/you/mod`），玩家还可以在应用中更新此模组（[分享模组](wiki:sharing#updates)）。 |
 | `scope` | 否 | `client` 或 `session`（[作用范围](wiki:scopes)）。缺失或未知时视为 `session`。 |
 | `entry` | 否 | 加载器启动的 Lua 脚本。只替换游戏文件的模组可省略。 |
 | `loader_api` | 否 | 模组需要的[加载器 API](wiki:loader-api)版本，省略时为 `1`。 |

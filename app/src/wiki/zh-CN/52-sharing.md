@@ -23,6 +23,22 @@ summary: 打包发布、版本号、图片和翻译。
 > [!WARNING]
 > 永远不要更改已发布模组的 `id`。Obsidian 会把它当作另一个模组，玩家最终会同时拥有两个。
 
+## 更新 {#updates}
+
+在 `obsidian.json` 中写上你的 GitHub 仓库，玩家就可以在应用中更新：
+
+```json
+"source": "https://github.com/you/mod"
+```
+
+每个新版本：
+
+1. 提高 `obsidian.json` 中的 `version`。
+2. 创建一个 GitHub 发布，标签使用该版本号，例如 `v1.4.2`。
+3. 把 `.zip` 附加到发布中。如果有多个 `.zip`，请在正确的文件名中包含模组 id，例如 `you.mod-name-1.4.2.zip`。
+
+Obsidian 读取公开仓库的最新发布，并跳过草稿和预发布版本，因此你可以用它们来测试。id 不同或版本没有更高的 `.zip` 会被拒绝。
+
 ## 图片 {#pictures}
 
 添加一张正方形的 `image.png`（或 JPG、WebP，最大 4 MB），并在 `obsidian.json` 中用 `"image": "image.png"` 指定。512 × 512 像素就足够了。

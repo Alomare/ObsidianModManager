@@ -31,6 +31,8 @@ obsidian consent on|off                play session mods with other Obsidian use
 obsidian set <id> <option> <value>     change a mod option
 obsidian remove <id>                   delete a mod from the library
 obsidian key <id> <keybind> <key>      change a mod key
+obsidian updates                       ask GitHub for new versions of the mods that name a repository
+obsidian update [<id>...]              install new versions from GitHub
 obsidian profile list|use|new <name>   switch between named sets of mods and settings
 ```
 

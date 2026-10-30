@@ -15,6 +15,7 @@ use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
 use obsidian_core::loader::find_bundled_dir;
 use obsidian_core::profiles;
+use obsidian_core::updates::{self, GitHub};
 use obsidian_core::{ObsidianError, Result};
 
 #[derive(Parser)]
@@ -60,6 +61,10 @@ enum Command {
     Remove { id: String },
     /// Set a mod key, for example: obsidian key author.mod toggle f9
     Key { id: String, keybind: String, key: String },
+    /// Ask GitHub for new versions of the mods that name a repository
+    Updates,
+    /// Install new versions from GitHub: of these mods, or of all that have one
+    Update { ids: Vec<String> },
     /// List, switch or create profiles
     Profile {
         #[command(subcommand)]
@@ -108,7 +113,7 @@ fn run(cli: Cli) -> Result<()> {
         cli.command,
         Command::Import { .. } | Command::List | Command::Order { .. } | Command::Enable { .. } | Command::Disable { .. } | Command::Conflicts
             | Command::Consent { .. } | Command::Set { .. } | Command::Key { .. } | Command::Profile { .. }
-            | Command::Remove { .. }
+            | Command::Remove { .. } | Command::Updates | Command::Update { .. }
     );
     let mut profile = Profile::default();
     if uses_library {
@@ -139,6 +144,44 @@ fn run(cli: Cli) -> Result<()> {
                 if r.removed_ignored > 0 {
                     println!("  {} resources missing from the mod were left as in the game", r.removed_ignored);
                 }
+            }
+            profile.sync(&lib)?;
+            profile.save(&data)?;
+        }
+        Command::Updates => {
+            let checked = updates::check(&GitHub::default(), &lib.list()?);
+            if checked.is_empty() {
+                println!("No mod names a GitHub repository.");
+            }
+            for c in checked {
+                match c.result {
+                    Ok(Some(v)) => println!("{}: version {v} is available (run obsidian update {})", c.id, c.id),
+                    Ok(None) => println!("{}: up to date", c.id),
+                    Err(e) => println!("{}: {e}", c.id),
+                }
+            }
+        }
+        Command::Update { ids } => {
+            let github = GitHub::default();
+            let mods = lib.list()?;
+            let mut todo = ids;
+            if todo.is_empty() {
+                for c in updates::check(&github, &mods) {
+                    match c.result {
+                        Ok(Some(_)) => todo.push(c.id),
+                        Ok(None) => {}
+                        Err(e) => eprintln!("{}: {e}", c.id),
+                    }
+                }
+            }
+            if todo.is_empty() {
+                println!("Nothing to update.");
+            }
+            for id in &todo {
+                let m = mods.iter().find(|m| m.id == *id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;
+                let staged = updates::stage(&github, m)?;
+                staged.install(&lib)?;
+                println!("Updated {id} {} -> {} (run obsidian deploy)", m.version, staged.manifest.version);
             }
             profile.sync(&lib)?;
             profile.save(&data)?;

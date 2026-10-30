@@ -68,6 +68,16 @@ pub enum ObsidianError {
     DeployFailed(String),
     #[error("the game has no Proton prefix yet: start it once through Steam, then try again")]
     NoProtonPrefix,
+    #[error("{0} names no GitHub repository to update from")]
+    NoUpdateSource(String),
+    #[error("{0} has no release with a version number")]
+    NoRelease(String),
+    #[error("the latest release of {0} has no single .zip with a mod to install")]
+    NoUpdateAsset(String),
+    #[error("the latest release holds {found}, not a newer {wanted}")]
+    UpdateMismatch { wanted: String, found: String },
+    #[error("GitHub could not be reached: {0}")]
+    UpdateNetwork(String),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error(transparent)]

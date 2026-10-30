@@ -42,6 +42,7 @@ O `obsidian.json` fica no topo da pasta do mod, ou no topo do `.zip`. O Obsidian
 | `description` | não | Uma ou duas frases por idioma, mostradas abaixo do nome. |
 | `authors` | não | Uma lista de nomes. |
 | `image` | não | Uma imagem quadrada PNG, JPG ou WebP dentro da pasta do mod, até 4 MB. |
+| `source` | não | O endereço do mod, mostrado nos detalhes dele. Um repositório do GitHub como `https://github.com/voce/mod` também permite que os jogadores atualizem o mod pelo app ([Compartilhar um mod](wiki:sharing#updates)). |
 | `scope` | não | `client` ou `session` ([Escopos](wiki:scopes)). Sem o campo, ou com valor desconhecido, conta como `session`. |
 | `entry` | não | O script Lua que o loader inicia. Mods que só substituem arquivos do jogo não usam. |
 | `loader_api` | não | A versão da [API do loader](wiki:loader-api) de que o mod precisa. `1` se ficar de fora. |

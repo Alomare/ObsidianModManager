@@ -61,6 +61,8 @@ pub fn run() {
             commands::set_order,
             commands::use_profile,
             commands::import_paths,
+            commands::check_mod_updates,
+            commands::update_mod,
             commands::deploy,
             commands::purge,
             commands::play,

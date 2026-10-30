@@ -93,6 +93,8 @@ pub struct ModRow {
     pub files: Vec<String>,
     pub import: Option<ImportInfo>,
     pub source: Option<String>,
+    /// `source` is a repository the mod can update from.
+    pub updatable: bool,
     pub image: Option<ImageRef>,
     /// The image is the player's own, not the mod's.
     pub custom_image: bool,
@@ -286,6 +288,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             files: m.resources.iter().map(|r| resource_label(r.bundle.as_deref().unwrap_or_default(), &display_text(&r.name_text))).collect(),
             import: lib.import_info(&m.id),
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),
+            updatable: obsidian_core::updates::source_of(m).is_some(),
             image: image_ref(mod_images.get(&m.id).cloned().or_else(|| images::from_manifest(&lib, m))),
             custom_image: mod_images.contains_key(&m.id),
             folder: e.folder.clone(),

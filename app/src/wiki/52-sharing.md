@@ -23,6 +23,22 @@ A player who imports a higher version keeps option values and keys, except for o
 > [!WARNING]
 > Never change the `id` of a released mod. Obsidian would see a different mod, and players would end up with both.
 
+## Updates
+
+Put your GitHub repository in `obsidian.json`, and players can update from the app:
+
+```json
+"source": "https://github.com/you/mod"
+```
+
+For each new version:
+
+1. Raise `version` in `obsidian.json`.
+2. Make a GitHub release whose tag is that version, such as `v1.4.2`.
+3. Attach the `.zip` to the release. If the release holds several, put the mod id in the name of the right one, such as `you.mod-name-1.4.2.zip`.
+
+Obsidian reads the latest release of a public repository, and skips drafts and prereleases, so you can test with those. It refuses a `.zip` with a different id or a version that isn't higher.
+
 ## Pictures
 
 Add a square `image.png` (or JPG or WebP, up to 4 MB) and name it in `obsidian.json` with `"image": "image.png"`. 512 by 512 pixels is plenty.

@@ -25,6 +25,7 @@ pub mod profiles;
 pub mod settings;
 #[cfg(test)]
 pub(crate) mod testutil;
+pub mod updates;
 pub mod vdf;
 
 pub use error::{ObsidianError, Result};

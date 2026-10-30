@@ -23,6 +23,22 @@ Quem importa uma versão maior mantém os valores das opções e as teclas, exce
 > [!WARNING]
 > Nunca mude o `id` de um mod já lançado. O Obsidian veria um mod diferente, e os jogadores acabariam com os dois.
 
+## Atualizações {#updates}
+
+Coloque o repositório do GitHub no `obsidian.json`, e os jogadores podem atualizar pelo app:
+
+```json
+"source": "https://github.com/voce/mod"
+```
+
+Para cada versão nova:
+
+1. Aumente `version` no `obsidian.json`.
+2. Crie um lançamento no GitHub com a tag dessa versão, como `v1.4.2`.
+3. Anexe o `.zip` ao lançamento. Se houver vários, coloque o id do mod no nome do certo, como `voce.nome-do-mod-1.4.2.zip`.
+
+O Obsidian lê o último lançamento de um repositório público e ignora rascunhos e pré-lançamentos, então dá para testar com eles. Ele recusa um `.zip` com outro id ou com uma versão que não seja mais alta.
+
 ## Imagens {#pictures}
 
 Adicione um `image.png` quadrado (ou JPG ou WebP, até 4 MB) e indique no `obsidian.json` com `"image": "image.png"`. 512 por 512 pixels é mais que suficiente.

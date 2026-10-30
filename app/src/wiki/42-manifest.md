@@ -42,6 +42,7 @@ summary: Every field of the file that describes a mod.
 | `description` | no | One or two sentences by language, shown under the name. |
 | `authors` | no | A list of names. |
 | `image` | no | A square PNG, JPG or WebP inside the mod folder, up to 4 MB. |
+| `source` | no | The mod's address, shown in its details. A GitHub repository such as `https://github.com/you/mod` also lets players update the mod from the app ([Sharing a mod](wiki:sharing#updates)). |
 | `scope` | no | `client` or `session` ([Scopes](wiki:scopes)). Missing or unknown counts as `session`. |
 | `entry` | no | The Lua script the loader starts. Mods that only replace game files leave it out. |
 | `loader_api` | no | The version of the [Loader API](wiki:loader-api) the mod needs. `1` when left out. |
