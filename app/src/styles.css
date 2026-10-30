@@ -484,7 +484,7 @@ button.thumb:hover { border-color: var(--gold); }
 .home-links.tucked .home-link-list .btn { transform: translateX(calc(-1 * var(--off) - 50%)); opacity: 0; pointer-events: none; transition-delay: calc((var(--n) - 1 - var(--i)) * 30ms); }
 .home .btn.play { min-width: 0; }
 
-/* A folder opening: its mods fade in as the rows below slide down; closing runs the other way */
+/* A folder opening: the mods in it fade in as the rows below slide down; closing runs the other way */
 .tr.in { animation: row-in 200ms ease-out; }
 .tr.leaving { animation: row-out 140ms ease-in forwards; pointer-events: none; }
 @keyframes row-in { from { opacity: 0; transform: translateY(-0.5rem); } }
