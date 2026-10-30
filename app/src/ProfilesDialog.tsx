@@ -1,10 +1,12 @@
 // The profiles dialog, opened from the Profile button on the Mods page: every profile with what it
 // holds, and New, Import, Duplicate, Rename, Export, Delete and Use. A profile keeps the load order, which mods are
 // on, option values, keys and consent.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { run } from "./api";
 import { Confirm } from "./Confirm";
-import { CloseIcon, CopyIcon, ExportIcon, ImportIcon, PenIcon, PlusIcon, TrashIcon } from "./Icons";
+import { CloseIcon, CopyIcon, ExportIcon, ImportIcon, PaletteIcon, PenIcon, PlusIcon, TrashIcon } from "./Icons";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { FOLDER_COLORS } from "./mods/FolderDialog";
 import { t } from "./i18n";
 import { exportProfile, importProfile } from "./profileZip";
 import { Prompt } from "./Prompt";
@@ -15,14 +17,20 @@ type Ask = { kind: "new" } | { kind: "duplicate" | "rename" | "delete"; name: st
 
 export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () => void }) {
   const [ask, setAsk] = useState<Ask>(null);
+  const [colors, setColors] = useState<{ x: number; y: number; name: string; color: string | null } | null>(null);
   const close = () => setAsk(null);
   const last = snap.profileRows.length <= 1;
   useEffect(() => {
     // Esc closes the question on top first, then the dialog.
-    const key = (e: KeyboardEvent) => e.key === "Escape" && !ask && onClose();
+    const key = (e: KeyboardEvent) => e.key === "Escape" && !ask && !colors && onClose();
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [ask, onClose]);
+  }, [ask, colors, onClose]);
+  const colorItems = (name: string, current: string | null): MenuItem[] => [
+    ...FOLDER_COLORS.map((c): MenuItem => ({ label: "", swatch: c, hint: c === current ? "✓" : undefined, run: () => run("set_profile_color", { name, color: c }) })),
+    "sep",
+    { label: t("app.profiles.defaultColor"), hint: current ? undefined : "✓", run: () => run("set_profile_color", { name, color: null }) },
+  ];
 
   return (
     <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -40,7 +48,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
         {snap.profileRows.map((p: ProfileRow) => {
           const active = p.name === snap.profile;
           return (
-            <li key={p.name} className={active ? "profile active" : "profile"}>
+            <li key={p.name} className={active ? "profile active" : "profile"} style={p.color ? ({ "--rc": p.color } as CSSProperties) : undefined}>
               <Thumb image={p.image} name={p.name} pick={{ owner: "profile", key: p.name, custom: !!p.image }} />
               <div className="profile-text">
                 <div className="nm">
@@ -52,6 +60,10 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
               </div>
               <div className="profile-actions">
                 {!active && <button className="btn small play" onClick={() => run("use_profile", { name: p.name })}>{t("app.profiles.use")}</button>}
+                <button className="btn small icon" data-pop aria-label={t("app.profiles.color")} data-tip-title={t("app.profiles.color")} data-tip={t("app.profiles.colorHint")}
+                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setColors({ x: r.left, y: r.bottom + 4, name: p.name, color: p.color }); }}>
+                  <PaletteIcon />
+                </button>
                 <button className="btn small icon" onClick={() => setAsk({ kind: "duplicate", name: p.name })} aria-label={t("app.profiles.duplicate")}
                   data-tip-title={t("app.profiles.duplicate")} data-tip={t("app.profiles.duplicateHint")}><CopyIcon /></button>
                 <button className="btn small icon" onClick={() => setAsk({ kind: "rename", name: p.name })} aria-label={t("app.profiles.rename")}
@@ -67,6 +79,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
         })}
       </ul>
 
+      {colors && <ContextMenu x={colors.x} y={colors.y} items={colorItems(colors.name, colors.color)} onClose={() => setColors(null)} />}
       {ask?.kind === "new" && (
         <Prompt title={t("app.profiles.newTitle")} label={t("app.profiles.name")} confirm={t("app.profiles.create")} onCancel={close}
           onConfirm={async (name) => { const ok = await run("create_profile", { name, copyOf: null }); if (ok) close(); return ok; }} />

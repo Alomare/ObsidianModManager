@@ -17,6 +17,8 @@ Client mods don't change this. With only client mods, your missions count as nor
 
 ## The war on Home
 
-The Galactic War panel on Home shows the current season: each enemy front, the region being fought over, and the events running now. Obsidian reads it from the official HELLDIVERS server every five minutes while Home is open.
+The panel at the top right of Home shows the war calendar, a small map and how many Helldivers are fighting. On the map, Super Earth sits in the middle with a cone for each enemy; the light part of a cone is the ground already liberated. Hover a cone to see the region being fought over, or Super Earth to see whether it is under attack. Obsidian reads the war from the official HELLDIVERS server every five minutes while Home is open.
 
-For the history of past seasons and detailed statistics, the panel links to [helldivers.bot](https://helldivers.bot), a fan site with no ties to Arrowhead or to Obsidian.
+The button in the corner of the panel folds it away.
+
+For the history of past seasons and detailed statistics, see [helldivers.bot](https://helldivers.bot), a fan site with no ties to Arrowhead or to Obsidian.

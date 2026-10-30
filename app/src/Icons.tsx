@@ -50,6 +50,8 @@ export const PenIcon = () => <Icon><path d="M4 20l1-4.5L15.5 5l3.5 3.5L8.5 19z" 
 export const ExportIcon = () => <Icon><path d="M12 15V3.5M7.5 8L12 3.5 16.5 8" /><path d="M4 13.5v7h16v-7" /></Icon>;
 /** A tray with an arrow coming in. */
 export const ImportIcon = () => <Icon><path d="M12 3.5V15M7.5 10.5L12 15l4.5-4.5" /><path d="M4 13.5v7h16v-7" /></Icon>;
+/** A painter's palette. */
+export const PaletteIcon = () => <Icon><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 1.9-.9 1.6-2-.4-1.4.3-2.5 1.9-2.5h2.2c1.6 0 2.8-1.2 2.8-2.8C20.5 7.5 16.7 3.5 12 3.5z" /><circle cx="7.8" cy="11" r="1" /><circle cx="10.5" cy="7.5" r="1" /><circle cx="15" cy="7.8" r="1" /></Icon>;
 /** A plus. */
 export const PlusIcon = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>;
 /** An open book. */

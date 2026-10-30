@@ -29,6 +29,13 @@ export default function App() {
   const [askUpdate, setAskUpdate] = useState(false);
   const update = useUpdates();
   const ready = !!snap && !!settings;
+  // The color of the active profile tints the Profile button and the switches that are on.
+  const profileColor = snap?.profileRows.find((p) => p.name === snap.profile)?.color ?? null;
+  useEffect(() => {
+    const root = document.documentElement.style;
+    if (profileColor) root.setProperty("--pc", profileColor);
+    else root.removeProperty("--pc");
+  }, [profileColor]);
   // The update check runs once per launch, as soon as the window knows whether it is a portable copy.
   useEffect(() => {
     if (snap && settings) startupUpdate(settings.updates, snap.portable).then((a) => setAskUpdate(a === "ask"));

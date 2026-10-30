@@ -168,6 +168,9 @@ pub struct Profile {
     /// Folders the player sorts mods into. They change nothing in the game.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub folders: Vec<crate::folders::Folder>,
+    /// The color the app shows for this profile (`#rrggbb`); the default gold when none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 impl Profile {

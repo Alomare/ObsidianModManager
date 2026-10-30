@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
-import { CloseIcon, FolderIcon, LockIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon } from "../Icons";
+import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
@@ -48,6 +48,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const [profiles, setProfiles] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; target: MenuTarget } | null>(null);
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [ask, setAsk] = useState<Ask>(null);
   const [width, setWidth] = useState(savedWidth);
   const body = useRef<HTMLDivElement>(null);
@@ -183,6 +184,10 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         <button className="btn icon head-btn" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.mods.createFolder")} data-tip-title={t("app.mods.createFolder")} data-tip={t("app.folder.newHint")}>
           <FolderIcon />
         </button>
+        <button className="btn icon head-btn add" data-pop aria-label={t("app.mods.add")} data-tip-title={t("app.mods.add")} data-tip={t("app.mods.addHint")}
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAddMenu({ x: r.left, y: r.bottom + 4 }); }}>
+          <PlusIcon />
+        </button>
         <label className="search">
           <SearchIcon />
           <input type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
@@ -215,11 +220,6 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onLock={(id, locked) => run("edit_folder", { id, locked })}
             onMenu={(x, y, target) => setMenu({ x, y, target })} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
-          <div className="drop">
-            <span>{t("app.mods.dropHint")}</span>
-            <button className="link" onClick={() => pickAndImport(false)}>{t("app.mods.importZip")}</button>
-            <button className="link" onClick={() => pickAndImport(true)}>{t("app.mods.importFolder")}</button>
-          </div>
         </section>
         <div className="split" role="separator" aria-orientation="vertical" aria-label={t("app.mods.resize")} onPointerDown={resize}
           onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(DRAWER_KEY); } catch { /* fine */ } }} data-tip={t("app.mods.resizeHint")} />
@@ -227,6 +227,12 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
       </div>
       {profiles && <ProfilesDialog snap={snap} onClose={() => setProfiles(false)} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.target)} onClose={() => setMenu(null)} />}
+      {addMenu && (
+        <ContextMenu x={addMenu.x} y={addMenu.y} onClose={() => setAddMenu(null)} items={[
+          { label: t("app.mods.importZip"), icon: <ImportIcon />, run: () => pickAndImport(false) },
+          { label: t("app.mods.importFolder"), icon: <FolderIcon />, run: () => pickAndImport(true) },
+        ]} />
+      )}
       {ask?.kind === "newFolder" && (
         <FolderDialog title={t("app.menu.newFolder")} confirm={t("app.folder.create")}
           color={FOLDER_COLORS[snap.folders.length % FOLDER_COLORS.length]} onCancel={() => setAsk(null)}

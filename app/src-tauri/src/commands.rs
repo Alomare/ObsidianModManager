@@ -271,6 +271,14 @@ pub async fn import_profile(ctx: State<'_, Ctx>, path: PathBuf) -> CmdResult<Pro
 }
 
 /// Consent belongs to the active profile; it reaches the game through the settings file.
+/// Sets the color of a profile, or clears it with `None`.
+#[tauri::command]
+pub async fn set_profile_color(ctx: State<'_, Ctx>, name: String, color: Option<String>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    profiles::set_color(&ctx.data, &name, color.as_deref())?;
+    fresh(&ctx)
+}
+
 #[tauri::command]
 pub async fn set_consent(ctx: State<'_, Ctx>, on: bool) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();

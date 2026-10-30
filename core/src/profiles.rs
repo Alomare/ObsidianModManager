@@ -153,6 +153,20 @@ pub fn delete(data: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Sets or clears the color of a profile. A color is `#rrggbb`.
+pub fn set_color(data: &Path, name: &str, color: Option<&str>) -> Result<()> {
+    let found = find(data, name)?.ok_or_else(|| ObsidianError::ProfileMissing(name.to_string()))?;
+    if let Some(c) = color.filter(|c| !crate::options::is_color(c)) {
+        return Err(ObsidianError::BadOptionValue { option: "color".into(), value: c.to_string() });
+    }
+    let mut p = crate::library::Profile::load_named(data, &found)?;
+    p.color = color.map(str::to_ascii_lowercase);
+    let file = path(data, &found);
+    std::fs::create_dir_all(dir(data))?;
+    std::fs::write(file, serde_json::to_string_pretty(&p)? + "\n")?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,6 +182,18 @@ mod tests {
         assert!(!t.path().join("profile.json").exists());
         let p = Profile::load(t.path()).unwrap();
         assert!(p.consent && p.mods[0].enabled);
+    }
+
+    #[test]
+    fn profile_color_is_checked_saved_and_cleared() {
+        let t = spaced_tempdir();
+        create(t.path(), "Blue", None).unwrap();
+        set_color(t.path(), "blue", Some("#4A90D9")).unwrap();
+        assert_eq!(Profile::load_named(t.path(), "Blue").unwrap().color.as_deref(), Some("#4a90d9"));
+        assert!(set_color(t.path(), "Blue", Some("blue")).is_err());
+        assert!(set_color(t.path(), "Missing", Some("#000000")).is_err());
+        set_color(t.path(), "Blue", None).unwrap();
+        assert_eq!(Profile::load_named(t.path(), "Blue").unwrap().color, None);
     }
 
     #[test]

@@ -12,6 +12,7 @@ const CREDITS: { name: string; by: string; url: string; license: string; what: s
   { name: "Barlow", by: "Jeremy Tribby", url: "https://fonts.google.com/specimen/Barlow", license: "OFL 1.1", what: "app.about.forBarlow" },
   { name: "Tauri", by: "Tauri Programme", url: "https://tauri.app", license: "MIT / Apache 2.0", what: "app.about.forTauri" },
   { name: "HELLDIVERS UI concept", by: "Steven Webb", url: "https://stevenwebbdesign.com/helldivers", license: "", what: "app.about.forConcept" },
+  { name: "Helldivers Bot", by: "Andrei Lavrenov", url: "https://helldivers.bot", license: "", what: "app.about.forHelldiversBot" },
 ];
 
 const open = (url: string) => openUrl(url).catch(() => {});

@@ -1,5 +1,5 @@
 ---
-title: Frequently asked questions
+title: Frequently Asked Questions
 group: FAQ
 summary: Short answers, each with a link to the page that covers the subject in full.
 ---

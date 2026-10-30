@@ -117,6 +117,8 @@ pub struct ProfileRow {
     pub on: usize,
     pub consent: bool,
     pub image: Option<ImageRef>,
+    /// `#rrggbb`, or none for the default gold.
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -310,7 +312,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
                 let p = Profile::load_named(data, &name).unwrap_or_default();
                 let on = p.mods.iter().filter(|e| e.enabled && manifests.contains_key(&e.id)).count();
                 let image = image_ref(images::custom(data, Owner::Profile, &name));
-                ProfileRow { name, on, consent: p.consent, image }
+                ProfileRow { name, on, consent: p.consent, image, color: p.color }
             })
             .collect(),
         profiles: profiles::list(data)?,
