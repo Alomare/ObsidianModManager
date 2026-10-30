@@ -24,7 +24,10 @@ tauri-plugin-updater = "2.14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 semver = "1"
-# Already in the build through the updater; used for the Discord widget on Home.
+# Already in the build through the updater; used for the war status on Home.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"

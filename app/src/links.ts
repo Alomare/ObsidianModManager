@@ -5,5 +5,6 @@ export const LINKS = {
   discord: "https://dsc.gg/hd1modding",
   nexus: "https://www.nexusmods.com/games/helldivers",
   kofi: "https://ko-fi.com/alomare",
+  warHistory: "https://helldivers.bot",
   license: "https://www.apache.org/licenses/LICENSE-2.0",
 };

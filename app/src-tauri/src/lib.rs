@@ -4,6 +4,7 @@ mod app_settings;
 mod commands;
 pub mod perf_library;
 mod snapshot;
+mod war;
 
 use std::sync::Mutex;
 
@@ -52,6 +53,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::snapshot,
+            war::war_status,
             commands::get_app_settings,
             commands::set_app_settings,
             commands::set_enabled,

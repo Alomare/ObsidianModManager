@@ -1,7 +1,7 @@
 // Home: the game's cover under a blur and a dark gradient that come from the top left corner, the
 // name at the top left and links at the bottom left. Each link opens in the browser; the tooltip
 // shows where. The button beside the links tucks them away for a clear view of the cover, and
-// brings them back; the choice is remembered.
+// brings them back; the choice is remembered. The Galactic War panel sits at the bottom right.
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import cover from "./assets/home-cover.webp";
@@ -9,6 +9,7 @@ import logo from "./assets/logo-shaded.png";
 import { ChevronIcon, DiscordIcon, GitHubIcon, KofiIcon, OutboundIcon, SearchIcon } from "./Icons";
 import { t } from "./i18n";
 import { LINKS } from "./links";
+import { WarStatus } from "./WarStatus";
 
 const TUCK_KEY = "obsidian.homeLinksTucked";
 
@@ -51,6 +52,7 @@ export function HomePage() {
     <div className="home" style={{ backgroundImage: `url(${cover})` }}>
       <div className="home-blur" aria-hidden="true"><i /><i /><i /><i /></div>
       <div className="home-shade" aria-hidden="true" />
+      <WarStatus />
       <div className="home-body">
         <div className="home-brand">
           <img src={logo} alt="" draggable={false} />

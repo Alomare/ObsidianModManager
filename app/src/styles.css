@@ -490,3 +490,28 @@ button.thumb:hover { border-color: var(--gold); }
 @keyframes row-in { from { opacity: 0; transform: translateY(-0.5rem); } }
 @keyframes row-out { to { opacity: 0; transform: translateY(-0.5rem); } }
 :root[data-motion="off"] .tr.in, :root[data-motion="off"] .tr.leaving { animation: none; }
+
+/* Home: the Galactic War panel, glass over the cover at the bottom right */
+.war { position: absolute; right: 2.2rem; bottom: 1.9rem; z-index: 1; width: 19rem; padding: 0.85rem 1rem 0.75rem; background: rgba(10, 11, 13, 0.62); box-shadow: inset 0 2px 0 var(--gold), inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.35); backdrop-filter: blur(12px); color: #f2f1ed; font-size: 0.8rem; animation: view-in 260ms ease-out; }
+.war header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.55rem; }
+.war h2 { margin: 0; font-family: "Saira Variable", sans-serif; font-weight: 770; font-size: 0.85rem; letter-spacing: 0.18em; text-transform: uppercase; cursor: default; }
+.war header span, .war-note, .war footer { color: #b9b8b2; font-size: 0.72rem; }
+.war-note { margin: 0.2rem 0 0.1rem; }
+.war-fronts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.war-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+.war-line b { font-family: "Saira Variable", sans-serif; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.war-line.sub { margin-top: 0.1rem; color: #c9c8c3; font-size: 0.74rem; }
+.war-line.sub span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.war-state { font-family: "Saira Variable", sans-serif; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ec); }
+.war-fronts li.defeated b, .war-fronts li.defeated .war-state { opacity: 0.6; }
+.war-bar { height: 4px; margin-top: 0.3rem; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.war-bar i { display: block; height: 100%; background: var(--ec); transition: width 600ms ease; }
+.war .e0 { --ec: #eba83a; }
+.war .e1 { --ec: #e2564d; }
+.war .e2 { --ec: #6aa8ec; }
+.war-event { margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.war-event .war-line:first-child span { color: var(--ec); font-size: 0.72rem; }
+.war footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.7rem; }
+.war button.war-more { padding: 0; gap: 0.3rem; align-items: center; color: #b9b8b2; font-size: 0.72rem; }
+.war button.war-more:hover { color: #f2f1ed; }
+.war-more svg { width: 0.65rem; height: 0.65rem; }
