@@ -5,6 +5,7 @@ pub mod bundle;
 pub mod compose;
 pub mod deploy;
 pub mod edit;
+pub mod folders;
 pub mod error;
 pub mod game;
 pub mod gate;
@@ -19,6 +20,7 @@ pub mod manifest;
 pub mod modset;
 pub mod options;
 pub mod paths;
+pub mod profile_zip;
 pub mod profiles;
 pub mod settings;
 #[cfg(test)]

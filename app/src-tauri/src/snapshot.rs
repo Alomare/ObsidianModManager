@@ -92,6 +92,8 @@ pub struct ModRow {
     pub image: Option<ImageRef>,
     /// The image is the player's own, not the mod's.
     pub custom_image: bool,
+    /// The folder the mod sits in, by id.
+    pub folder: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +123,8 @@ pub struct Snapshot {
     pub profile: String,
     pub profiles: Vec<String>,
     pub profile_rows: Vec<ProfileRow>,
+    /// The active profile's folders.
+    pub folders: Vec<obsidian_core::folders::Folder>,
     pub consent: bool,
     pub conflicts: Vec<ConflictRow>,
     pub changes: ChangesWaiting,
@@ -276,6 +280,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),
             image: image_ref(mod_images.get(&m.id).cloned().or_else(|| images::from_manifest(&lib, m))),
             custom_image: mod_images.contains_key(&m.id),
+            folder: e.folder.clone(),
         });
     }
 
@@ -291,6 +296,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
 
     Ok(Snapshot {
         mods,
+        folders: profile.folders.clone(),
         profile: profiles::active(data)?,
         profile_rows: profiles::list(data)?
             .into_iter()

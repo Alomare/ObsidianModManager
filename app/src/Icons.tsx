@@ -8,7 +8,22 @@ const Icon = ({ children, ...p }: SVGProps<SVGSVGElement> & { children: ReactNod
 );
 
 
-export const ModsIcon = () => <Icon><path d="M4 6h16M4 12h16M4 18h16" /></Icon>;
+/** A supply crate. */
+export const ModsIcon = () => <Icon><path d="M12 2.5l8.5 4.75v9.5L12 21.5l-8.5-4.75v-9.5z" /><path d="M3.5 7.25L12 12l8.5-4.75M12 12v9.5M7.75 4.9l8.5 4.75v3.6" /></Icon>;
+export const HomeIcon = () => <Icon><path d="M3.5 11L12 3.5l8.5 7.5" /><path d="M5.5 9.5v11h5v-6h3v6h5v-11" /></Icon>;
+export const FolderIcon = () => <Icon><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4.8l2 2.2h8.2A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" /></Icon>;
+export const TrashIcon = () => <Icon><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" /></Icon>;
+export const CheckIcon = () => <Icon strokeWidth="2.6"><path d="M5 12.5l4.5 4.5L19 7.5" /></Icon>;
+/** A filled square with an arrow leaving it: the link opens outside the app. */
+export const OutboundIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="outbound">
+    <defs><mask id="outbound-cut"><rect width="24" height="24" fill="#fff" /><path d="M8.5 15.5l7-7M10 8.5h5.5V14" stroke="#000" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" /></mask></defs>
+    <rect x="2.5" y="2.5" width="19" height="19" rx="2.5" fill="currentColor" mask="url(#outbound-cut)" />
+  </svg>
+);
+export const GitHubIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.58l-.02-2.04c-3.34.73-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.08-.74.09-.73.09-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.31.76-1.6-2.67-.31-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.62-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .32.21.7.82.58A12 12 0 0 0 12 .3" /></svg>
+);
 export const ProfilesIcon = () => <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></Icon>;
 export const CogIcon = () => (
   <Icon>

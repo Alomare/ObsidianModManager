@@ -1,6 +1,7 @@
 // Calls into the Rust side, and the one snapshot of the library and profile the UI renders.
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
+import { withTask } from "./busy";
 import { t } from "./i18n";
 import { notify } from "./notices";
 import type { CmdError, Snapshot } from "./types";
@@ -40,10 +41,17 @@ export async function loadSnapshot() {
   }
 }
 
-/** Runs a command that returns a snapshot. Errors become a notice; the result says whether it worked. */
+/** The status bar line while a command runs (`app.task.<cmd>`), "Working" for the others. */
+export function taskText(cmd: string): string {
+  const text = t(`app.task.${cmd}`);
+  return text === `app.task.${cmd}` ? t("app.task.working") : text;
+}
+
+/** Runs a command that returns a snapshot. Errors become a notice; the result says whether it worked.
+ * A command that takes longer than a blink shows in the status bar. */
 export async function run(cmd: string, args?: Record<string, unknown>): Promise<boolean> {
   try {
-    setSnapshot(await call<Snapshot>(cmd, args));
+    setSnapshot(await withTask(taskText(cmd), () => call<Snapshot>(cmd, args)));
     return true;
   } catch (e) {
     notify("error", errorText(e));

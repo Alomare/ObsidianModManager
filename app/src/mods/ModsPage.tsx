@@ -1,7 +1,11 @@
-// The Mods page: header, crash banner, the table and the drawer (spec 4.1 and 4.2).
-import { useMemo, useState } from "react";
+// The Mods page: header, crash banner, the table and the drawer (spec 4.1 and 4.2). Checked mods
+// get a bar of batch actions; a right click opens the same actions for one mod or folder. The
+// line between the table and the drawer drags to resize them.
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
-import { CloseIcon, ProfilesIcon, SearchIcon } from "../Icons";
+import { Confirm } from "../Confirm";
+import { ContextMenu, type MenuItem } from "../ContextMenu";
+import { CloseIcon, FolderIcon, ProfilesIcon, SearchIcon, TrashIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
@@ -10,31 +14,157 @@ import { winners } from "./conflicts";
 import { CrashBanner } from "./CrashBanner";
 import { Drawer } from "./Drawer";
 import { pickAndImport } from "./dropImport";
-import { ModTable } from "./ModTable";
+import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
+import { changes, flatten, moveMods, nudge, toEnd, toTree, type Node } from "./layout";
+import { ModTable, type MenuTarget } from "./ModTable";
 import { filterMods } from "./rows";
 
 /** A mod, or the conflicts with those of one mod first. */
 export type DrawerView = { kind: "mod"; id: string } | { kind: "conflicts"; focus?: string } | null;
 
+type Ask =
+  | { kind: "newFolder"; ids: string[] }
+  | { kind: "editFolder"; id: string }
+  | { kind: "deleteFolder"; id: string }
+  | { kind: "remove"; ids: string[] }
+  | null;
+
+const DRAWER_KEY = "obsidian.drawerWidth";
+const DRAWER_MIN_PX = 300;
+const LIST_MIN_PX = 420;
+
+function savedWidth(): number {
+  try {
+    return Number(localStorage.getItem(DRAWER_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function ModsPage({ snap }: { snap: Snapshot }) {
   const [query, setQuery] = useState("");
-  const [pending, setPending] = useState<string[] | null>(null);
+  const [pending, setPending] = useState<Node[] | null>(null);
   const [view, setView] = useState<DrawerView>(null);
   const [profiles, setProfiles] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState<{ x: number; y: number; target: MenuTarget } | null>(null);
+  const [ask, setAsk] = useState<Ask>(null);
+  const [width, setWidth] = useState(savedWidth);
+  const body = useRef<HTMLDivElement>(null);
   const profileImage = snap.profileRows.find((p) => p.name === snap.profile)?.image ?? null;
 
   const byId = useMemo(() => new Map(snap.mods.map((m) => [m.id, m])), [snap.mods]);
   const names = useMemo(() => new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), [snap.mods]);
-  const order = pending ?? snap.mods.map((m) => m.id);
-  const rows = filterMods(order.flatMap((id) => byId.get(id) ?? []), query);
+  const saved = useMemo(() => toTree(snap.mods, snap.folders), [snap.mods, snap.folders]);
+  const tree = pending ?? saved;
+  const order = useMemo(() => flatten(tree), [tree]);
   const searching = query.trim() !== "";
-  const shownConflicts = useMemo(() => (pending ? winners(snap.conflicts, pending) : snap.conflicts), [snap.conflicts, pending]);
+  const rows = filterMods(order.flatMap((id) => byId.get(id) ?? []), query);
+  const shownConflicts = useMemo(() => (pending ? winners(snap.conflicts, order) : snap.conflicts), [snap.conflicts, pending, order]);
 
-  const drop = async (ids: string[]) => {
-    setPending(ids);
-    await run("set_order", { ids });
+  // Checks go with mods that leave the library.
+  useEffect(() => {
+    setChecked((c) => (([...c].every((id) => byId.has(id))) ? c : new Set([...c].filter((id) => byId.has(id)))));
+  }, [byId]);
+
+  const arrange = async (next: Node[]) => {
+    const { ids, moves } = changes(saved, next);
+    setPending(next);
+    await run("set_order", { ids, moves });
     setPending(null);
   };
+  const check = (ids: string[], on: boolean) =>
+    setChecked((c) => {
+      const n = new Set(c);
+      for (const id of ids) if (on) n.add(id); else n.delete(id);
+      return n;
+    });
+  const inOrder = (ids: string[]) => order.filter((id) => ids.includes(id));
+  const folderOf = (id: string) => snap.folders.find((f) => f.id === id);
+  const membersOf = (id: string) => snap.mods.filter((m) => m.folder === id).map((m) => m.id);
+
+  /** The actions for some mods: the menu of a row, and the batch bar's "More". */
+  const modItems = (ids: string[]): MenuItem[] => {
+    const one = ids.length === 1 ? byId.get(ids[0]) : undefined;
+    const allOn = ids.every((id) => byId.get(id)?.on);
+    const allOff = ids.every((id) => !byId.get(id)?.on);
+    const removable = ids.filter((id) => !byId.get(id)?.bundled);
+    const inFolder = ids.some((id) => byId.get(id)?.folder);
+    return [
+      ...(one ? [{ label: t("app.menu.details"), run: () => setView({ kind: "mod", id: one.id }) } as MenuItem, "sep" as const] : []),
+      { label: t("app.menu.enable"), disabled: allOn, run: () => run("set_enabled", { ids, on: true }) },
+      { label: t("app.menu.disable"), disabled: allOff, run: () => run("set_enabled", { ids, on: false }) },
+      "sep",
+      { label: t("app.menu.moveTop"), disabled: searching, run: () => arrange(toEnd(tree, ids, "top")) },
+      ...(one ? [
+        { label: t("app.menu.moveUp"), hint: "Alt+↑", disabled: searching, run: () => arrange(nudge(tree, one.id, -1)) } as MenuItem,
+        { label: t("app.menu.moveDown"), hint: "Alt+↓", disabled: searching, run: () => arrange(nudge(tree, one.id, 1)) } as MenuItem,
+      ] : []),
+      { label: t("app.menu.moveBottom"), disabled: searching, run: () => arrange(toEnd(tree, ids, "bottom")) },
+      {
+        label: t("app.menu.moveToFolder"), icon: <FolderIcon />, disabled: searching,
+        sub: [
+          ...snap.folders.map((f): MenuItem => ({ label: f.name, swatch: f.color, run: () => arrange(moveMods(tree, inOrder(ids), { folder: f.id, index: Infinity })) })),
+          ...(snap.folders.length ? ["sep" as const] : []),
+          { label: t("app.menu.newFolder"), run: () => setAsk({ kind: "newFolder", ids: inOrder(ids) }) },
+          ...(inFolder ? [{ label: t("app.menu.outOfFolder"), run: () => arrange(moveFolderless(ids)) } as MenuItem] : []),
+        ],
+      },
+      "sep",
+      { label: removable.length > 1 ? t("app.menu.removeN", removable.length) : t("app.menu.remove"), icon: <TrashIcon />, danger: true, disabled: !removable.length, run: () => setAsk({ kind: "remove", ids: removable }) },
+    ];
+  };
+  /** Takes mods out of their folders, right after the folder they were in. */
+  const moveFolderless = (ids: string[]) => {
+    let next = tree;
+    for (const id of inOrder(ids).reverse()) {
+      const f = byId.get(id)?.folder;
+      if (!f) continue;
+      const at = next.findIndex((n) => n.kind === "folder" && n.folder.id === f);
+      next = moveMods(next, [id], { folder: null, index: at + 1 });
+    }
+    return next;
+  };
+  const folderItems = (id: string): MenuItem[] => {
+    const f = folderOf(id)!;
+    const ids = membersOf(id);
+    return [
+      { label: f.collapsed ? t("app.menu.expand") : t("app.menu.collapse"), run: () => run("edit_folder", { id, collapsed: !f.collapsed }) },
+      { label: t("app.menu.editFolder"), run: () => setAsk({ kind: "editFolder", id }) },
+      { label: t("app.folder.color"), sub: FOLDER_COLORS.map((c): MenuItem => ({ label: "", hint: c === f.color ? "✓" : undefined, swatch: c, run: () => run("edit_folder", { id, color: c }) })) },
+      "sep",
+      { label: t("app.menu.enableAll"), disabled: !ids.length || ids.every((m) => byId.get(m)?.on), run: () => run("set_enabled", { ids, on: true }) },
+      { label: t("app.menu.disableAll"), disabled: !ids.length || ids.every((m) => !byId.get(m)?.on), run: () => run("set_enabled", { ids, on: false }) },
+      { label: t("app.menu.checkAll"), disabled: !ids.length, run: () => check(ids, true) },
+      "sep",
+      { label: t("app.menu.deleteFolder"), icon: <TrashIcon />, danger: true, run: () => (ids.length ? setAsk({ kind: "deleteFolder", id }) : run("delete_folder", { id, removeMods: false })) },
+    ];
+  };
+  const menuItems = (target: MenuTarget): MenuItem[] =>
+    target.kind === "folder" ? folderItems(target.id) : modItems(checked.has(target.id) ? inOrder([...checked]) : [target.id]);
+
+  // The resize handle: the drawer width is kept between visits.
+  const resize = (e: PointerEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const box = body.current!.getBoundingClientRect();
+    const moveTo = (x: number) => setWidth(Math.round(Math.max(DRAWER_MIN_PX, Math.min(box.right - x, box.width - LIST_MIN_PX))));
+    const onMove = (ev: globalThis.PointerEvent) => moveTo(ev.clientX);
+    const onUp = () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      setWidth((w) => {
+        try { localStorage.setItem(DRAWER_KEY, String(w)); } catch { /* the width is a convenience */ }
+        return w;
+      });
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+  };
+
+  const sel = inOrder([...checked]);
+  const removable = sel.filter((id) => !byId.get(id)?.bundled);
+  const askFolder = ask?.kind === "editFolder" || ask?.kind === "deleteFolder" ? folderOf(ask.id) : undefined;
 
   return (
     <div className="mods">
@@ -45,6 +175,9 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
           <span className="profile-label">{t("app.mods.profile")}</span>
           <span className="profile-name">{snap.profile}</span>
         </button>
+        <button className="btn icon" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.menu.newFolder")} data-tip-title={t("app.menu.newFolder")} data-tip={t("app.folder.newHint")}>
+          <FolderIcon />
+        </button>
         <label className="search">
           <SearchIcon />
           <input type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
@@ -53,14 +186,28 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         </label>
       </div>
       <CrashBanner snap={snap} />
-      <div className="mods-body">
+      <div className="mods-body" ref={body} style={width ? { ["--drawer-w" as string]: `${width}px` } : undefined}>
         <section className="list">
-          <ModTable rows={rows} order={order} names={names} conflicts={shownConflicts} canDrag={!searching}
-            selected={view?.kind === "mod" ? view.id : null}
+          {sel.length > 0 && (
+            <div className="batch" role="toolbar" aria-label={t("app.mods.selection")}>
+              <span className="batch-n">{t("app.mods.nChecked", sel.length)}</span>
+              <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: true })}>{t("app.menu.enable")}</button>
+              <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: false })}>{t("app.menu.disable")}</button>
+              <button className="btn small" data-pop onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.bottom + 4, target: { kind: "mod", id: sel[0] } }); }}>
+                <FolderIcon />{t("app.mods.moreActions")}
+              </button>
+              <button className="btn small danger" disabled={!removable.length} onClick={() => setAsk({ kind: "remove", ids: removable })}><TrashIcon />{t("app.menu.remove")}</button>
+              <button className="bare batch-x" onClick={() => setChecked(new Set())} aria-label={t("app.mods.uncheck")} data-tip={t("app.mods.uncheck")}><CloseIcon /></button>
+            </div>
+          )}
+          <ModTable tree={searching ? null : tree} rows={rows} byId={byId} order={order} names={names} conflicts={shownConflicts}
+            selected={view?.kind === "mod" ? view.id : null} checked={checked} onCheck={check}
             onSelect={(id) => setView({ kind: "mod", id })}
-            onToggle={(id, on) => run("set_enabled", { id, on })}
+            onToggle={(ids, on) => run("set_enabled", { ids, on })}
             onConflicts={(focus) => setView({ kind: "conflicts", focus })}
-            onDrag={setPending} onDrop={drop} />
+            onArrange={arrange}
+            onCollapse={(id, collapsed) => run("edit_folder", { id, collapsed })}
+            onMenu={(x, y, target) => setMenu({ x, y, target })} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
           <div className="drop">
             <span>{t("app.mods.dropHint")}</span>
@@ -68,9 +215,31 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             <button className="link" onClick={() => pickAndImport(true)}>{t("app.mods.importFolder")}</button>
           </div>
         </section>
-        {profiles && <ProfilesDialog snap={snap} onClose={() => setProfiles(false)} />}
+        <div className="split" role="separator" aria-orientation="vertical" aria-label={t("app.mods.resize")} onPointerDown={resize}
+          onDoubleClick={() => { setWidth(0); try { localStorage.removeItem(DRAWER_KEY); } catch { /* fine */ } }} data-tip={t("app.mods.resizeHint")} />
         <Drawer view={view} mods={snap.mods} conflicts={shownConflicts} order={order} names={names} onClose={() => setView(null)} />
       </div>
+      {profiles && <ProfilesDialog snap={snap} onClose={() => setProfiles(false)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.target)} onClose={() => setMenu(null)} />}
+      {ask?.kind === "newFolder" && (
+        <FolderDialog title={t("app.menu.newFolder")} confirm={t("app.folder.create")}
+          color={FOLDER_COLORS[snap.folders.length % FOLDER_COLORS.length]} onCancel={() => setAsk(null)}
+          onConfirm={(name, color) => { run("create_folder", { name, color, ids: ask.ids }); setAsk(null); setChecked(new Set()); }} />
+      )}
+      {ask?.kind === "editFolder" && askFolder && (
+        <FolderDialog title={t("app.menu.editFolder")} confirm={t("app.save")} name={askFolder.name} color={askFolder.color} onCancel={() => setAsk(null)}
+          onConfirm={(name, color) => { run("edit_folder", { id: askFolder.id, name, color }); setAsk(null); }} />
+      )}
+      {ask?.kind === "deleteFolder" && askFolder && (
+        <DeleteFolder name={askFolder.name} count={membersOf(askFolder.id).length} onCancel={() => setAsk(null)}
+          onDelete={(removeMods) => { run("delete_folder", { id: askFolder.id, removeMods }); setAsk(null); }} />
+      )}
+      {ask?.kind === "remove" && (
+        <Confirm title={ask.ids.length === 1 ? t("app.drawer.removeTitle", names.get(ask.ids[0]) ?? ask.ids[0]) : t("app.mods.removeNTitle", ask.ids.length)}
+          text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")} onCancel={() => setAsk(null)}
+          onConfirm={() => { run("remove_mods", { ids: ask.ids }); setAsk(null); if (view?.kind === "mod" && ask.ids.includes(view.id)) setView(null); }} />
+      )}
     </div>
   );
 }
+

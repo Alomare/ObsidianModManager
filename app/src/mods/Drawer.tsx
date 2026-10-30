@@ -209,7 +209,7 @@ function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
       {!mod.bundled && <button className="btn small danger" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>}
       {ask && (
         <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
-          onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mod", { id: mod.id })) onRemoved(); }} />
+          onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mods", { ids: [mod.id] })) onRemoved(); }} />
       )}
     </div>
   );

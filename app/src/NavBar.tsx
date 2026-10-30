@@ -1,10 +1,9 @@
-// The navigation bar: Home (the logo), the tabs, then the "prepare to play" area: the multiplayer consent of the active
+// The navigation bar: the tabs (Home, Mods, Settings), then the "prepare to play" area: the multiplayer consent of the active
 // profile, and Purge, Deploy and Play (spec section 3). Deploy turns green while changes wait.
 import type { ComponentType } from "react";
 import { run } from "./api";
-import { CogIcon, DeployIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
+import { CogIcon, DeployIcon, HomeIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
 import { t } from "./i18n";
-import logo from "./assets/logo-shaded.png";
 import type { Snapshot } from "./types";
 
 export type Tab = "home" | "mods" | "settings";
@@ -19,7 +18,7 @@ type Props = {
   onPlay: () => void;
 };
 
-const TABS: [Tab, ComponentType][] = [["mods", ModsIcon], ["settings", CogIcon]];
+const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["settings", CogIcon]];
 
 export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
@@ -32,10 +31,6 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
   return (
     <nav className="nav">
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === "home"} aria-label={t("app.nav.home")} data-tip-title={t("app.nav.home")}
-          className={tab === "home" ? "tab home cur" : "tab home"} onClick={() => onTab("home")}>
-          <img src={logo} alt="" draggable={false} />
-        </button>
         {TABS.map(([id, Icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "tab cur" : "tab"} onClick={() => onTab(id)}>
             <Icon />

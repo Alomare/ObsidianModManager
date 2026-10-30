@@ -13,7 +13,7 @@ export function CrashBanner({ snap }: { snap: Snapshot }) {
       <WarnIcon />
       <span>{t("app.crash.text", name)}</span>
       {row && (
-        <button className="btn small" onClick={() => run("set_enabled", { id: row.id, on: false })}>
+        <button className="btn small" onClick={() => run("set_enabled", { ids: [row.id], on: false })}>
           {t("app.crash.turnOff", name)}
         </button>
       )}

@@ -309,7 +309,7 @@ mod tests {
         let lib = Library::open(&t.path().join("data")).unwrap();
         add(t.path(), &lib, "a", "client");
         add(t.path(), &lib, "b", "session");
-        let entry = |id: &str| ProfileEntry { id: id.into(), enabled: true };
+        let entry = |id: &str| ProfileEntry { id: id.into(), enabled: true, folder: None };
         let profile = Profile { mods: vec![entry("b"), entry("a")], ..Default::default() };
         let comp = compose(&lib, &profile).unwrap();
         let table = deploy_table(&comp, json!({})).unwrap();
@@ -337,7 +337,7 @@ mod tests {
             lib.install(&d).unwrap();
         }
         let mut profile = Profile {
-            mods: vec![ProfileEntry { id: "k1".into(), enabled: true }, ProfileEntry { id: "k2".into(), enabled: false }],
+            mods: vec![ProfileEntry { id: "k1".into(), enabled: true, folder: None }, ProfileEntry { id: "k2".into(), enabled: false, folder: None }],
             ..Default::default()
         };
         for id in ["k1", "k2"] {

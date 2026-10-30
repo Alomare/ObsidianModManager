@@ -145,17 +145,18 @@ pub fn set_app_settings(ctx: State<'_, Ctx>, settings: AppSettings) -> CmdResult
 }
 
 #[tauri::command]
-pub async fn set_enabled(ctx: State<'_, Ctx>, id: String, on: bool) -> CmdResult<Snapshot> {
+pub async fn set_enabled(ctx: State<'_, Ctx>, ids: Vec<String>, on: bool) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
-    with_profile(&ctx.data, |p| p.set_enabled(&id, on))?;
+    with_profile(&ctx.data, |p| ids.iter().try_for_each(|id| p.set_enabled(id, on)))?;
     fresh(&ctx)
 }
 
+/// Sets the load order; `moves` puts mods into a folder (or out of any, with null) on the way.
 #[tauri::command]
-pub async fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
+pub async fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>, moves: Option<Vec<(String, Option<String>)>>) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
     with_profile(&ctx.data, |p| {
-        p.set_order(&ids);
+        p.arrange(&ids, &moves.unwrap_or_default());
         Ok(())
     })?;
     fresh(&ctx)
@@ -199,15 +200,72 @@ pub async fn set_image(ctx: State<'_, Ctx>, owner: String, key: String, path: Op
     fresh(&ctx)
 }
 
-const DISCORD_WIDGET: &str = "https://discord.com/api/guilds/1565499689321762908/widget.json";
-
-/// The Discord server's public widget (its name and who is online), for Home. Fetched here because
-/// Discord's API does not let the page ask it directly.
+/// A folder holding `ids` (maybe none) at the place of the first of them.
 #[tauri::command]
-pub async fn discord_widget() -> CmdResult<serde_json::Value> {
-    let net = |e: reqwest::Error| CmdError { code: "Network".into(), message: e.to_string() };
-    let text = reqwest::get(DISCORD_WIDGET).await.and_then(|r| r.error_for_status()).map_err(net)?.text().await.map_err(net)?;
-    serde_json::from_str(&text).map_err(|e| CmdError { code: "Network".into(), message: e.to_string() })
+pub async fn create_folder(ctx: State<'_, Ctx>, name: String, color: String, ids: Vec<String>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    with_profile(&ctx.data, |p| {
+        p.create_folder(&name, &color, &ids);
+        Ok(())
+    })?;
+    fresh(&ctx)
+}
+
+#[tauri::command]
+pub async fn edit_folder(ctx: State<'_, Ctx>, id: String, name: Option<String>, color: Option<String>, collapsed: Option<bool>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    with_profile(&ctx.data, |p| p.edit_folder(&id, name.as_deref(), color.as_deref(), collapsed))?;
+    fresh(&ctx)
+}
+
+/// Deletes a folder. Its mods stay in the list, or with `remove_mods` leave the library (bundled
+/// mods stay either way).
+#[tauri::command]
+pub async fn delete_folder(ctx: State<'_, Ctx>, id: String, remove_mods: bool) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    let mut members = Vec::new();
+    with_profile(&ctx.data, |p| {
+        members = p.delete_folder(&id);
+        Ok(())
+    })?;
+    if remove_mods {
+        remove_from_library(&ctx.data, &members)?;
+    }
+    live_edit(&ctx, |_, _| Ok(()))
+}
+
+/// Removes mods from the library, skipping bundled ones.
+fn remove_from_library(data: &Path, ids: &[String]) -> CmdResult<()> {
+    let lib = Library::open(data)?;
+    for id in ids {
+        match lib.remove(id) {
+            Err(ObsidianError::BundledMod(_)) => {}
+            r => r?,
+        }
+    }
+    Ok(())
+}
+
+/// Writes profile `name` with the files of the enabled mods to a ZIP. Returns how many mods went in.
+#[tauri::command]
+pub async fn export_profile(ctx: State<'_, Ctx>, name: String, dest: PathBuf) -> CmdResult<usize> {
+    let _turn = ctx.turn();
+    Ok(obsidian_core::profile_zip::export(&ctx.data, &name, &dest)?)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileImported {
+    pub snapshot: Snapshot,
+    pub imported: obsidian_core::profile_zip::Imported,
+}
+
+/// Adds the profile in a ZIP from `export_profile`, with the mods it carries.
+#[tauri::command]
+pub async fn import_profile(ctx: State<'_, Ctx>, path: PathBuf) -> CmdResult<ProfileImported> {
+    let _turn = ctx.turn();
+    let imported = obsidian_core::profile_zip::import(&ctx.data, &path)?;
+    Ok(ProfileImported { snapshot: fresh(&ctx)?, imported })
 }
 
 /// Consent belongs to the active profile; it reaches the game through the settings file.
@@ -318,11 +376,16 @@ pub async fn set_key(ctx: State<'_, Ctx>, id: String, keybind: String, key: Opti
     live_edit(&ctx, |lib, p| obsidian_core::edit::set_key(lib, p, &id, &keybind, key.as_deref()))
 }
 
-/// Deletes a mod from the library; it leaves every profile. Bundled mods are refused.
+/// Deletes mods from the library; they leave every profile. Bundled mods are refused, alone, or
+/// skipped among others.
 #[tauri::command]
-pub async fn remove_mod(ctx: State<'_, Ctx>, id: String) -> CmdResult<Snapshot> {
+pub async fn remove_mods(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
-    Library::open(&ctx.data)?.remove(&id)?;
+    if let [id] = ids.as_slice() {
+        Library::open(&ctx.data)?.remove(id)?;
+    } else {
+        remove_from_library(&ctx.data, &ids)?;
+    }
     live_edit(&ctx, |_, _| Ok(()))
 }
 

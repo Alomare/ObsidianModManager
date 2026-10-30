@@ -39,8 +39,10 @@ fn sha256(data: &[u8]) -> [u8; 32] {
 
 /// Digests of resource files by path, kept while the file is unchanged, so `plan` reads (and
 /// compiles) a file only once.
-fn digests() -> &'static std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>> {
-    static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>>> = std::sync::OnceLock::new();
+type DigestCache = std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>>;
+
+fn digests() -> &'static DigestCache {
+    static CACHE: std::sync::OnceLock<DigestCache> = std::sync::OnceLock::new();
     CACHE.get_or_init(Default::default)
 }
 
@@ -199,7 +201,7 @@ mod tests {
     }
 
     fn profile(ids: &[(&str, bool)]) -> Profile {
-        Profile { mods: ids.iter().map(|(id, on)| ProfileEntry { id: id.to_string(), enabled: *on }).collect(), ..Default::default() }
+        Profile { mods: ids.iter().map(|(id, on)| ProfileEntry { id: id.to_string(), enabled: *on, folder: None }).collect(), ..Default::default() }
     }
 
     fn hex(s: &str) -> Vec<u8> {

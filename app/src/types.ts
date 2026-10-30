@@ -16,13 +16,15 @@ export type ModRow = {
   version: string | null; scope: "client" | "session"; bundled: boolean; on: boolean;
   options: OptionRow[]; keybinds: KeyRow[]; files: string[];
   import: ImportInfo | null; source: string | null; image: ImageRef | null; customImage: boolean;
+  folder: string | null;
 };
+export type Folder = { id: string; name: string; color: string; collapsed: boolean };
 export type ConflictRow = { resource: string; mods: string[]; winner: string };
 export type ChangesWaiting = "UpToDate" | "Waiting" | "Vanilla";
 export type GameState = "supported" | "unknown" | "running" | "notFound";
 export type ProfileRow = { name: string; on: number; consent: boolean; image: ImageRef | null };
 export type Snapshot = {
-  mods: ModRow[]; profile: string; profiles: string[]; profileRows: ProfileRow[]; consent: boolean; conflicts: ConflictRow[];
+  mods: ModRow[]; folders: Folder[]; profile: string; profiles: string[]; profileRows: ProfileRow[]; consent: boolean; conflicts: ConflictRow[];
   changes: ChangesWaiting; game: GameState; gameDir: string | null; crashCulprit: string | null;
   portable: boolean; version: string;
 };

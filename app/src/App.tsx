@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { deploy, play, purge } from "./actions";
 import { loadSnapshot, refresh, useSnapshot } from "./api";
-import { useBusy } from "./busy";
+import { useLocked } from "./busy";
 import { Confirm } from "./Confirm";
 import { t } from "./i18n";
 import { listenForDrops } from "./mods/dropImport";
@@ -19,7 +19,7 @@ import { installUpdate, startupUpdate, useUpdates } from "./updates";
 export default function App() {
   const snap = useSnapshot();
   const settings = useAppSettings();
-  const busy = useBusy() !== null;
+  const busy = useLocked();
   const [tab, setTab] = useState<Tab>("mods");
   const [dropping, setDropping] = useState(false);
   const [askPurge, setAskPurge] = useState(false);

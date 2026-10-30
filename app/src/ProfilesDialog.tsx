@@ -1,11 +1,12 @@
 // The profiles dialog, opened from the Profile button on the Mods page: every profile with what it
-// holds, and New, Duplicate, Rename, Delete and Use. A profile keeps the load order, which mods are
+// holds, and New, Import, Duplicate, Rename, Export, Delete and Use. A profile keeps the load order, which mods are
 // on, option values, keys and consent.
 import { useEffect, useState } from "react";
 import { run } from "./api";
 import { Confirm } from "./Confirm";
 import { CloseIcon } from "./Icons";
 import { t } from "./i18n";
+import { exportProfile, importProfile } from "./profileZip";
 import { Prompt } from "./Prompt";
 import { Thumb } from "./Thumb";
 import type { ProfileRow, Snapshot } from "./types";
@@ -29,6 +30,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
       <div className="head">
         <h2 className="cap">{t("app.profiles.title")}</h2>
         <button className="btn small" onClick={() => setAsk({ kind: "new" })}>{t("app.profiles.new")}</button>
+        <button className="btn small" onClick={importProfile} data-tip={t("app.profiles.importHint")}>{t("app.profiles.import")}</button>
         <button className="bare close" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
       </div>
       <p className="muted lead">{t("app.profiles.lead")}</p>
@@ -53,6 +55,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
                 {!active && <button className="btn small play" onClick={() => run("use_profile", { name: p.name })}>{t("app.profiles.use")}</button>}
                 <button className="btn small" onClick={() => setAsk({ kind: "duplicate", name: p.name })}>{t("app.profiles.duplicate")}</button>
                 <button className="btn small" onClick={() => setAsk({ kind: "rename", name: p.name })}>{t("app.profiles.rename")}</button>
+                <button className="btn small" onClick={() => exportProfile(p.name)} data-tip={t("app.profiles.exportHint")}>{t("app.profiles.export")}</button>
                 <button className="btn small danger" disabled={last} data-tip={last ? t("app.error.LastProfile") : undefined}
                   onClick={() => setAsk({ kind: "delete", name: p.name })}>{t("app.profiles.delete")}</button>
               </div>

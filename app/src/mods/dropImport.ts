@@ -2,7 +2,7 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 import { call, errorText, setSnapshot } from "../api";
-import { setBusy } from "../busy";
+import { withTask } from "../busy";
 import { pick, t } from "../i18n";
 import { notify } from "../notices";
 import type { ImportBatch, ImportResult } from "../types";
@@ -18,15 +18,13 @@ export function importMessage(r: ImportResult): string {
 
 export async function importPaths(paths: string[]) {
   if (!paths.length) return;
-  setBusy(t("app.import.working", paths.map((p) => p.split(/[\/]/).pop()).join(", ")));
+  const names = paths.map((p) => p.split(/[\\/]/).pop()).join(", ");
   try {
-    const b = await call<ImportBatch>("import_paths", { paths });
+    const b = await withTask(t("app.import.working", names), () => call<ImportBatch>("import_paths", { paths }), true);
     setSnapshot(b.snapshot);
     for (const r of b.results) notify(r.ok ? "info" : "error", importMessage(r));
   } catch (e) {
     notify("error", errorText(e));
-  } finally {
-    setBusy(null);
   }
 }
 

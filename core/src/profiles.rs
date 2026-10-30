@@ -180,8 +180,7 @@ mod tests {
     #[test]
     fn create_copy_rename_delete() {
         let t = spaced_tempdir();
-        let mut p = Profile::default();
-        p.consent = true;
+        let p = Profile { consent: true, ..Default::default() };
         p.save(t.path()).unwrap();
         create(t.path(), "Camera fun", Some("default")).unwrap();
         create(t.path(), "Clean", None).unwrap();

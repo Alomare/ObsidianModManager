@@ -1,7 +1,7 @@
 // Deploy, Play and Purge (spec section 5). Each shows what it is doing in the status bar and ends
 // with a notice.
 import { call, errorText, setSnapshot } from "./api";
-import { setBusy } from "./busy";
+import { withTask } from "./busy";
 import { t } from "./i18n";
 import { notify } from "./notices";
 import type { Snapshot } from "./types";
@@ -10,14 +10,11 @@ type DeployDone = { snapshot: Snapshot; mods: number; backup: boolean };
 type PurgeDone = { snapshot: Snapshot; removed: number; kept: number };
 
 async function step<T>(busy: string, work: () => Promise<T>): Promise<T | null> {
-  setBusy(busy);
   try {
-    return await work();
+    return await withTask(busy, work, true);
   } catch (e) {
     notify("error", errorText(e));
     return null;
-  } finally {
-    setBusy(null);
   }
 }
 
