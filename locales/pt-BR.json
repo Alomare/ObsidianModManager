@@ -173,6 +173,7 @@
   "app.profiles.deleteText": "Apaga este perfil com sua ordem, opções e teclas. Os mods continuam na biblioteca.",
   "app.profiles.deleteTitle": "Apagar %s",
   "app.profiles.duplicate": "Duplicar",
+  "app.profiles.duplicateHint": "Cria um perfil novo com os mesmos mods, ordem, opções e teclas.",
   "app.profiles.duplicateTitle": "Duplicar %s",
   "app.profiles.export": "Exportar",
   "app.profiles.exportHint": "Salvar este perfil como ZIP para compartilhar: ordem, pastas, opções, teclas e os arquivos de cada mod ligado.",

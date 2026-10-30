@@ -42,6 +42,16 @@ export const PlayIcon = () => <Icon fill="currentColor" stroke="none"><path d="M
 export const WarnIcon = () => <Icon><path d="M12 3l10 18H2zM12 10v5M12 17.5v.5" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></Icon>;
 export const ArrowIcon = () => <Icon><path d="M4 12h15M13 6l6 6-6 6" /></Icon>;
+/** Two sheets, one over the other. */
+export const CopyIcon = () => <Icon><rect x="8.5" y="8.5" width="12" height="12" /><path d="M15.5 8.5v-5h-12v12h5" /></Icon>;
+/** A pencil. */
+export const PenIcon = () => <Icon><path d="M4 20l1-4.5L15.5 5l3.5 3.5L8.5 19z" /><path d="M13 7.5l3.5 3.5" /></Icon>;
+/** A tray with an arrow leaving it. */
+export const ExportIcon = () => <Icon><path d="M12 15V3.5M7.5 8L12 3.5 16.5 8" /><path d="M4 13.5v7h16v-7" /></Icon>;
+/** A tray with an arrow coming in. */
+export const ImportIcon = () => <Icon><path d="M12 3.5V15M7.5 10.5L12 15l4.5-4.5" /><path d="M4 13.5v7h16v-7" /></Icon>;
+/** A plus. */
+export const PlusIcon = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>;
 /** An open book. */
 export const BookIcon = () => <Icon><path d="M12 6.5C10.3 5.2 7.6 4.5 3.5 4.5v14c4.1 0 6.8.7 8.5 2 1.7-1.3 4.4-2 8.5-2v-14c-4.1 0-6.8.7-8.5 2z" /><path d="M12 6.5v14" /></Icon>;
 export const ChevronIcon = () => <Icon><path d="M6 9l6 6 6-6" /></Icon>;

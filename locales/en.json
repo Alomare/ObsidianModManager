@@ -173,6 +173,7 @@
   "app.profiles.deleteText": "Delete this profile, with the load order, options and keys in it. The mods stay in the library.",
   "app.profiles.deleteTitle": "Delete %s",
   "app.profiles.duplicate": "Duplicate",
+  "app.profiles.duplicateHint": "Makes a new profile with the same mods, order, options and keys.",
   "app.profiles.duplicateTitle": "Duplicate %s",
   "app.profiles.export": "Export",
   "app.profiles.exportHint": "Save this profile as a ZIP to share: load order, folders, options, keys and the files of every mod that is on.",

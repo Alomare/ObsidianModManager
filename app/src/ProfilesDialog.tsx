@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { run } from "./api";
 import { Confirm } from "./Confirm";
-import { CloseIcon } from "./Icons";
+import { CloseIcon, CopyIcon, ExportIcon, ImportIcon, PenIcon, PlusIcon, TrashIcon } from "./Icons";
 import { t } from "./i18n";
 import { exportProfile, importProfile } from "./profileZip";
 import { Prompt } from "./Prompt";
@@ -29,8 +29,10 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
     <div className="modal profiles" role="dialog" aria-modal="true" aria-label={t("app.profiles.title")}>
       <div className="head">
         <h2 className="cap">{t("app.profiles.title")}</h2>
-        <button className="btn small" onClick={() => setAsk({ kind: "new" })}>{t("app.profiles.new")}</button>
-        <button className="btn small" onClick={importProfile} data-tip={t("app.profiles.importHint")}>{t("app.profiles.import")}</button>
+        <div className="profiles-tools">
+          <button className="btn small" onClick={() => setAsk({ kind: "new" })}><PlusIcon />{t("app.profiles.new")}</button>
+          <button className="btn small" onClick={importProfile} data-tip={t("app.profiles.importHint")}><ImportIcon />{t("app.profiles.import")}</button>
+        </div>
         <button className="bare close" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
       </div>
       <p className="muted lead">{t("app.profiles.lead")}</p>
@@ -45,19 +47,20 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
                   {p.name}
                   {active && <span className="tag">{t("app.profiles.active")}</span>}
                 </div>
-                <div className="sub">
-                  {t(p.on === 1 ? "app.profiles.oneOn" : "app.profiles.on", p.on)}
-                  {" · "}
-                  {t(p.consent ? "app.profiles.consentOn" : "app.profiles.consentOff")}
-                </div>
+                <div className="sub">{t(p.on === 1 ? "app.profiles.oneOn" : "app.profiles.on", p.on)}</div>
+                <div className="sub">{t(p.consent ? "app.profiles.consentOn" : "app.profiles.consentOff")}</div>
               </div>
               <div className="profile-actions">
                 {!active && <button className="btn small play" onClick={() => run("use_profile", { name: p.name })}>{t("app.profiles.use")}</button>}
-                <button className="btn small" onClick={() => setAsk({ kind: "duplicate", name: p.name })}>{t("app.profiles.duplicate")}</button>
-                <button className="btn small" onClick={() => setAsk({ kind: "rename", name: p.name })}>{t("app.profiles.rename")}</button>
-                <button className="btn small" onClick={() => exportProfile(p.name)} data-tip={t("app.profiles.exportHint")}>{t("app.profiles.export")}</button>
-                <button className="btn small danger" disabled={last} data-tip={last ? t("app.error.LastProfile") : undefined}
-                  onClick={() => setAsk({ kind: "delete", name: p.name })}>{t("app.profiles.delete")}</button>
+                <button className="btn small icon" onClick={() => setAsk({ kind: "duplicate", name: p.name })} aria-label={t("app.profiles.duplicate")}
+                  data-tip-title={t("app.profiles.duplicate")} data-tip={t("app.profiles.duplicateHint")}><CopyIcon /></button>
+                <button className="btn small icon" onClick={() => setAsk({ kind: "rename", name: p.name })} aria-label={t("app.profiles.rename")}
+                  data-tip={t("app.profiles.rename")}><PenIcon /></button>
+                <button className="btn small icon" onClick={() => exportProfile(p.name)} aria-label={t("app.profiles.export")}
+                  data-tip-title={t("app.profiles.export")} data-tip={t("app.profiles.exportHint")}><ExportIcon /></button>
+                <button className="btn small icon danger" disabled={last} aria-label={t("app.profiles.delete")}
+                  data-tip-title={t("app.profiles.delete")} data-tip={last ? t("app.error.LastProfile") : undefined}
+                  onClick={() => setAsk({ kind: "delete", name: p.name })}><TrashIcon /></button>
               </div>
             </li>
           );

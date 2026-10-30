@@ -173,6 +173,7 @@
   "app.profiles.deleteText": "删除此配置及其加载顺序、选项和按键。模组仍保留在模组库中。",
   "app.profiles.deleteTitle": "删除 %s",
   "app.profiles.duplicate": "复制",
+  "app.profiles.duplicateHint": "新建一个配置档，模组、顺序、选项和按键都与此相同。",
   "app.profiles.duplicateTitle": "复制 %s",
   "app.profiles.export": "导出",
   "app.profiles.exportHint": "将此配置存为 ZIP 以便分享：加载顺序、文件夹、选项、按键以及所有已启用模组的文件。",

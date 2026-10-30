@@ -643,3 +643,12 @@ button.thumb:hover { border-color: var(--gold); }
 .btn:not(.actions .btn), .search, .select-btn, .key-btn, .wiki-find {
   -webkit-mask: linear-gradient(315deg, transparent var(--cut-sm), #000 calc(var(--cut-sm) + 0.5px));
 }
+
+/* Profiles dialog: New and Import beside the title, one labelled action per row (Use) and icon buttons for the rest */
+.profiles-tools { display: flex; gap: 0.5rem; }
+.profiles-tools .btn svg { width: 0.95rem; height: 0.95rem; }
+.modal.profiles .profile-actions { flex-wrap: nowrap; align-items: center; gap: 0.4rem; }
+.modal.profiles .btn.small.icon { width: 2rem; padding: 0; }
+.modal.profiles .btn.small.icon svg { width: 1rem; height: 1rem; }
+.modal.profiles .profile-text .sub { white-space: normal; overflow: visible; }
+.modal.profiles .profile-text .sub + .sub { margin-top: 0.05rem; }
