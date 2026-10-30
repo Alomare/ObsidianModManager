@@ -44,6 +44,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ctx)
         .setup(|app| {
+            // Linux packages keep the loader, the bundled mods and LuaJIT away from the exe. Windows
+            // keeps them beside it, and Tauri's path there has a `\\?\` prefix that LuaJIT can't use.
+            #[cfg(not(windows))]
             if let Ok(dir) = app.path().resource_dir() {
                 obsidian_core::paths::set_resource_dir(dir);
             }

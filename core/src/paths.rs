@@ -5,8 +5,8 @@ use std::sync::OnceLock;
 
 static RESOURCES: OnceLock<PathBuf> = OnceLock::new();
 
-/// Tells core where the app's shipped files are. Windows keeps them beside the exe; Linux packages
-/// keep them under `usr/lib`, which only the app can work out.
+/// Tells core where the app's shipped files are, on Linux: packages keep them under `usr/lib`, which
+/// only the app can work out. Windows keeps them beside the exe.
 pub fn set_resource_dir(dir: PathBuf) {
     let _ = RESOURCES.set(dir);
 }

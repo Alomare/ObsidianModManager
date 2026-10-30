@@ -39,9 +39,12 @@ pub fn compile(source: &[u8], chunk: &str) -> Result<Vec<u8>> {
     let dir = tempfile::tempdir()?;
     let (src, out) = (dir.path().join("chunk.lua"), dir.path().join("chunk.ljbc"));
     std::fs::write(&src, source)?;
-    // Only the Windows build looks in `lua/` beside the exe by itself.
-    let modules = luajit.with_file_name("lua").join("?.lua");
-    let run = Command::new(&luajit).env("LUA_PATH", modules).arg("-b").arg("-s").arg(&src).arg(&out).output()?;
+    let mut command = Command::new(&luajit);
+    // The Windows build looks in `lua/` beside the exe by itself.
+    if cfg!(not(windows)) {
+        command.env("LUA_PATH", luajit.with_file_name("lua").join("?.lua"));
+    }
+    let run = command.arg("-b").arg("-s").arg(&src).arg(&out).output()?;
     if !run.status.success() {
         let raw = String::from_utf8_lossy(&run.stderr);
         let message = raw.replace(&*src.to_string_lossy(), chunk).replace(&*luajit.to_string_lossy(), "luajit");
