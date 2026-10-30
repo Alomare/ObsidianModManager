@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::backup::backup_saves;
+use crate::backup::backup_game_saves;
 use crate::bundle::{self, Bundle, Entry, Variant};
 use crate::compose::{Composition, Conflict, compose};
 use crate::game::GameInstall;
@@ -219,7 +219,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
         }
         plan.push((bundle, base, contents.join(format!("{bundle}.patch_{slot}"))));
     }
-    let backup = backup_saves(&game.saves_dir, &data_dir.join("backups"), opts.keep_backups)?;
+    let backup = backup_game_saves(game, &data_dir.join("backups"), opts.keep_backups)?;
 
     let mut temps = Vec::new();
     for (bundle, base, target) in &plan {
@@ -324,7 +324,7 @@ mod tests {
     /// Bundles `..aa` and `..bb`, one mod per bundle (`mod-aa`, `mod-bb`), both enabled.
     fn world() -> World {
         let t = spaced_tempdir();
-        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves") };
+        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves"), cloud_saves: Vec::new() };
         put(&game.saves_dir, "profile.sav", b"save");
         std::fs::create_dir_all(game.contents()).unwrap();
         bundle::write_file(&game.contents().join("00000000000000aa"), &base(1)).unwrap();

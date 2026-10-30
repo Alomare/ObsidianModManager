@@ -150,7 +150,8 @@ pub fn set_app_settings(ctx: State<'_, Ctx>, settings: AppSettings) -> CmdResult
 #[tauri::command]
 pub async fn set_enabled(ctx: State<'_, Ctx>, ids: Vec<String>, on: bool) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
-    with_profile(&ctx.data, |p| ids.iter().try_for_each(|id| p.set_enabled(id, on)))?;
+    let lib = Library::open(&ctx.data)?;
+    with_profile(&ctx.data, |p| ids.iter().try_for_each(|id| p.switch(&lib, id, on).map(|_| ())))?;
     fresh(&ctx)
 }
 

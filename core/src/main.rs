@@ -129,6 +129,9 @@ fn run(cli: Cli) -> Result<()> {
             let g = game()?;
             println!("Game folder: {}", g.root.display());
             println!("Save folder: {}", g.saves_dir.display());
+            for dir in &g.cloud_saves {
+                println!("Cloud saves: {}", dir.display());
+            }
             print_gate(&g)?;
         }
         Command::Import { path } => {
@@ -203,8 +206,8 @@ fn run(cli: Cli) -> Result<()> {
             profile.save(&data)?;
             println!("Load order: {}", profile.mods.iter().map(|m| m.id.as_str()).collect::<Vec<_>>().join(", "));
         }
-        Command::Enable { id } => toggle(&mut profile, &data, &id, true)?,
-        Command::Disable { id } => toggle(&mut profile, &data, &id, false)?,
+        Command::Enable { id } => toggle(&mut profile, &lib, &data, &id, true)?,
+        Command::Disable { id } => toggle(&mut profile, &lib, &data, &id, false)?,
         Command::Conflicts => {
             let c = compose(&lib, &profile)?;
             if c.conflicts.is_empty() {
@@ -339,10 +342,14 @@ fn live_change(profile: &Profile, data: &std::path::Path, lib: &Library, g: &Gam
     Ok(())
 }
 
-fn toggle(profile: &mut Profile, data: &std::path::Path, id: &str, on: bool) -> Result<()> {
-    profile.set_enabled(id, on)?;
+fn toggle(profile: &mut Profile, lib: &Library, data: &std::path::Path, id: &str, on: bool) -> Result<()> {
+    let others = profile.switch(lib, id, on)?;
     profile.save(data)?;
-    println!("{id} is now {}. Run obsidian deploy to apply.", if on { "on" } else { "off" });
+    let word = if on { "on" } else { "off" };
+    println!("{id} is now {word}. Run obsidian deploy to apply.");
+    for other in others {
+        println!("{other} is now {word} too, because {} needs it.", if on { id } else { &other });
+    }
     Ok(())
 }
 

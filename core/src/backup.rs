@@ -3,10 +3,24 @@
 use std::path::{Path, PathBuf};
 
 use crate::Result;
+use crate::game::GameInstall;
 
-/// Copies `saves_dir` to `backups_dir/YYYYMMDD-HHMMSS` (adding `-2`, `-3`... on a clash) and keeps the newest `keep`.
-pub fn backup_saves(saves_dir: &Path, backups_dir: &Path, keep: usize) -> Result<Option<PathBuf>> {
-    if !saves_dir.is_dir() {
+/// Backs up the game's save folder and every Steam Cloud save folder. The cloud files go in a
+/// `steam-<account>` subfolder of the backup, because the same names exist per account.
+pub fn backup_game_saves(game: &GameInstall, backups_dir: &Path, keep: usize) -> Result<Option<PathBuf>> {
+    let mut sources = vec![(String::new(), game.saves_dir.clone())];
+    for remote in &game.cloud_saves {
+        // <steam>/userdata/<account>/394510/remote
+        let account = remote.ancestors().nth(2).and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        sources.push((format!("steam-{account}"), remote.clone()));
+    }
+    backup_saves(&sources, backups_dir, keep)
+}
+
+/// Copies each `(subfolder, folder)` that exists into `backups_dir/YYYYMMDD-HHMMSS` (adding `-2`,
+/// `-3`... on a clash), an empty subfolder meaning the backup itself, and keeps the newest `keep`.
+pub fn backup_saves(sources: &[(String, PathBuf)], backups_dir: &Path, keep: usize) -> Result<Option<PathBuf>> {
+    if !sources.iter().any(|(_, dir)| dir.is_dir()) {
         return Ok(None);
     }
     std::fs::create_dir_all(backups_dir)?;
@@ -21,7 +35,9 @@ pub fn backup_saves(saves_dir: &Path, backups_dir: &Path, keep: usize) -> Result
         None => backups_dir.join(&stamp),
         Some(n) => backups_dir.join(format!("{stamp}-{}", n + 1)),
     };
-    crate::library::copy_dir(saves_dir, &target)?;
+    for (name, dir) in sources.iter().filter(|(_, dir)| dir.is_dir()) {
+        crate::library::copy_dir(dir, &target.join(name))?;
+    }
     let mut all: Vec<(String, u32, PathBuf)> = std::fs::read_dir(backups_dir)?
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.is_dir())
@@ -78,7 +94,8 @@ mod tests {
         let saves = t.path().join("saves");
         put(&saves, "profile.sav", b"save");
         let backups = t.path().join("backups");
-        let made: Vec<PathBuf> = (0..12).map(|_| backup_saves(&saves, &backups, 10).unwrap().unwrap()).collect();
+        let sources = [(String::new(), saves)];
+        let made: Vec<PathBuf> = (0..12).map(|_| backup_saves(&sources, &backups, 10).unwrap().unwrap()).collect();
         let left: Vec<PathBuf> = std::fs::read_dir(&backups).unwrap().map(|e| e.unwrap().path()).collect();
         assert_eq!(left.len(), 10);
         assert!(!made[0].exists() && !made[1].exists() && made[11].exists(), "made {made:?} left {left:?}");
@@ -88,6 +105,17 @@ mod tests {
     #[test]
     fn no_saves_folder_means_no_backup() {
         let t = spaced_tempdir();
-        assert_eq!(backup_saves(&t.path().join("none"), &t.path().join("b"), 10).unwrap(), None);
+        assert_eq!(backup_saves(&[(String::new(), t.path().join("none"))], &t.path().join("b"), 10).unwrap(), None);
+    }
+
+    #[test]
+    fn the_real_save_is_backed_up_when_the_game_folder_is_empty() {
+        let t = spaced_tempdir();
+        std::fs::create_dir_all(t.path().join("saves")).unwrap();
+        let remote = t.path().join("steam/userdata/107/394510/remote");
+        put(&remote, "helldivers_save", b"the real save");
+        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves"), cloud_saves: vec![remote] };
+        let made = backup_game_saves(&game, &t.path().join("backups"), 10).unwrap().unwrap();
+        assert_eq!(std::fs::read(made.join("steam-107").join("helldivers_save")).unwrap(), b"the real save");
     }
 }

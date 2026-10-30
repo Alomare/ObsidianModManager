@@ -16,7 +16,7 @@ export type ModRow = {
   version: string | null; scope: "client" | "session"; bundled: boolean; on: boolean;
   options: OptionRow[]; keybinds: KeyRow[]; files: string[];
   import: ImportInfo | null; source: string | null; updatable: boolean; image: ImageRef | null; customImage: boolean;
-  folder: string | null;
+  folder: string | null; requires: string[];
 };
 export type Folder = { id: string; name: string; color: string; collapsed: boolean; locked: boolean };
 export type ConflictRow = { resource: string; mods: string[]; winner: string };

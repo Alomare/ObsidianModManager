@@ -7,6 +7,8 @@ local backend_block = require("obsidian/loader/backend_block")
 local pool = require("obsidian/loader/pool")
 local settings = require("obsidian/loader/settings")
 local game_text = require("obsidian/loader/game_text")
+local menu = require("obsidian/loader/menu")
+local storage = require("obsidian/loader/storage")
 
 local API_VERSION = 1
 local MAX_ERRORS = 10
@@ -19,7 +21,7 @@ local M = {
 
 local capabilities = {
 	after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true,
-	settings = true, keybind = true, text = true, on_frame = true,
+	settings = true, keybind = true, text = true, on_frame = true, module = true, import = true, menu = true, toast = true, storage = true, caller = true,
 }
 local api = {
 	version = API_VERSION,
@@ -30,6 +32,9 @@ local api = {
 	settings = { get = settings.get },
 	keybind = settings.keybind,
 	text = settings.text,
+	menu = menu.api(),
+	toast = menu.toast,
+	storage = storage.api(),
 	capabilities = B.setmetatable({}, {
 		__index = capabilities,
 		__newindex = function() B.error("obsidian.capabilities is read-only", 2) end,
@@ -175,21 +180,47 @@ function api.after_startup(fn)
 	B.insert(M.after, { state = M.current, fn = fn })
 end
 
+-- The id of the mod whose code is running, so a shared mod can say who asked for something.
+function api.caller()
+	return M.current and M.current.id or nil
+end
+
+-- Loads a script of the calling mod, named like the file in `modules` without `.lua`.
+function api.module(name)
+	local state = M.current
+	if not state then B.error("obsidian.module needs a running mod", 2) end
+	return B.require("obsidian/mods/" .. state.id .. "/" .. B.tostring(name))
+end
+
+-- What the entry script of another mod returned; nil when that mod isn't running. A mod that
+-- needs one lists it in `requires`, which starts that mod first.
+function api.import(id)
+	local state = M.mods_by_id[id]
+	if state and not state.off then return state.exports end
+	return nil
+end
+
+local function refuse(state, why)
+	state.off = true
+	log.line("refused " .. state.id .. ": needs " .. why)
+	M.notice("mod_failed", state.id)
+end
+
 local function start(mod)
 	local state = { id = B.tostring(mod.id), mod = mod, errors = 0, off = false }
 	B.insert(M.mods, state)
 	M.mods_by_id[state.id] = state
 	local needs = B.tonumber(mod.loader_api) or 1
-	if needs > API_VERSION then
-		state.off = true
-		log.line("refused " .. state.id .. ": needs loader API " .. needs)
-		M.notice("mod_failed", state.id)
-		return
+	if needs > API_VERSION then return refuse(state, "loader API " .. needs) end
+	for _, id in B.ipairs(mod.requires or {}) do
+		local required = M.mods_by_id[id]
+		if not required or required.off then return refuse(state, id) end
 	end
 	log.line("loading " .. state.id)
 	local before = snapshot()
 	local ok, err = M.call(state, "start", B.require, mod.entry)
 	if ok then
+		state.exports = err
 		log.line("started " .. state.id)
 	else
 		state.off = true
@@ -242,6 +273,8 @@ function M.boot()
 	hooks.on_frame(settings.tick)
 	hooks.on_frame(show_notices)
 	hooks.on_frame(run_frame_callbacks)
+	menu.setup(M, hooks, session)
+	storage.setup(M, game_side and (game_side .. "/logs"))
 	hooks.wrap_require()
 
 	backend_block.setup(M, hooks)

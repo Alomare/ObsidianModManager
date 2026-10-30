@@ -59,6 +59,7 @@
   "app.drawer.remove": "移除",
   "app.drawer.removeText": "从模组库和所有配置中删除此模组。游戏中的内容会保留到下次部署或清除。",
   "app.drawer.removeTitle": "移除 %s",
+  "app.drawer.requires": "需要",
   "app.drawer.reset": "恢复默认",
   "app.drawer.resetKey": "恢复默认按键 %s",
   "app.drawer.source": "来源",

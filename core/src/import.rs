@@ -120,6 +120,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
         resources,
         options: Vec::new(),
         keybinds: Vec::new(),
+        modules: Vec::new(),
         requires: Vec::new(),
         conflicts: Vec::new(),
         loader_api: 1,
@@ -277,7 +278,7 @@ mod tests {
     /// Vanilla `00000000000000aa` holds lua/1 "old" and lua/2 "keep"; the mod changes 1, keeps 2, adds texture/3.
     fn fixture(mod_entries: Vec<Entry>) -> Fixture {
         let t = spaced_tempdir();
-        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves") };
+        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves"), cloud_saves: Vec::new() };
         std::fs::create_dir_all(game.contents()).unwrap();
         let vanilla = Bundle { props: [9; 256], entries: vec![e(LUA, 1, 0, b"old"), e(LUA, 2, 0, b"keep")] };
         bundle::write_file(&game.contents().join("00000000000000aa"), &vanilla).unwrap();
@@ -310,7 +311,7 @@ mod tests {
     #[test]
     fn legacy_build_date_information_becomes_entry() {
         let t = spaced_tempdir();
-        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves") };
+        let game = GameInstall { root: t.path().join("game"), saves_dir: t.path().join("saves"), cloud_saves: Vec::new() };
         let entry = hash_name(crate::loader::ENTRY);
         let mod_dir = t.path().join("HD2CAM");
         std::fs::create_dir_all(game.contents()).unwrap();

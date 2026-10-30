@@ -136,4 +136,43 @@ test("repeated_error_logged_three_times_then_mod_off", function()
 	E.has(e:log(), "switched off a after 10 errors")
 end)
 
+test("module_loads_a_script_of_the_calling_mod", function()
+	local e = E.new({
+		deploy = E.deploy({ mods = { E.mod("a.b") } }),
+		mods = {
+			["obsidian/mods/a.b/main"] = "PARTS = obsidian.module('lib/parts')",
+			["obsidian/mods/a.b/lib/parts"] = "return { name = 'parts' }",
+		},
+	})
+	e:boot()
+	E.eq(rawget(_G, "PARTS").name, "parts")
+end)
+
+test("import_gives_what_the_entry_of_another_mod_returned", function()
+	local e = E.new({
+		deploy = E.deploy({ mods = { E.mod("base"), E.mod("user", { requires = { "base" } }) } }),
+		mods = {
+			["obsidian/mods/base/main"] = "return { answer = 42 }",
+			["obsidian/mods/user/main"] = "ANSWER = obsidian.import('base').answer; MISSING = obsidian.import('nobody') == nil",
+		},
+	})
+	e:boot()
+	E.eq(rawget(_G, "ANSWER"), 42)
+	E.eq(rawget(_G, "MISSING"), true)
+end)
+
+test("a_mod_is_refused_when_a_required_mod_failed", function()
+	local e = E.new({
+		deploy = E.deploy({ mods = { E.mod("base"), E.mod("user", { requires = { "base" } }) } }),
+		mods = {
+			["obsidian/mods/base/main"] = "error('boom')",
+			["obsidian/mods/user/main"] = "STARTED = true",
+		},
+	})
+	e:boot()
+	E.eq(rawget(_G, "STARTED"), nil, "user ran")
+	E.has(e:log(), "refused user: needs base")
+	E.eq(rawget(_G, "obsidian").import("base"), nil, "a failed mod exports nothing")
+end)
+
 return T

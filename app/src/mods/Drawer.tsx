@@ -64,7 +64,7 @@ function ModDrawer({ mod, conflicts, names, onClose }: { mod: ModRow; conflicts:
         {tab === "options" && <OptionsTab mod={mod} />}
         {tab === "keys" && <KeysTab mod={mod} names={names} />}
         {tab === "files" && <FilesTab mod={mod} conflicts={conflicts} names={names} />}
-        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
+        {tab === "about" && <AboutTab mod={mod} names={names} onRemoved={onClose} />}
       </div>
     </aside>
   );
@@ -196,7 +196,7 @@ function FilesTab({ mod, conflicts, names }: { mod: ModRow; conflicts: ConflictR
   );
 }
 
-function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
+function AboutTab({ mod, names, onRemoved }: { mod: ModRow; names: Map<string, string>; onRemoved: () => void }) {
   const [ask, setAsk] = useState(false);
   const name = pick(mod.name, mod.id);
   const date = mod.import ? new Date(mod.import.date).toLocaleString(language(), { dateStyle: "medium", timeStyle: "short" }) : null;
@@ -206,6 +206,7 @@ function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
       <dl className="facts">
         {mod.authors.length > 0 && <><dt>{t("app.drawer.authors")}</dt><dd>{mod.authors.join(", ")}</dd></>}
         <dt>{t("app.drawer.id")}</dt><dd className="mono">{mod.id}</dd>
+        {mod.requires.length > 0 && <><dt>{t("app.drawer.requires")}</dt><dd>{mod.requires.map((id) => names.get(id) ?? id).join(", ")}</dd></>}
         {mod.source && <><dt>{t("app.drawer.source")}</dt><dd><button className="link" onClick={() => openUrl(mod.source!).catch(() => {})}>{mod.source} <ExternalIcon /></button></dd></>}
         {mod.import && <><dt>{t("app.drawer.imported")}</dt><dd>{date}</dd><dt>{t("app.drawer.file")}</dt><dd className="mono">{mod.import.file}</dd></>}
       </dl>

@@ -143,6 +143,9 @@ pub struct Manifest {
     pub scope: Scope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub entry: Option<PathBuf>,
+    /// More Lua scripts beside `entry`, which the mod loads with `obsidian.module`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<PathBuf>,
     #[serde(default)]
     pub resources: Vec<ResourceSpec>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -207,6 +210,21 @@ impl Manifest {
         }
         if let Some(entry) = &self.entry {
             check_path(mod_dir, entry, "entry")?;
+        }
+        for (i, p) in self.modules.iter().enumerate() {
+            let field = format!("modules[{i}]");
+            check_path(mod_dir, p, &field)?;
+            if p.extension().is_none_or(|x| x != "lua") {
+                return Err(bad(field, "a module is a .lua file"));
+            }
+            if p.with_extension("") == Path::new("main") {
+                return Err(bad(field, "main is the name the entry script runs under"));
+            }
+        }
+        for id in &self.requires {
+            if !valid_id(id) || *id == self.id {
+                return Err(bad("requires", format!("{id} is not the id of another mod")));
+            }
         }
         let options = self.option_specs()?;
         crate::options::parse_keybinds(&self.keybinds)?;

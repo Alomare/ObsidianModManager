@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 
-use crate::compose::{Composition, Planned};
+use crate::compose::{ComposedMod, Composition, Planned};
 use crate::hash::hash_name;
 use crate::library::{Library, Profile};
 use crate::lua::{check_bytecode, unwrap_resource, wrap_resource};
@@ -60,10 +60,21 @@ pub fn needed(comp: &Composition, profile: &Profile) -> bool {
     !comp.mods.is_empty() || profile.consent
 }
 
-/// The resource name a mod entry runs from. Ids are already limited to `[a-z0-9._-]`.
-pub fn entry_name(id: &str) -> String {
+/// The folder of a mod's resources. Ids are already limited to `[a-z0-9._-]`.
+fn mod_root(id: &str) -> String {
     let safe: String = id.chars().map(|c| if c.is_ascii_alphanumeric() || "._-".contains(c) { c } else { '_' }).collect();
-    format!("obsidian/mods/{safe}/main")
+    format!("obsidian/mods/{safe}")
+}
+
+/// The resource name a mod entry runs from.
+pub fn entry_name(id: &str) -> String {
+    format!("{}/main", mod_root(id))
+}
+
+/// The resource name of a script in `modules`: its path in the mod, without `.lua`.
+pub fn module_name(id: &str, path: &Path) -> String {
+    let parts: Vec<String> = path.with_extension("").components().map(|c| c.as_os_str().to_string_lossy().into_owned()).filter(|c| c != ".").collect();
+    format!("{}/{}", mod_root(id), parts.join("/"))
 }
 
 fn lua_resource(name: &str, bytecode: &[u8]) -> Planned {
@@ -107,13 +118,33 @@ fn scope_text(s: &Scope) -> &'static str {
     if *s == Scope::Client { "client" } else { "session" }
 }
 
+/// Load order, with each mod moved just far enough to start after the mods it requires.
+fn start_order(mods: &[ComposedMod]) -> Vec<&ComposedMod> {
+    fn visit<'a>(i: usize, mods: &'a [ComposedMod], seen: &mut [bool], out: &mut Vec<&'a ComposedMod>) {
+        if std::mem::replace(&mut seen[i], true) {
+            return;
+        }
+        for id in &mods[i].manifest.requires {
+            if let Some(j) = mods.iter().position(|m| m.manifest.id == *id) {
+                visit(j, mods, seen, out);
+            }
+        }
+        out.push(&mods[i]);
+    }
+    let (mut seen, mut out) = (vec![false; mods.len()], Vec::with_capacity(mods.len()));
+    for i in 0..mods.len() {
+        visit(i, mods, &mut seen, &mut out);
+    }
+    out
+}
+
 /// The deploy table as JSON: version, revision, pool hashes, shared texts and the mods
-/// with an entry, in load order.
+/// with an entry, in the order they start.
 pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
     let mut session = Vec::new();
     let mut mods = Vec::new();
     let (mut has_session, mut has_static_session) = (false, false);
-    for c in &comp.mods {
+    for c in start_order(&comp.mods) {
         let m = &c.manifest;
         let specs = m.option_specs()?;
         if m.scope == Scope::Session {
@@ -154,6 +185,7 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
             "scope": scope_text(&m.scope),
             "entry": entry_name(&m.id),
             "loader_api": m.loader_api,
+            "requires": m.requires,
             "options": options,
             "keybinds": keybinds,
             "texts": read_texts(&c.dir.join("locales"))?,
@@ -217,6 +249,10 @@ pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
         if let Some(entry) = &c.manifest.entry {
             let name = entry_name(&c.manifest.id);
             out.push(lua_resource(&name, &entry_bytecode(&std::fs::read(c.dir.join(entry))?, &name)?));
+            for p in &c.manifest.modules {
+                let name = module_name(&c.manifest.id, p);
+                out.push(lua_resource(&name, &entry_bytecode(&std::fs::read(c.dir.join(p))?, &name)?));
+            }
         }
     }
     let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
@@ -240,6 +276,9 @@ pub fn build_inputs(loader_dir: &Path, comp: &Composition) -> Result<Vec<u8>> {
         if let Some(entry) = &c.manifest.entry {
             out.extend(c.manifest.id.as_bytes());
             out.extend(std::fs::read(c.dir.join(entry))?);
+            for p in &c.manifest.modules {
+                out.extend(std::fs::read(c.dir.join(p))?);
+            }
         }
     }
     let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
@@ -327,6 +366,51 @@ mod tests {
         assert_eq!(table["modset"].as_str().unwrap().len(), 64);
         let planned = build(&find_loader_dir().unwrap(), &comp).unwrap();
         for name in [ENTRY, "obsidian/loader/core", "obsidian/mods/a/main", "obsidian/mods/b/main", "obsidian/deploy"] {
+            assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn modules_become_resources_and_required_mods_start_first() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        add(t.path(), &lib, "base", "session");
+        let d = t.path().join("stage-user");
+        let json = r#"{"obsidian":1,"id":"user","version":"1.0.0","name":{"en":"user"},"entry":"main.lua",
+                       "modules":["lib/parts.lua"],"requires":["base"]}"#;
+        put(&d, "obsidian.json", json.as_bytes());
+        put(&d, "main.lua", b"return true\n");
+        put(&d, "lib/parts.lua", b"return {}\n");
+        lib.install(&d).unwrap();
+        let entry = |id: &str| ProfileEntry { id: id.into(), enabled: true, folder: None };
+        let profile = Profile { mods: vec![entry("user"), entry("base")], ..Default::default() };
+        let comp = compose(&lib, &profile).unwrap();
+        let table = deploy_table(&comp, json!({})).unwrap();
+        let ids: Vec<&str> = table["mods"].as_array().unwrap().iter().map(|m| m["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["base", "user"]);
+        assert_eq!(table["mods"][1]["requires"], json!(["base"]));
+        let planned = build(&find_loader_dir().unwrap(), &comp).unwrap();
+        assert!(planned.iter().any(|p| p.name_hash == hash_name("obsidian/mods/user/lib/parts")));
+    }
+
+    #[test]
+    fn the_bundled_mods_compile_and_the_trainer_brings_the_api() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        lib.install_bundled(&find_bundled_dir().unwrap()).unwrap();
+        let mut profile = Profile::default();
+        profile.sync(&lib).unwrap();
+        assert_eq!(profile.switch(&lib, "obsidian.trainer", true).unwrap(), ["obsidian.api"]);
+        let comp = compose(&lib, &profile).unwrap();
+        let table = deploy_table(&comp, json!({})).unwrap();
+        let ids: Vec<&str> = table["mods"].as_array().unwrap().iter().map(|m| m["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["obsidian.api", "obsidian.trainer"]);
+        assert_eq!(table["has_session"], true, "session mods, so the shared war stays out of it");
+        assert_eq!(table["has_static_session"], false, "both can switch off live");
+        assert_eq!(table["mods"][1]["keybinds"][0]["default"], "f6");
+        assert!(table["mods"][1]["texts"]["pt-BR"]["god"].is_string());
+        let planned = build(&find_loader_dir().unwrap(), &comp).unwrap();
+        for name in ["obsidian/loader/menu", "obsidian/loader/storage", "obsidian/mods/obsidian.api/lib/game", "obsidian/mods/obsidian.api/lib/data", "obsidian/mods/obsidian.trainer/pages/player"] {
             assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
         }
     }

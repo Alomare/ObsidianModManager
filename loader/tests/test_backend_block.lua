@@ -22,6 +22,21 @@ local function load_campaign_manager(e)
 	return cm
 end
 
+-- The game's save, which holds results until the ship menu is online.
+local function load_save_manager(e)
+	local save = { common = { mission_stats = {}, mission_stats_to_upload = { 1 }, completed_planets = { 1 }, volume_sfx = 5 },
+		user = { leaderboard_stats = {}, leaderboard_stats_to_upload = { 1 }, player_xp = 100 }, saves = 0, user_saves = 0 }
+	rawset(_G, "SaveManager", {
+		set = function(_, k, v) save.common[k] = v end,
+		user_set = function(_, k, v, id) save.user[k] = v; save.user_id = id end,
+		save = function() save.saves = save.saves + 1 end,
+		user_save = function(_, done, fail, subtitle, details, id) save.user_saves = save.user_saves + 1; save.saved_id = id end,
+	})
+	e.opts.modules["foundation/lua/managers/save_manager"] = true
+	rawget(_G, "require")("foundation/lua/managers/save_manager")
+	return save
+end
+
 local function engine(has_session, lobby)
 	local e = E.new({ deploy = E.deploy({ has_session = has_session, modset = string.rep("a", 64) }), lobby = lobby })
 	e:boot()
@@ -110,6 +125,29 @@ test("mission_end_text_untouched_without_session_content", function()
 	local lm = localization()
 	local e = engine(false)
 	E.eq(lm:string("mission_end_galactic_campaign_progress"), "game:mission_end_galactic_campaign_progress")
+end)
+
+test("results_in_the_save_dont_outlive_a_session", function()
+	local e = engine(true)
+	local save = load_save_manager(e)
+	rawget(_G, "SaveManager"):save()
+	E.eq(save.saves, 1, "the save still happens")
+	E.eq(save.common.mission_stats_to_upload, nil)
+	E.eq(save.common.completed_planets, nil)
+	E.eq(save.common.volume_sfx, 5, "everything else stays")
+	rawget(_G, "SaveManager"):user_save(nil, nil, nil, nil, "user1")
+	E.eq(save.user_saves, 1)
+	E.eq(save.saved_id, "user1", "the arguments reach the game")
+	E.eq(save.user_id, "user1")
+	E.eq(save.user.leaderboard_stats_to_upload, nil)
+	E.eq(save.user.player_xp, 100)
+end)
+
+test("a_vanilla_setup_leaves_the_save_alone", function()
+	local e = engine(false)
+	local save = load_save_manager(e)
+	rawget(_G, "SaveManager"):save()
+	E.eq(#save.common.mission_stats_to_upload, 1)
 end)
 
 return T

@@ -100,6 +100,8 @@ pub struct ModRow {
     pub custom_image: bool,
     /// The folder the mod sits in, by id.
     pub folder: Option<String>,
+    /// Ids of the mods this one needs.
+    pub requires: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -292,6 +294,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             image: image_ref(mod_images.get(&m.id).cloned().or_else(|| images::from_manifest(&lib, m))),
             custom_image: mod_images.contains_key(&m.id),
             folder: e.folder.clone(),
+            requires: m.requires.clone(),
         });
     }
 
@@ -375,7 +378,7 @@ mod tests {
         assert_eq!(a.keybinds[0].clash, vec!["legacy.two"], "both use f8");
         assert_eq!(s.conflicts.len(), 1);
         assert_eq!((s.conflicts[0].mods.clone(), s.conflicts[0].winner.as_str()), (vec!["legacy.two".to_string(), "a.one".to_string()], "a.one"));
-        let order: Vec<&str> = s.mods.iter().map(|m| m.id.as_str()).filter(|id| *id != "obsidian.qol").collect();
+        let order: Vec<&str> = s.mods.iter().map(|m| m.id.as_str()).filter(|id| !id.starts_with("obsidian.")).collect();
         assert_eq!(order, ["legacy.two", "a.one"]);
         assert_eq!((s.game, s.profile.as_str(), s.changes), (GameState::NotFound, "Default", ChangesWaiting::Waiting));
     }

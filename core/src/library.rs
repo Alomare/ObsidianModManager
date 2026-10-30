@@ -203,6 +203,33 @@ impl Profile {
         entry.enabled = on;
         Ok(())
     }
+    /// Switches a mod on with the mods it requires, or off with the mods that require it. Returns
+    /// the other mods that changed.
+    pub fn switch(&mut self, lib: &Library, id: &str, on: bool) -> Result<Vec<String>> {
+        let manifests = lib.list()?;
+        let mut todo = vec![id.to_string()];
+        let mut changed = Vec::new();
+        while let Some(next) = todo.pop() {
+            let entry = self.mods.iter_mut().find(|m| m.id == next).ok_or_else(|| ObsidianError::ModMissing(next.clone()))?;
+            if entry.enabled == on && next != id {
+                continue;
+            }
+            entry.enabled = on;
+            if next != id {
+                changed.push(next.clone());
+            }
+            if on {
+                let needs = manifests.iter().find(|m| m.id == next).map(|m| m.requires.clone()).unwrap_or_default();
+                if let Some(gone) = needs.iter().find(|r| !self.mods.iter().any(|m| m.id == **r)) {
+                    return Err(ObsidianError::MissingRequirement { mod_id: next, requires: gone.clone() });
+                }
+                todo.extend(needs);
+            } else {
+                todo.extend(manifests.iter().filter(|m| m.requires.contains(&next)).map(|m| m.id.clone()));
+            }
+        }
+        Ok(changed)
+    }
     /// Appends newly installed mods as disabled, drops entries whose mod is gone, and keeps the
     /// bundled mods first, in the locked Obsidian folder.
     pub fn sync(&mut self, lib: &Library) -> Result<()> {
@@ -229,6 +256,45 @@ mod tests {
         let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"{version}","name":{{"en":"{id}"}}}}"#);
         put(&d, "obsidian.json", json.as_bytes());
         d
+    }
+
+    fn needing(root: &Path, id: &str, needs: &str) -> PathBuf {
+        let d = root.join(format!("stage-{id}"));
+        let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"1.0.0","name":{{"en":"{id}"}},"requires":["{needs}"]}}"#);
+        put(&d, "obsidian.json", json.as_bytes());
+        d
+    }
+
+    #[test]
+    fn switch_carries_requirements_along() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        lib.install(&staged(t.path(), "base", "1.0.0")).unwrap();
+        lib.install(&needing(t.path(), "middle", "base")).unwrap();
+        lib.install(&needing(t.path(), "top", "middle")).unwrap();
+        let mut p = Profile::default();
+        p.sync(&lib).unwrap();
+        let on = |p: &Profile, id: &str| p.mods.iter().find(|m| m.id == id).unwrap().enabled;
+
+        let mut changed = p.switch(&lib, "top", true).unwrap();
+        changed.sort();
+        assert_eq!(changed, ["base", "middle"]);
+        assert!(on(&p, "base") && on(&p, "middle") && on(&p, "top"));
+
+        let changed = p.switch(&lib, "middle", false).unwrap();
+        assert_eq!(changed, ["top"], "mods that need it go off too, and the base stays on");
+        assert!(on(&p, "base") && !on(&p, "middle") && !on(&p, "top"));
+    }
+
+    #[test]
+    fn switch_names_a_requirement_that_is_not_installed() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        lib.install(&needing(t.path(), "top", "gone")).unwrap();
+        let mut p = Profile::default();
+        p.sync(&lib).unwrap();
+        let e = p.switch(&lib, "top", true).unwrap_err();
+        assert_eq!(e.to_string(), "top needs gone, which is not switched on");
     }
 
     #[test]

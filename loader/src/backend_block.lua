@@ -7,6 +7,11 @@ local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
 local game_text = require("obsidian/loader/game_text")
 
+-- Results wait in these save keys until the ship menu is online, so a mission finished in a session
+-- and then a quit or an offline exit would leave them for the next run without session mods to send.
+local COMMON_QUEUES = { "mission_stats", "mission_stats_to_upload", "completed_planets" }
+local USER_QUEUES = { "leaderboard_stats", "leaderboard_stats_to_upload", "leaderboard_provinggrounds_stats", "leaderboard_provinggrounds_stats_to_upload" }
+
 local METHODS = {
 	"upload_mission_stats", "upload_leaderboard_stats", "upload_leaderboard_provinggrounds_stats",
 	"complete_planets", "complete_defend_event_mission", "complete_attack_event_mission",
@@ -31,6 +36,14 @@ function M.setup(core, hooks)
 			log.limited("upload " .. name, "blocked upload: " .. name)
 		end)
 	end
+	hooks.loader_hook("SaveManager", "save", function(original, self, ...)
+		for _, key in B.ipairs(COMMON_QUEUES) do self:set(key, nil) end
+		return original(self, ...)
+	end)
+	hooks.loader_hook("SaveManager", "user_save", function(original, self, done, fail, subtitle, details, user, ...)
+		for _, key in B.ipairs(USER_QUEUES) do self:user_set(key, nil, user) end
+		return original(self, done, fail, subtitle, details, user, ...)
+	end)
 	-- The mission end screen picks one of these two for the Galactic Campaign line.
 	game_text.replace(core, hooks, "mission_end_galactic_campaign_progress", "campaign_not_uploaded")
 	game_text.replace(core, hooks, "mission_end_galactic_campaign_no_progress", "campaign_not_uploaded")

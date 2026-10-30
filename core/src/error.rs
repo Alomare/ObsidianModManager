@@ -28,6 +28,8 @@ pub enum ObsidianError {
     UnsupportedLegacyEntry { bundle: String, entry: String },
     #[error("mod {0} is in the profile but not in the library")]
     ModMissing(String),
+    #[error("{mod_id} needs {requires}, which is not switched on")]
+    MissingRequirement { mod_id: String, requires: String },
     #[error("the LuaJIT 2.0 compiler was not found (looked in {0}); run tools/build-luajit.cmd or set OBSIDIAN_LUAJIT")]
     CompilerUnavailable(String),
     #[error("Lua error in {chunk}: {message}")]

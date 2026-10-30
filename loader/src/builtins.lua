@@ -8,7 +8,7 @@ local B = {
 	require = require, unpack = unpack,
 	format = string.format, sub = string.sub, gsub = string.gsub, match = string.match,
 	find = string.find, gmatch = string.gmatch, len = string.len, lower = string.lower, rep = string.rep,
-	abs = math.abs, floor = math.floor,
+	abs = math.abs, floor = math.floor, min = math.min, max = math.max,
 	insert = table.insert, remove = table.remove, concat = table.concat, sort = table.sort,
 	open = io.open, getenv = os.getenv, date = os.date, clock = os.clock,
 	traceback = debug and debug.traceback,

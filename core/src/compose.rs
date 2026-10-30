@@ -170,6 +170,13 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
         let resources = chosen.len();
         mods.push(ComposedMod { manifest: m, dir, values, resources });
     }
+    if with_data {
+        for c in &mods {
+            if let Some(id) = c.manifest.requires.iter().find(|id| !mods.iter().any(|m| m.manifest.id == **id)) {
+                return Err(ObsidianError::MissingRequirement { mod_id: c.manifest.id.clone(), requires: id.clone() });
+            }
+        }
+    }
     let mut out = Composition { mods, ..Default::default() };
     for ((bundle, type_hash, name_hash), (planned, losers)) in slots {
         if !losers.is_empty() {

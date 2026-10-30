@@ -13,7 +13,11 @@ const PROTON_APPDATA: &str = "drive_c/users/steamuser/AppData/Roaming";
 #[derive(Debug, Clone, PartialEq)]
 pub struct GameInstall {
     pub root: PathBuf,
+    /// The game's own folder under the roaming app data. With Steam Cloud on it holds only a backup
+    /// copy, and it can be empty.
     pub saves_dir: PathBuf,
+    /// `userdata/<account>/394510/remote`, one per Steam account: the real save with Steam Cloud on.
+    pub cloud_saves: Vec<PathBuf>,
 }
 
 impl GameInstall {
@@ -44,7 +48,29 @@ pub fn find_game(explicit: Option<&Path>) -> Result<GameInstall> {
         None => find_in_libraries(&steam_libraries())?,
     };
     let appdata = appdata(&root)?;
-    Ok(GameInstall { root, saves_dir: appdata.join("Arrowhead").join("Helldivers").join("saves") })
+    Ok(GameInstall { root, saves_dir: appdata.join("Arrowhead").join("Helldivers").join("saves"), cloud_saves: cloud_save_dirs(&steam_roots()) })
+}
+
+/// The game's Steam app id.
+const APP_ID: &str = "394510";
+
+/// The cloud save folder of every Steam account under `roots`.
+pub fn cloud_save_dirs(roots: &[PathBuf]) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut seen = Vec::new();
+    for root in roots {
+        let Ok(accounts) = std::fs::read_dir(root.join("userdata")) else { continue };
+        for account in accounts.flatten() {
+            let remote = account.path().join(APP_ID).join("remote");
+            // The same folder can arrive twice, from the registry and the default path, spelled differently.
+            let same = std::fs::canonicalize(&remote).unwrap_or_else(|_| remote.clone());
+            if remote.is_dir() && !seen.contains(&same) {
+                seen.push(same);
+                out.push(remote);
+            }
+        }
+    }
+    out
 }
 
 /// `OBSIDIAN_APPDATA` (tests), else the roaming app data folder the game sees: the Windows one, or
@@ -67,7 +93,7 @@ pub fn proton_appdata(game_root: &Path, libraries: &[PathBuf]) -> Option<PathBuf
     own.iter().chain(libraries).map(|lib| lib.join(PROTON_PREFIX)).find(|p| p.is_dir()).map(|p| p.join(PROTON_APPDATA))
 }
 
-fn steam_libraries() -> Vec<PathBuf> {
+fn steam_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
     #[cfg(windows)]
     {
@@ -84,8 +110,12 @@ fn steam_libraries() -> Vec<PathBuf> {
         roots.push(home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"));
         roots.push(home.join("snap/steam/common/.local/share/Steam"));
     }
+    roots
+}
+
+fn steam_libraries() -> Vec<PathBuf> {
     let mut libs = Vec::new();
-    for root in roots {
+    for root in steam_roots() {
         let vdf = root.join("steamapps").join("libraryfolders.vdf");
         let found = std::fs::read_to_string(&vdf).map(|t| crate::vdf::library_paths(&t)).unwrap_or_default();
         for lib in std::iter::once(root).chain(found) {
@@ -132,6 +162,21 @@ mod tests {
         let libs = vec![a.path().to_path_buf(), b.path().to_path_buf()];
         assert_eq!(find_in_libraries(&libs).unwrap(), b.path().join(STEAM_DIR));
         assert!(find_in_libraries(&libs[..1]).is_err());
+    }
+
+    #[test]
+    fn cloud_saves_are_found_per_account() {
+        let steam = spaced_tempdir();
+        put(steam.path(), "userdata/111/394510/remote/helldivers_save", b"save");
+        put(steam.path(), "userdata/222/394510/remote/helldivers_save", b"save");
+        put(steam.path(), "userdata/333/570/remote/other_game", b"save");
+        let mut found = cloud_save_dirs(&[steam.path().to_path_buf()]);
+        found.sort();
+        let want = |id: &str| steam.path().join("userdata").join(id).join("394510").join("remote");
+        assert_eq!(found, [want("111"), want("222")]);
+        assert!(cloud_save_dirs(&[steam.path().join("missing")]).is_empty());
+        let twice = [steam.path().to_path_buf(), steam.path().join(".")];
+        assert_eq!(cloud_save_dirs(&twice).len(), 2, "one folder per account, however the root is spelled");
     }
 
     #[test]
