@@ -8,11 +8,13 @@ Work happens on `dev`. Open pull requests against `dev`. `main` only moves when 
 
 ## Building and testing
 
-You need Rust (stable, MSVC toolchain on Windows) and the Visual Studio Build Tools.
+You need Rust (stable, MSVC toolchain on Windows), the Visual Studio Build Tools and Node.js.
 
 1. Build the LuaJIT 2.0 compiler once: `tools\build-luajit.cmd`
 2. Run the core tests: `cargo test`
 3. Run the loader tests: `tools\test-loader.cmd`
+4. Run the UI tests: `npm ci`, then `npm test`, in `app`
+5. Run the app: `tools\dev.cmd`
 
 Some tests read your own game files and are skipped unless you point them at the game with `OBSIDIAN_GAME_DIR`. Game files are never committed.
 

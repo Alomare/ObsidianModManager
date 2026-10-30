@@ -4,15 +4,19 @@ Obsidian is a mod manager for HELLDIVERS (2015), with an in-game runtime called 
 
 Mods installed with Obsidian never overwrite a game file, so several mods can run side by side, and a purge brings the game back to vanilla. Mods that change the shared game run only with players who have the same mods or have agreed to play with modded players, so a vanilla player is never affected.
 
-Obsidian is in early development. The design is in [docs/superpowers/specs](docs/superpowers/specs).
+Obsidian comes as a desktop app and the `obsidian` command line, which work on the same data. There is no public release yet. The design is in [docs/superpowers/specs](docs/superpowers/specs).
 
-## Beta
+## Desktop app
 
-The first beta is the `obsidian` command line for Windows. It handles the mods people already share, the ones that replace whole game files, and turns them into small patches the game loads on top of the originals. Obsidian Loader and the desktop app are not in this beta, so nothing yet stops a mod from changing the game for other players. Until the loader ships, play with these mods the way you would after installing them by hand: with friends who run the same mods.
+The app handles your mods, load order, folders, conflicts, options, keys and named profiles, with Deploy, Play and Purge one click away. Its Wiki tab has guides for players and mod authors. It runs in English, Brazilian Portuguese and Simplified Chinese, and comes as an installer that updates itself or as a portable ZIP.
+
+Mods that replace whole game files work too: Obsidian imports them and turns them into small patches the game loads on top of the originals.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has what you need to build it.
 
 ## Command line
 
-The `obsidian` command line works today; the desktop app comes later. Build it with `cargo build --release`, plus `toolsuild-luajit.cmd` once for the LuaJIT 2.0 compiler that turns mod scripts into code the game can run. Run it with the game closed:
+The `obsidian` command line does the same work from a terminal. Build it with `cargo build --release`, plus `tools\build-luajit.cmd` once for the LuaJIT 2.0 compiler that turns mod scripts into code the game can run. Run it with the game closed:
 
 ```
 obsidian import <mod folder or .zip>   add a mod to the library (old whole-file mods work too)
