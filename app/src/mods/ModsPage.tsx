@@ -142,7 +142,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         { label: f.locked ? t("app.menu.unlock") : t("app.menu.lock"), icon: f.locked ? <UnlockIcon /> : <LockIcon />, run: () => run("edit_folder", { id, locked: !f.locked }) } as MenuItem,
       ]),
       { label: t("app.menu.editFolder"), disabled: f.locked, run: () => setAsk({ kind: "editFolder", id }) },
-      { label: t("app.folder.color"), disabled: f.locked, sub: FOLDER_COLORS.map((c): MenuItem => ({ label: "", hint: c === f.color ? "✓" : undefined, swatch: c, run: () => run("edit_folder", { id, color: c }) })) },
+      { label: t("app.folder.color"), disabled: f.locked, sub: [{ colors: FOLDER_COLORS, current: f.color, pick: (color) => run("edit_folder", { id, color }) }] },
       "sep",
       { label: t("app.menu.enableAll"), disabled: !ids.length || ids.every((m) => byId.get(m)?.on), run: () => run("set_enabled", { ids, on: true }) },
       { label: t("app.menu.disableAll"), disabled: !ids.length || ids.every((m) => !byId.get(m)?.on), run: () => run("set_enabled", { ids, on: false }) },

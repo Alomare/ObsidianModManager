@@ -27,7 +27,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
     return () => window.removeEventListener("keydown", key);
   }, [ask, colors, onClose]);
   const colorItems = (name: string, current: string | null): MenuItem[] => [
-    ...FOLDER_COLORS.map((c): MenuItem => ({ label: "", swatch: c, hint: c === current ? "✓" : undefined, run: () => run("set_profile_color", { name, color: c }) })),
+    { colors: FOLDER_COLORS, current, pick: (color) => run("set_profile_color", { name, color }) },
     "sep",
     { label: t("app.profiles.defaultColor"), hint: current ? undefined : "✓", run: () => run("set_profile_color", { name, color: null }) },
   ];

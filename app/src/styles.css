@@ -454,14 +454,14 @@ button.thumb:hover { border-color: var(--gold); }
 
 /* Right-click menu */
 .ctx { position: fixed; z-index: 95; min-width: 13rem; padding: 0.3rem 0; background: linear-gradient(160deg, var(--s1), var(--s2)); border: 1px solid var(--ln); border-top: 2px solid var(--gold); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); animation: tip-in 100ms ease-out; }
-.ctx button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.38rem 0.8rem 0.38rem 0.6rem; background: none; border: 0; color: var(--tx); font-size: 0.85rem; text-align: left; cursor: pointer; white-space: nowrap; }
-.ctx button:hover:not(:disabled), .ctx button:focus-visible, .ctx button[aria-expanded="true"] { background: var(--row); outline: 0; box-shadow: inset 3px 0 0 var(--gold); }
-.ctx button:disabled { opacity: 0.4; cursor: default; }
-.ctx button.danger { color: var(--warn); }
+.ctx > button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.38rem 0.8rem 0.38rem 0.6rem; background: none; border: 0; color: var(--tx); font-size: 0.85rem; text-align: left; cursor: pointer; white-space: nowrap; }
+.ctx > button:hover:not(:disabled), .ctx > button:focus-visible, .ctx > button[aria-expanded="true"] { background: var(--row); outline: 0; box-shadow: inset 3px 0 0 var(--gold); }
+.ctx > button:disabled { opacity: 0.4; cursor: default; }
+.ctx > button.danger { color: var(--warn); }
 .ctx hr { margin: 0.3rem 0; border: 0; border-top: 1px solid var(--ln); }
 .ctx-ico { width: 1rem; display: inline-flex; justify-content: center; color: var(--mu); }
 .ctx-ico svg { width: 1rem; height: 1rem; }
-.ctx button.danger .ctx-ico { color: inherit; }
+.ctx > button.danger .ctx-ico { color: inherit; }
 .ctx-swatch { width: 0.8rem; height: 0.8rem; display: block; }
 .ctx-label { flex: 1; }
 .ctx-hint { color: var(--mu); font-size: 0.75rem; }
@@ -473,6 +473,8 @@ button.thumb:hover { border-color: var(--gold); }
 .swatch { width: 1.9rem; height: 1.9rem; padding: 0; border: 0; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); transition: transform var(--fast); }
 .swatch:hover { transform: scale(1.08); }
 .swatch.on { box-shadow: 0 0 0 2px var(--s1), 0 0 0 4px var(--tx); }
+.ctx-colors { display: flex; gap: 0.3rem; padding: 0.35rem 0.6rem; }
+.ctx-colors .swatch { width: 1.25rem; height: 1.25rem; flex: none; }
 
 .fr-end { display: flex; align-items: center; gap: 0.6rem; }
 .fr-lock { display: inline-flex; padding: 0.2rem; color: var(--mu); opacity: 0; transition: opacity var(--fast), color var(--fast); }
