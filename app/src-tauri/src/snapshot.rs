@@ -8,7 +8,7 @@ use obsidian_core::compose::compose;
 use obsidian_core::deploy::{ChangesWaiting, changes_waiting, status};
 use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
-use obsidian_core::hash::format_name;
+use obsidian_core::hash::{display_name, display_text};
 use obsidian_core::library::{ImportInfo, Library, Profile};
 use obsidian_core::manifest::{Localized, Manifest, Scope};
 use obsidian_core::options::{OptionKind, effective_values, parse_keybinds};
@@ -155,6 +155,13 @@ fn tidy(p: &Path) -> PathBuf {
     }
 }
 
+/// A game file as people read it: its name, then the last part of its bundle's name, as in
+/// `lua/settings/status_settings (boot)`. Unknown names stay `#hash`.
+fn resource_label(bundle: &str, name: &str) -> String {
+    let b = display_text(bundle);
+    format!("{name} ({})", b.rsplit('/').next().unwrap_or(&b))
+}
+
 fn localized(v: Option<&Value>) -> Localized {
     v.and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default()
 }
@@ -206,7 +213,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         .map(|c| {
             let mut mods = c.losers.clone();
             mods.push(c.winner.clone());
-            ConflictRow { resource: format!("{}/{}", c.bundle, format_name(c.name_hash)), mods, winner: c.winner.clone() }
+            ConflictRow { resource: resource_label(&c.bundle, &display_name(c.name_hash)), mods, winner: c.winner.clone() }
         })
         .collect();
 
@@ -250,7 +257,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             on: e.enabled,
             options: option_rows(m, &profile)?,
             keybinds,
-            files: m.resources.iter().map(|r| format!("{}/{}", r.bundle.clone().unwrap_or_default(), r.name_text)).collect(),
+            files: m.resources.iter().map(|r| resource_label(r.bundle.as_deref().unwrap_or_default(), &display_text(&r.name_text))).collect(),
             overlaps,
             import: lib.import_info(&m.id),
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),

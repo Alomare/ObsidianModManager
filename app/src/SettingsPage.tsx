@@ -107,13 +107,6 @@ function SystemTab({ snap }: { snap: Snapshot }) {
         </Row>
       </Section>
 
-      <Section title={t("app.settings.multiplayer")}>
-        <Row label={t("app.settings.consent", snap.profile)} hint={t("app.settings.consentHint")}>
-          <button role="switch" aria-checked={snap.consent} aria-label={t("app.settings.consent", snap.profile)} className={snap.consent ? "sw on" : "sw"}
-            onClick={() => run("set_consent", { on: !snap.consent })} />
-        </Row>
-      </Section>
-
       <Section title={t("app.settings.language")}>
         <Row label={t("app.settings.languageLabel")}>
           <Select value={settings.language ?? ""} label={t("app.settings.language")}

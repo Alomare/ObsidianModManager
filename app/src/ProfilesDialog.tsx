@@ -1,25 +1,34 @@
-// The Profiles page (spec 4.3): every profile with what it holds, and New, Duplicate, Rename,
-// Delete and Use. A profile keeps the load order, which mods are on, option values, keys and consent.
-import { useState } from "react";
+// The profiles dialog, opened from the Profile button on the Mods page: every profile with what it
+// holds, and New, Duplicate, Rename, Delete and Use. A profile keeps the load order, which mods are
+// on, option values, keys and consent.
+import { useEffect, useState } from "react";
 import { run } from "./api";
 import { Confirm } from "./Confirm";
-import { ProfilesIcon } from "./Icons";
+import { CloseIcon, ProfilesIcon } from "./Icons";
 import { t } from "./i18n";
 import { Prompt } from "./Prompt";
 import type { ProfileRow, Snapshot } from "./types";
 
 type Ask = { kind: "new" } | { kind: "duplicate" | "rename" | "delete"; name: string } | null;
 
-export function ProfilesPage({ snap }: { snap: Snapshot }) {
+export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () => void }) {
   const [ask, setAsk] = useState<Ask>(null);
   const close = () => setAsk(null);
   const last = snap.profileRows.length <= 1;
+  useEffect(() => {
+    // Esc closes the question on top first, then the dialog.
+    const key = (e: KeyboardEvent) => e.key === "Escape" && !ask && onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [ask, onClose]);
 
   return (
-    <div className="profiles">
+    <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal profiles" role="dialog" aria-modal="true" aria-label={t("app.profiles.title")}>
       <div className="head">
-        <h1 className="cap">{t("app.nav.profiles")}</h1>
+        <h2 className="cap">{t("app.profiles.title")}</h2>
         <button className="btn small" onClick={() => setAsk({ kind: "new" })}>{t("app.profiles.new")}</button>
+        <button className="bare close" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
       </div>
       <p className="muted lead">{t("app.profiles.lead")}</p>
       <ul className="profile-list">
@@ -68,6 +77,7 @@ export function ProfilesPage({ snap }: { snap: Snapshot }) {
         <Confirm title={t("app.profiles.deleteTitle", ask.name)} text={t("app.profiles.deleteText")} confirm={t("app.profiles.delete")}
           onCancel={close} onConfirm={() => { close(); run("delete_profile", { name: ask.name }); }} />
       )}
+    </div>
     </div>
   );
 }

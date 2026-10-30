@@ -1,10 +1,12 @@
-// The navigation bar: logo, tabs, game and deploy state, and Purge, Deploy and Play (spec section 3).
+// The navigation bar: tabs, then the "prepare to play" area: the multiplayer consent of the active
+// profile, and Purge, Deploy and Play (spec section 3). Deploy turns green while changes wait.
 import type { ComponentType } from "react";
-import { CogIcon, DeployIcon, ModsIcon, PlayIcon, ProfilesIcon, PurgeIcon } from "./Icons";
+import { run } from "./api";
+import { CogIcon, DeployIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
 import { t } from "./i18n";
 import type { Snapshot } from "./types";
 
-export type Tab = "mods" | "profiles" | "settings";
+export type Tab = "mods" | "settings";
 
 type Props = {
   tab: Tab;
@@ -16,13 +18,16 @@ type Props = {
   onPlay: () => void;
 };
 
-const TABS: [Tab, ComponentType][] = [["profiles", ProfilesIcon], ["mods", ModsIcon], ["settings", CogIcon]];
+const TABS: [Tab, ComponentType][] = [["mods", ModsIcon], ["settings", CogIcon]];
 
 export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
-  const locked = busy || running || !snap || snap.game === "notFound";
-  const why = running ? t("app.action.closeGameFirst") : undefined;
+  const missing = snap?.game === "notFound";
+  const locked = busy || running || !snap || missing;
+  const why = running ? t("app.action.closeGameFirst") : missing ? t("app.error.GameNotFound") : undefined;
   const waiting = snap?.changes === "Waiting";
+  // HD1 gets no more updates, so only a missing game or an unknown build needs a word here.
+  const warn = snap && (missing || snap.game === "unknown") ? t(`app.game.${snap.game}`) : null;
   return (
     <nav className="nav">
       <div className="tabs" role="tablist">
@@ -34,16 +39,25 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
         ))}
       </div>
       <div className="nav-end">
-        <div className="state">
-          {/* HD1 gets no more updates, so a supported build needs no label. */}
-          {(!snap || snap.game !== "supported") && <span>{snap ? t(`app.game.${snap.game}`) : t("app.loading")}</span>}
-          <b className={waiting ? "waiting" : undefined}>{snap ? t(`app.changes.${snap.changes}`) : ""}</b>
-        </div>
+        {warn && (
+          <span className="nav-warn" data-tip-title={warn} data-tip={t(`app.settings.build.${snap!.game}`)}>
+            <WarnIcon />
+            {warn}
+          </span>
+        )}
+        {snap && (
+          <label className="consent" data-tip-title={t("app.nav.consentTitle", snap.profile)} data-tip={t("app.settings.consentHint")}>
+            <span>{t("app.nav.consent")}</span>
+            <button role="switch" aria-checked={snap.consent} aria-label={t("app.nav.consentTitle", snap.profile)} className={snap.consent ? "sw on" : "sw"}
+              onClick={() => run("set_consent", { on: !snap.consent })} />
+          </label>
+        )}
         <div className="actions">
           <button className="btn icon" onClick={onPurge} disabled={locked} data-tip-title={t("app.action.purge")} data-tip={why ?? t("app.action.purgeHint")} aria-label={t("app.action.purge")}>
             <PurgeIcon />
           </button>
-          <button className={waiting ? "btn icon go" : "btn icon"} onClick={onDeploy} disabled={locked} data-tip-title={t("app.action.deploy")} data-tip={why ?? t("app.action.deployHint")} aria-label={t("app.action.deploy")}>
+          <button className={waiting ? "btn icon go" : "btn icon"} onClick={onDeploy} disabled={locked} data-tip-title={t("app.action.deploy")}
+            data-tip={why ?? (waiting ? t("app.action.deployWaiting") : t(`app.action.deploy${snap?.changes ?? "UpToDate"}`))} aria-label={t("app.action.deploy")}>
             <DeployIcon />
           </button>
           <button className="btn play" onClick={onPlay} disabled={locked} data-tip={why ?? t("app.action.playHint")}>

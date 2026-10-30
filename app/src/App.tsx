@@ -8,7 +8,6 @@ import { t } from "./i18n";
 import { listenForDrops } from "./mods/dropImport";
 import { ModsPage } from "./mods/ModsPage";
 import { NavBar, type Tab } from "./NavBar";
-import { ProfilesPage } from "./ProfilesPage";
 import { SettingsPage, type SettingsTab } from "./SettingsPage";
 import { Notices } from "./NoticeList";
 import { loadSettings, useAppSettings } from "./settings";
@@ -55,7 +54,6 @@ export default function App() {
       <main className="page">
         <div className="view" key={tab}>
           {snap && tab === "mods" && <ModsPage snap={snap} />}
-          {snap && tab === "profiles" && <ProfilesPage snap={snap} />}
           {snap && tab === "settings" && <SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} />}
         </div>
       </main>
