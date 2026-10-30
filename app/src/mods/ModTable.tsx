@@ -72,7 +72,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
   return (
     <div className="table" role="table">
       <div className="th cap" role="row">
-        <span data-tip={canDrag ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
+        <span data-tip-title={t("app.mods.orderTitle")} data-tip={canDrag ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
         <span>{t("app.mods.colOn")}</span>
         <span>{t("app.mods.colMod")}</span>
         <span>{t("app.mods.colScope")}</span>
@@ -99,7 +99,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
                   pick(m.description) && <div className="sub">{pick(m.description)}</div>
                 )}
               </div>
-              <span className={`scope ${m.scope}`} data-tip={t(`app.scope.${m.scope}Hint`)}><i />{t(`app.scope.${m.scope}`)}</span>
+              <span className={`scope ${m.scope}`} data-tip-title={t(`app.scope.${m.scope}Mod`)} data-tip={t(`app.scope.${m.scope}Hint`)}><i />{t(`app.scope.${m.scope}`)}</span>
             </div>
           );
         })}

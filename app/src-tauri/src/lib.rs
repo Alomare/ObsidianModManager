@@ -57,6 +57,14 @@ pub fn run() {
             commands::set_option,
             commands::set_key,
             commands::remove_mod,
+            commands::create_profile,
+            commands::rename_profile,
+            commands::delete_profile,
+            commands::set_consent,
+            commands::system_info,
+            commands::set_game_dir,
+            commands::check_game,
+            commands::open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("Obsidian failed to start");

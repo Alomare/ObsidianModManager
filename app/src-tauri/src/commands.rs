@@ -167,6 +167,100 @@ pub async fn use_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapsho
     fresh(&ctx)
 }
 
+/// A new profile, empty or a copy of `copy_of`.
+#[tauri::command]
+pub async fn create_profile(ctx: State<'_, Ctx>, name: String, copy_of: Option<String>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    profiles::create(&ctx.data, &name, copy_of.as_deref())?;
+    fresh(&ctx)
+}
+
+#[tauri::command]
+pub async fn rename_profile(ctx: State<'_, Ctx>, from: String, to: String) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    profiles::rename(&ctx.data, &from, &to)?;
+    fresh(&ctx)
+}
+
+#[tauri::command]
+pub async fn delete_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    profiles::delete(&ctx.data, &name)?;
+    fresh(&ctx)
+}
+
+/// Consent belongs to the active profile; it reaches the game through the settings file.
+#[tauri::command]
+pub async fn set_consent(ctx: State<'_, Ctx>, on: bool) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    live_edit(&ctx, |_, p| {
+        p.consent = on;
+        Ok(())
+    })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Backup {
+    /// `YYYYMMDD-HHMMSS`, maybe with `-2`.
+    pub name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    pub data_dir: PathBuf,
+    pub backups: Vec<Backup>,
+    /// The folder chosen in Settings; `None` when the game is found through Steam.
+    pub chosen_game_dir: Option<PathBuf>,
+}
+
+#[tauri::command]
+pub fn system_info(ctx: State<'_, Ctx>) -> SystemInfo {
+    let backups = obsidian_core::backup::list_backups(&ctx.data.join("backups"))
+        .into_iter()
+        .map(|p| Backup { name: p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), path: p })
+        .collect();
+    SystemInfo { data_dir: ctx.data.clone(), backups, chosen_game_dir: AppSettings::load(&ctx.data).game_dir }
+}
+
+/// Uses the game in `path`, or finds it through Steam again when `path` is null. A folder without
+/// the game's `contents` folder is refused.
+#[tauri::command]
+pub async fn set_game_dir(ctx: State<'_, Ctx>, path: Option<PathBuf>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    if let Some(p) = &path
+        && !p.join("contents").is_dir()
+    {
+        return Err(ObsidianError::GameNotFound(p.display().to_string()).into());
+    }
+    let mut s = AppSettings::load(&ctx.data);
+    s.game_dir = path;
+    s.save(&ctx.data)?;
+    ctx.gate.lock().unwrap_or_else(|p| p.into_inner()).forget();
+    fresh(&ctx)
+}
+
+/// Checks the game build again (the answer is kept per folder otherwise).
+#[tauri::command]
+pub async fn check_game(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    ctx.gate.lock().unwrap_or_else(|p| p.into_inner()).forget();
+    fresh(&ctx)
+}
+
+/// Opens a folder the app knows in Explorer: the game, the data folder, or one save backup.
+#[tauri::command]
+pub fn open_folder(ctx: State<'_, Ctx>, app: tauri::AppHandle, path: PathBuf) -> CmdResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let known = path.starts_with(&ctx.data) || find(&AppSettings::load(&ctx.data)).is_some_and(|g| path == g.root);
+    if !known {
+        return Err(CmdError { code: "Io".into(), message: format!("not a folder Obsidian opens: {}", path.display()) });
+    }
+    app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| CmdError { code: "Io".into(), message: e.to_string() })
+}
+
 #[tauri::command]
 pub async fn import_paths(ctx: State<'_, Ctx>, paths: Vec<PathBuf>) -> CmdResult<ImportBatch> {
     let _turn = ctx.turn();

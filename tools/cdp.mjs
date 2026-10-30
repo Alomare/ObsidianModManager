@@ -1,11 +1,46 @@
 // Drives the Obsidian dev window through WebView2's DevTools port (9222), without focus or mouse.
 //   node cdp.mjs eval "<js expression>"   prints the result (awaited, as JSON)
 //   node cdp.mjs shot out.png [x y w h]   saves an image of the page (CSS pixels)
+//   node cdp.mjs wait [after-ms]          returns once the window is up and the app has rendered;
+//                                         with after-ms, first waits for a page newer than that
+//                                         (a restart), and reloads a page that stays blank
 const [, , cmd, ...rest] = process.argv;
-const targets = await (await fetch("http://127.0.0.1:9222/json")).json();
-const page = targets.find((t) => t.type === "page" && t.url.includes("localhost:1420")) ?? targets.find((t) => t.type === "page");
-if (!page) throw new Error("no page on port 9222");
-const ws = new WebSocket(page.webSocketDebuggerUrl);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function page() {
+  const all = await (await fetch("http://127.0.0.1:9222/json")).json();
+  return all.find((t) => t.type === "page" && t.url.includes("localhost:1420")) ?? all.find((t) => t.type === "page");
+}
+async function evalOn(t, expression) {
+  const ws = new WebSocket(t.webSocketDebuggerUrl);
+  await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
+  const r = await new Promise((ok) => { ws.onmessage = (m) => ok(JSON.parse(m.data)); ws.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, returnByValue: true } })); });
+  ws.close();
+  return r.result?.result?.value;
+}
+if (cmd === "wait") {
+  const since = +(rest[0] ?? 0);
+  const start = Date.now();
+  let blankSince = 0;
+  while (Date.now() - start < 180000) {
+    try {
+      const t = await page();
+      const state = t && (await evalOn(t, "JSON.stringify({ up: performance.timeOrigin, app: !!document.querySelector('.app .nav') })"));
+      const s = state && JSON.parse(state);
+      if (s && s.up > since) {
+        if (s.app) { console.log(`ready in ${((Date.now() - start) / 1000).toFixed(1)} s`); process.exit(0); }
+        blankSince ||= Date.now();
+        if (Date.now() - blankSince > 4000) { await evalOn(t, "location.reload()"); blankSince = 0; }
+      }
+    } catch { /* not up yet */ }
+    await sleep(500);
+  }
+  console.log("timed out");
+  process.exit(1);
+}
+
+const target = await page();
+if (!target) throw new Error("no page on port 9222");
+const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
 let next = 1;
 const pending = new Map();

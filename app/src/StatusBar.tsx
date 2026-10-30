@@ -22,7 +22,7 @@ export function StatusBar({ version, onUpdates }: { version: string | null; onUp
   const busy = useBusy();
   return (
     <footer className="statusbar">
-      <button className="sb-btn" onClick={() => openUrl(LINKS.discord).catch(() => {})} data-tip={t("app.status.discordHint")}>
+      <button className="sb-btn" onClick={() => openUrl(LINKS.discord).catch(() => {})} data-tip-title="Discord" data-tip={t("app.status.discordHint")}>
         <DiscordIcon />
         <span>dsc.gg/hd1modding</span>
       </button>
@@ -30,13 +30,13 @@ export function StatusBar({ version, onUpdates }: { version: string | null; onUp
       {busy && <span className="sb-busy"><i />{busy}</span>}
       <span className="spacer" />
       {version && (
-        <button className="sb-btn" onClick={onUpdates} data-tip={t("app.status.updates")}>v{version}</button>
+        <button className="sb-btn" onClick={onUpdates} data-tip-title={`Obsidian ${version}`} data-tip={t("app.status.updates")}>v{version}</button>
       )}
-      <button className={about ? "sb-btn round on" : "sb-btn round"} onClick={() => setAbout(true)} aria-label={t("app.about.title")} data-tip={t("app.about.title")}>
+      <button className={about ? "sb-btn round on" : "sb-btn round"} onClick={() => setAbout(true)} aria-label={t("app.about.title")} data-tip-title={t("app.about.title")} data-tip={t("app.status.aboutHint")}>
         <InfoIcon />
       </button>
       <button className={log ? "sb-btn round on" : "sb-btn round"} data-pop onClick={() => setLog((v) => !v)} aria-expanded={log}
-        aria-label={t("app.status.notifications")} data-tip={t("app.status.notifications")}>
+        aria-label={t("app.status.notifications")} data-tip-title={t("app.status.notifications")} data-tip={t("app.status.notificationsHint")}>
         <BellIcon />
       </button>
       {log && <NotificationList onClose={() => setLog(false)} />}

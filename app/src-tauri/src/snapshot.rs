@@ -90,11 +90,21 @@ pub struct ConflictRow {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ProfileRow {
+    pub name: String,
+    /// Mods switched on, counting only those in the library.
+    pub on: usize,
+    pub consent: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     /// In load order.
     pub mods: Vec<ModRow>,
     pub profile: String,
     pub profiles: Vec<String>,
+    pub profile_rows: Vec<ProfileRow>,
     pub consent: bool,
     pub conflicts: Vec<ConflictRow>,
     pub changes: ChangesWaiting,
@@ -130,6 +140,19 @@ impl GateCache {
 /// only when it holds the game's `contents` folder.
 pub fn find(settings: &AppSettings) -> Option<GameInstall> {
     find_game(settings.game_dir.as_deref()).ok().filter(|g| g.contents().is_dir())
+}
+
+/// The path as Windows shows it: Steam stores library paths with `/` and a lowercase drive letter.
+fn tidy(p: &Path) -> PathBuf {
+    if !cfg!(windows) {
+        return p.to_path_buf();
+    }
+    let s = p.to_string_lossy().replace('/', "\\");
+    let mut c = s.chars();
+    match (c.next(), s.as_bytes().get(1)) {
+        (Some(d), Some(b':')) => PathBuf::from(d.to_ascii_uppercase().to_string() + c.as_str()),
+        _ => PathBuf::from(s),
+    }
 }
 
 fn localized(v: Option<&Value>) -> Localized {
@@ -247,12 +270,20 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
     Ok(Snapshot {
         mods,
         profile: profiles::active(data)?,
+        profile_rows: profiles::list(data)?
+            .into_iter()
+            .map(|name| {
+                let p = Profile::load_named(data, &name).unwrap_or_default();
+                let on = p.mods.iter().filter(|e| e.enabled && manifests.contains_key(&e.id)).count();
+                ProfileRow { name, on, consent: p.consent }
+            })
+            .collect(),
         profiles: profiles::list(data)?,
         consent: profile.consent,
         conflicts,
         changes: changes_waiting(&lib, &profile, data).unwrap_or(ChangesWaiting::Waiting),
         game,
-        game_dir: game_install.map(|g| g.root),
+        game_dir: game_install.map(|g| tidy(&g.root)),
         crash_culprit,
         portable,
         version: env!("CARGO_PKG_VERSION"),

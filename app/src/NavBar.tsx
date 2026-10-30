@@ -40,13 +40,13 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
           <b className={waiting ? "waiting" : undefined}>{snap ? t(`app.changes.${snap.changes}`) : ""}</b>
         </div>
         <div className="actions">
-          <button className="btn icon" onClick={onPurge} disabled={locked} data-tip={why ?? t("app.action.purgeHint")} aria-label={t("app.action.purge")}>
+          <button className="btn icon" onClick={onPurge} disabled={locked} data-tip-title={t("app.action.purge")} data-tip={why ?? t("app.action.purgeHint")} aria-label={t("app.action.purge")}>
             <PurgeIcon />
           </button>
-          <button className={waiting ? "btn icon go" : "btn icon"} onClick={onDeploy} disabled={locked} data-tip={why ?? t("app.action.deployHint")} aria-label={t("app.action.deploy")}>
+          <button className={waiting ? "btn icon go" : "btn icon"} onClick={onDeploy} disabled={locked} data-tip-title={t("app.action.deploy")} data-tip={why ?? t("app.action.deployHint")} aria-label={t("app.action.deploy")}>
             <DeployIcon />
           </button>
-          <button className="btn play" onClick={onPlay} disabled={locked} data-tip={why}>
+          <button className="btn play" onClick={onPlay} disabled={locked} data-tip={why ?? t("app.action.playHint")}>
             <PlayIcon />
             <span>{t("app.action.play")}</span>
           </button>

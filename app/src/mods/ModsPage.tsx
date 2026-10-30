@@ -39,7 +39,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         <h1 className="cap">{t("app.nav.mods")}</h1>
         <Select value={snap.profile} options={snap.profiles.map((p) => ({ value: p, label: p }))} prefix={t("app.mods.profile")}
           label={t("app.mods.profile")} tip={t("app.mods.profileHint")} onChange={(name) => run("use_profile", { name })} />
-        <button className={conflicts ? "cbtn hot" : "cbtn"} data-tip={t("app.mods.conflictsHint")} aria-pressed={view?.kind === "conflicts"} onClick={() => setView({ kind: "conflicts" })}>
+        <button className={conflicts ? "cbtn hot" : "cbtn"} data-tip-title={t("app.drawer.conflicts")} data-tip={t("app.mods.conflictsHint")} aria-pressed={view?.kind === "conflicts"} onClick={() => setView({ kind: "conflicts" })}>
           <WarnIcon />
           {t("app.mods.conflicts", conflicts)}
         </button>

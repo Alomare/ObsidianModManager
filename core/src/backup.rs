@@ -36,6 +36,15 @@ pub fn backup_saves(saves_dir: &Path, backups_dir: &Path, keep: usize) -> Result
     Ok(Some(target))
 }
 
+/// The backups in `backups_dir`, newest first.
+pub fn list_backups(backups_dir: &Path) -> Vec<PathBuf> {
+    let mut all: Vec<(String, u32, PathBuf)> = std::fs::read_dir(backups_dir)
+        .map(|rd| rd.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.is_dir()).filter_map(|p| order_key(&p).map(|(s, n)| (s, n, p))).collect())
+        .unwrap_or_default();
+    all.sort();
+    all.into_iter().rev().map(|(_, _, p)| p).collect()
+}
+
 /// (`YYYYMMDD-HHMMSS`, suffix) for a backup folder name, or None for anything else.
 fn order_key(p: &Path) -> Option<(String, u32)> {
     let name = p.file_name()?.to_str()?;
@@ -50,6 +59,17 @@ fn order_key(p: &Path) -> Option<(String, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_is_newest_first_and_skips_other_folders() {
+        let t = tempfile::tempdir().unwrap();
+        for n in ["20261001-100000", "20261002-090000", "20261002-090000-2", "notes"] {
+            std::fs::create_dir_all(t.path().join(n)).unwrap();
+        }
+        let names: Vec<String> = list_backups(t.path()).iter().map(|p| p.file_name().unwrap().to_string_lossy().into()).collect();
+        assert_eq!(names, ["20261002-090000-2", "20261002-090000", "20261001-100000"]);
+        assert!(list_backups(&t.path().join("missing")).is_empty());
+    }
     use crate::testutil::{put, spaced_tempdir};
 
     #[test]

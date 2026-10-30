@@ -1,7 +1,8 @@
 // About Obsidian: the version, the license, links and the credits. Opens from the status bar.
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useRef } from "react";
-import { CloseIcon, DiscordIcon, ExternalIcon, KofiIcon, Logo } from "./Icons";
+import logo from "./assets/logo.png";
+import { CloseIcon, DiscordIcon, ExternalIcon, KofiIcon } from "./Icons";
 import { t } from "./i18n";
 import { LINKS } from "./links";
 
@@ -27,7 +28,7 @@ export function AboutDialog({ version, onClose }: { version: string; onClose: ()
     <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal about" role="dialog" aria-modal="true" aria-label={t("app.about.title")} ref={box} tabIndex={-1}>
         <div className="about-head">
-          <Logo className="about-logo" />
+          <img src={logo} className="about-logo" alt="" />
           <div className="about-name">
             <b className="cap">Obsidian</b>
             <span>v{version}</span>

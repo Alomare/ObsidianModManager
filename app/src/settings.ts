@@ -18,13 +18,17 @@ function apply(s: AppSettings) {
 
 const DEFAULTS: AppSettings = { theme: "default", nav: "top", scale: 100, text: "normal", motion: null, language: null, updates: "prompt", gameDir: null };
 
-/** Loads the saved settings. If that fails the window still opens, with the defaults. */
+/** Loads the saved settings. If that fails, or takes long (the first calls after a start can
+ *  hang), the window opens with the defaults and takes the saved ones when they arrive. */
 export async function loadSettings() {
+  const slow = setTimeout(() => current ?? apply(DEFAULTS), 1500);
   try {
     apply(await call<AppSettings>("get_app_settings"));
   } catch (e) {
-    apply(DEFAULTS);
+    if (!current) apply(DEFAULTS);
     notify("error", errorText(e));
+  } finally {
+    clearTimeout(slow);
   }
 }
 

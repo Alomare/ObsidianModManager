@@ -30,6 +30,16 @@ export async function refresh() {
   try { setSnapshot(await call<Snapshot>("snapshot")); } catch (e) { notify("error", errorText(e)); }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Asks for the first snapshot until one arrives: right after a start a call can hang. */
+export async function loadSnapshot() {
+  while (!snap) {
+    refresh();
+    await sleep(2500);
+  }
+}
+
 /** Runs a command that returns a snapshot. Errors become a notice; the result says whether it worked. */
 export async function run(cmd: string, args?: Record<string, unknown>): Promise<boolean> {
   try {

@@ -1,11 +1,12 @@
-// One tooltip for the whole window: any element with `data-tip` shows it on hover (after a short
-// wait) and on keyboard focus. Mounted once in App. `data-tip-side="bottom"` puts it below.
+// One tooltip for the whole window: any element with `data-tip` (the explanation) and/or
+// `data-tip-title` (the name, in bold above it) shows it on hover after a short wait and on keyboard
+// focus. Mounted once in App. `data-tip-side="bottom"` puts it below.
 import { useEffect, useRef, useState } from "react";
 
 const WAIT_MS = 450;
 const GAP_PX = 8;
 
-type Tip = { text: string; x: number; y: number; below: boolean };
+type Tip = { title?: string; text?: string; x: number; y: number; below: boolean };
 
 export function Tooltip() {
   const [tip, setTip] = useState<Tip | null>(null);
@@ -16,11 +17,11 @@ export function Tooltip() {
     let timer = 0;
     let target: HTMLElement | null = null;
     const show = (el: HTMLElement) => {
-      const text = el.dataset.tip;
-      if (!text) return;
+      const { tip: text, tipTitle: title } = el.dataset;
+      if (!text && !title) return;
       const r = el.getBoundingClientRect();
       const below = el.dataset.tipSide === "bottom" || r.top < 48;
-      setTip({ text, x: r.left + r.width / 2, y: below ? r.bottom + GAP_PX : r.top - GAP_PX, below });
+      setTip({ title, text, x: r.left + r.width / 2, y: below ? r.bottom + GAP_PX : r.top - GAP_PX, below });
     };
     const hide = () => {
       clearTimeout(timer);
@@ -28,7 +29,7 @@ export function Tooltip() {
       setTip(null);
     };
     const over = (e: Event) => {
-      const el = (e.target as Element).closest?.<HTMLElement>("[data-tip]") ?? null;
+      const el = (e.target as Element).closest?.<HTMLElement>("[data-tip], [data-tip-title]") ?? null;
       if (el === target) return;
       hide();
       if (!el) return;
@@ -62,7 +63,8 @@ export function Tooltip() {
   return (
     <div ref={box} role="tooltip" className={tip.below ? "tip below" : "tip"}
       style={{ left: tip.x + shift, top: tip.y }}>
-      {tip.text}
+      {tip.title && <b className="tip-title">{tip.title}</b>}
+      {tip.text && <span>{tip.text}</span>}
     </div>
   );
 }

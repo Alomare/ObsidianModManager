@@ -49,7 +49,7 @@ export function Select<T extends string>({ value, options, onChange, prefix, lab
   return (
     <div className={open ? "select open" : "select"} ref={root} onKeyDown={key}>
       <button type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open} aria-controls={list}
-        aria-label={`${label}: ${current?.label ?? ""}`} data-tip={open ? undefined : tip} onClick={() => setOpen((o) => !o)}>
+        aria-label={`${label}: ${current?.label ?? ""}`} data-tip-title={open || !tip ? undefined : label} data-tip={open ? undefined : tip} onClick={() => setOpen((o) => !o)}>
         {prefix && <span className="select-prefix">{prefix}</span>}
         <span className="select-value">{current?.label}</span>
         <ChevronIcon />

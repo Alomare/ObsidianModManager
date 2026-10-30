@@ -7,11 +7,6 @@ const Icon = ({ children, ...p }: SVGProps<SVGSVGElement> & { children: ReactNod
   </svg>
 );
 
-export const Logo = (p: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 1080 1050" aria-hidden="true" {...p}>
-    <path fillRule="evenodd" fill="currentColor" d="M435 0H645L962 196V632L1072 772L791 981L745 952L681 1050H398L295 952L260 981L7 772L117 632V196ZM539 108L618 268L778 348L618 427L539 587L460 427L300 348L460 268ZM216 713a95 95 0 1 0 190 0a95 95 0 1 0 -190 0ZM673 713a95 95 0 1 0 190 0a95 95 0 1 0 -190 0ZM473 925L537 825L601 925L574 944L537 910L500 944Z" />
-  </svg>
-);
 
 export const ModsIcon = () => <Icon><path d="M4 6h16M4 12h16M4 18h16" /></Icon>;
 export const ProfilesIcon = () => <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></Icon>;
