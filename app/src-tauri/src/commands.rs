@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use obsidian_core::images;
 use obsidian_core::deploy::{ChangesWaiting, DeployOptions, changes_waiting, deploy as core_deploy, purge as core_purge};
 use obsidian_core::game::{GameInstall, ensure_closed};
 use obsidian_core::import::import_path;
@@ -186,6 +187,15 @@ pub async fn rename_profile(ctx: State<'_, Ctx>, from: String, to: String) -> Cm
 pub async fn delete_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
     profiles::delete(&ctx.data, &name)?;
+    fresh(&ctx)
+}
+
+/// Sets the player's image for a mod or a profile (`owner` "mod" or "profile"), or removes it.
+#[tauri::command]
+pub async fn set_image(ctx: State<'_, Ctx>, owner: String, key: String, path: Option<PathBuf>) -> CmdResult<Snapshot> {
+    let _turn = ctx.turn();
+    let owner = if owner == "profile" { images::Owner::Profile } else { images::Owner::Mod };
+    images::set(&ctx.data, owner, &key, path.as_deref())?;
     fresh(&ctx)
 }
 

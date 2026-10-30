@@ -4,6 +4,7 @@ import { run } from "../api";
 import { CloseIcon, ProfilesIcon, SearchIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { ProfilesDialog } from "../ProfilesDialog";
+import { Thumb } from "../Thumb";
 import type { Snapshot } from "../types";
 import { winners } from "./conflicts";
 import { CrashBanner } from "./CrashBanner";
@@ -20,6 +21,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const [pending, setPending] = useState<string[] | null>(null);
   const [view, setView] = useState<DrawerView>(null);
   const [profiles, setProfiles] = useState(false);
+  const profileImage = snap.profileRows.find((p) => p.name === snap.profile)?.image ?? null;
 
   const byId = useMemo(() => new Map(snap.mods.map((m) => [m.id, m])), [snap.mods]);
   const names = useMemo(() => new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), [snap.mods]);
@@ -39,7 +41,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
       <div className="head">
         <h1 className="cap">{t("app.nav.mods")}</h1>
         <button className="btn profile-btn" onClick={() => setProfiles(true)} data-tip-title={t("app.mods.profile")} data-tip={t("app.mods.profileHint")}>
-          <ProfilesIcon />
+          {profileImage ? <Thumb image={profileImage} name={snap.profile} size="sm" /> : <ProfilesIcon />}
           <span className="profile-label">{t("app.mods.profile")}</span>
           <span className="profile-name">{snap.profile}</span>
         </button>

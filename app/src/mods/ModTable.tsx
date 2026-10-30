@@ -4,6 +4,7 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { WarnIcon } from "../Icons";
 import { pick, t } from "../i18n";
+import { Thumb } from "../Thumb";
 import type { ConflictRow, ModRow } from "../types";
 import { conflictsOf } from "./conflicts";
 import { moveRow } from "./rows";
@@ -151,6 +152,8 @@ export function ModTable({ rows, order, names, conflicts, canDrag, selected, onS
               <span className="num">{order.indexOf(m.id) + 1}</span>
               <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"} data-tip={t(m.on ? "app.mods.turnOff" : "app.mods.turnOn", name)}
                 onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onClick={() => onToggle(m.id, !m.on)} />
+              <div className="mod-cell">
+              <Thumb image={m.image} name={name} />
               <div className="who">
                 <div className="nm">
                   {name}
@@ -158,6 +161,7 @@ export function ModTable({ rows, order, names, conflicts, canDrag, selected, onS
                   {m.bundled && <span className="tag">{t("app.mods.bundled")}</span>}
                 </div>
                 {pick(m.description) && <div className="sub">{pick(m.description)}</div>}
+              </div>
               </div>
               {lines.length > 1 ? (
                 <button className={c.overriddenBy.length ? "bare cf-ico lose" : "bare cf-ico"} aria-label={t("app.drawer.conflicts")}

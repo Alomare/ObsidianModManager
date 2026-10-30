@@ -1,12 +1,11 @@
-// Along the bottom: the Discord link on the left; on the right the version (it leads to the updates
-// in Settings), About, and the notifications shown so far.
-import { openUrl } from "@tauri-apps/plugin-opener";
+// Along the bottom: what the app is doing on the left (importing, deploying), with a glow that
+// travels to the right and fades out; on the right the version (it leads to the updates in
+// Settings), About, and the notifications shown so far.
 import { useEffect, useRef, useState } from "react";
 import { AboutDialog } from "./About";
 import { useBusy } from "./busy";
-import { BellIcon, DiscordIcon, InfoIcon } from "./Icons";
+import { BellIcon, InfoIcon } from "./Icons";
 import { language, t } from "./i18n";
-import { LINKS } from "./links";
 import { useNoticeLog } from "./noticeLog";
 
 /** The time today, the date and time before. */
@@ -22,13 +21,9 @@ export function StatusBar({ version, updateFound, onUpdates }: { version: string
   const busy = useBusy();
   return (
     <footer className="statusbar">
-      <button className="sb-btn" onClick={() => openUrl(LINKS.discord).catch(() => {})} data-tip-title="Discord" data-tip={t("app.status.discordHint")}>
-        <DiscordIcon />
-        <span>dsc.gg/hd1modding</span>
-      </button>
-      <span className="spacer" />
-      {busy && <span className="sb-busy"><i />{busy}</span>}
-      <span className="spacer" />
+      <div className="sb-task" role="status">
+        {busy && <><span className="sb-wave" aria-hidden="true" /><span className="sb-busy">{busy}</span></>}
+      </div>
       {version && (
         <button className={updateFound ? "sb-btn lit" : "sb-btn"} onClick={onUpdates} data-tip-title={`Obsidian ${version}`}
           data-tip={updateFound ? t("app.status.updateFound") : t("app.status.updates")}>

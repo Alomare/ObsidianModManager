@@ -10,16 +10,17 @@ export type OptionRow = {
 };
 export type KeyRow = { id: string; label: Localized; default: string; key: string | null; clash: string[] };
 export type ImportInfo = { date: string; file: string };
+export type ImageRef = { path: string; v: number };
 export type ModRow = {
   id: string; name: Localized; description: Localized; authors: string[];
   version: string | null; scope: "client" | "session"; bundled: boolean; on: boolean;
   options: OptionRow[]; keybinds: KeyRow[]; files: string[];
-  import: ImportInfo | null; source: string | null;
+  import: ImportInfo | null; source: string | null; image: ImageRef | null; customImage: boolean;
 };
 export type ConflictRow = { resource: string; mods: string[]; winner: string };
 export type ChangesWaiting = "UpToDate" | "Waiting" | "Vanilla";
 export type GameState = "supported" | "unknown" | "running" | "notFound";
-export type ProfileRow = { name: string; on: number; consent: boolean };
+export type ProfileRow = { name: string; on: number; consent: boolean; image: ImageRef | null };
 export type Snapshot = {
   mods: ModRow[]; profile: string; profiles: string[]; profileRows: ProfileRow[]; consent: boolean; conflicts: ConflictRow[];
   changes: ChangesWaiting; game: GameState; gameDir: string | null; crashCulprit: string | null;

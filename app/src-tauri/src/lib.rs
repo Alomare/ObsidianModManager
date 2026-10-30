@@ -41,6 +41,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ctx)
         .setup(|app| {
+            // Mod and profile images load straight from the data folder, and only from there.
+            let data = app.state::<commands::Ctx>().data.clone();
+            app.asset_protocol_scope().allow_directory(&data, true)?;
             watch_game(app.handle().clone());
             Ok(())
         })
@@ -62,6 +65,7 @@ pub fn run() {
             commands::rename_profile,
             commands::delete_profile,
             commands::set_consent,
+            commands::set_image,
             commands::system_info,
             commands::set_game_dir,
             commands::check_game,

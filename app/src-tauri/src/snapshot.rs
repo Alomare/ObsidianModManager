@@ -9,6 +9,7 @@ use obsidian_core::deploy::{ChangesWaiting, changes_waiting, crash_culprit};
 use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
 use obsidian_core::hash::{display_name, display_text};
+use obsidian_core::images::{self, Owner};
 use obsidian_core::library::{ImportInfo, Library, Profile};
 use obsidian_core::manifest::{Localized, Manifest, Scope};
 use obsidian_core::options::{OptionKind, effective_values, parse_keybinds};
@@ -57,6 +58,19 @@ pub struct KeyRow {
     pub clash: Vec<String>,
 }
 
+/// An image file and a stamp that changes when the file does, so the UI drops a stale copy.
+#[derive(Debug, Clone, Serialize)]
+pub struct ImageRef {
+    pub path: PathBuf,
+    pub v: u128,
+}
+
+fn image_ref(path: Option<PathBuf>) -> Option<ImageRef> {
+    let path = path?;
+    let v = std::fs::metadata(&path).and_then(|m| m.modified()).ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis();
+    Some(ImageRef { path, v })
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModRow {
@@ -75,6 +89,9 @@ pub struct ModRow {
     pub files: Vec<String>,
     pub import: Option<ImportInfo>,
     pub source: Option<String>,
+    pub image: Option<ImageRef>,
+    /// The image is the player's own, not the mod's.
+    pub custom_image: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,6 +110,7 @@ pub struct ProfileRow {
     /// Mods switched on, counting only those in the library.
     pub on: usize,
     pub consent: bool,
+    pub image: Option<ImageRef>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -255,6 +273,8 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             files: m.resources.iter().map(|r| resource_label(r.bundle.as_deref().unwrap_or_default(), &display_text(&r.name_text))).collect(),
             import: lib.import_info(&m.id),
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),
+            image: image_ref(images::for_mod(data, &lib, m)),
+            custom_image: images::custom(data, Owner::Mod, &m.id).is_some(),
         });
     }
 
@@ -276,7 +296,8 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             .map(|name| {
                 let p = Profile::load_named(data, &name).unwrap_or_default();
                 let on = p.mods.iter().filter(|e| e.enabled && manifests.contains_key(&e.id)).count();
-                ProfileRow { name, on, consent: p.consent }
+                let image = image_ref(images::custom(data, Owner::Profile, &name));
+                ProfileRow { name, on, consent: p.consent, image }
             })
             .collect(),
         profiles: profiles::list(data)?,

@@ -9,6 +9,7 @@ pub mod error;
 pub mod game;
 pub mod gate;
 pub mod hash;
+pub mod images;
 pub mod import;
 pub mod library;
 pub mod loader;

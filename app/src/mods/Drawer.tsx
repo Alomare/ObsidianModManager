@@ -6,6 +6,7 @@ import { Confirm } from "../Confirm";
 import { ArrowIcon, CloseIcon, ExternalIcon, ResetIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Select } from "../Select";
+import { Thumb } from "../Thumb";
 import type { ConflictRow, KeyRow, ModRow, OptionRow } from "../types";
 import { overrides, type Override } from "./conflicts";
 import { keyName } from "./keyCapture";
@@ -43,6 +44,7 @@ function ModDrawer({ mod, conflicts, names, onClose }: { mod: ModRow; conflicts:
   return (
     <aside className={`drawer ${mod.scope}`} aria-label={name}>
       <div className="dh">
+        <Thumb image={mod.image} name={name} size="lg" pick={{ owner: "mod", key: mod.id, custom: mod.customImage }} />
         <div className="dh-text">
           <h2>{name}</h2>
           <div className="meta">

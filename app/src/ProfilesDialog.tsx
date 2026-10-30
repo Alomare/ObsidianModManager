@@ -4,9 +4,10 @@
 import { useEffect, useState } from "react";
 import { run } from "./api";
 import { Confirm } from "./Confirm";
-import { CloseIcon, ProfilesIcon } from "./Icons";
+import { CloseIcon } from "./Icons";
 import { t } from "./i18n";
 import { Prompt } from "./Prompt";
+import { Thumb } from "./Thumb";
 import type { ProfileRow, Snapshot } from "./types";
 
 type Ask = { kind: "new" } | { kind: "duplicate" | "rename" | "delete"; name: string } | null;
@@ -36,7 +37,7 @@ export function ProfilesDialog({ snap, onClose }: { snap: Snapshot; onClose: () 
           const active = p.name === snap.profile;
           return (
             <li key={p.name} className={active ? "profile active" : "profile"}>
-              <ProfilesIcon />
+              <Thumb image={p.image} name={p.name} pick={{ owner: "profile", key: p.name, custom: !!p.image }} />
               <div className="profile-text">
                 <div className="nm">
                   {p.name}

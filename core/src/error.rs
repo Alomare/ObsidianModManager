@@ -58,6 +58,8 @@ pub enum ObsidianError {
     UnsupportedBuild(crate::gate::GateReport),
     #[error("bundle {bundle}: patch_{missing} is missing below another tool's patches, so the game would skip them")]
     ForeignPatchGap { bundle: String, missing: u32 },
+    #[error("{0} is not an image Obsidian can use: PNG, JPG or WebP, up to 4 MB")]
+    BadImage(String),
     #[error("close the game first")]
     GameRunning,
     #[error("deploy failed and was undone: {0}")]

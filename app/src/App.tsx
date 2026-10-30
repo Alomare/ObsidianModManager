@@ -6,6 +6,7 @@ import { useBusy } from "./busy";
 import { Confirm } from "./Confirm";
 import { t } from "./i18n";
 import { listenForDrops } from "./mods/dropImport";
+import { HomePage } from "./HomePage";
 import { ModsPage } from "./mods/ModsPage";
 import { NavBar, type Tab } from "./NavBar";
 import { SettingsPage, type SettingsTab } from "./SettingsPage";
@@ -51,9 +52,9 @@ export default function App() {
   return (
     <div className="app">
       <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => setAskPurge(true)} onDeploy={deploy} onPlay={play} />
-      <main className="page">
+      <main className={tab === "home" ? "page bleed" : "page"}>
         <div className="view" key={tab}>
-          {tab === "home" && <div className="home" />}
+          {tab === "home" && <HomePage />}
           {snap && tab === "mods" && <ModsPage snap={snap} />}
           {snap && tab === "settings" && <SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} />}
         </div>

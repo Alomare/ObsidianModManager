@@ -127,6 +127,7 @@ pub fn rename(data: &Path, from: &str, to: &str) -> Result<()> {
     if path(data, &from).is_file() {
         std::fs::rename(path(data, &from), path(data, to))?;
     }
+    crate::images::rename(data, crate::images::Owner::Profile, &from, to)?;
     if was_active {
         set_active(data, to)?;
     }
@@ -144,6 +145,7 @@ pub fn delete(data: &Path, name: &str) -> Result<()> {
     if path(data, &found).is_file() {
         std::fs::remove_file(path(data, &found))?;
     }
+    crate::images::remove(data, crate::images::Owner::Profile, &found)?;
     if was_active {
         let next = names.iter().find(|n| **n != found).expect("another profile");
         set_active(data, next)?;
