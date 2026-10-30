@@ -121,7 +121,7 @@ button.bare:hover { color: var(--tx); }
 .list { flex: 1; min-width: 0; display: flex; flex-direction: column; background: linear-gradient(160deg, var(--p1), var(--p2)); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
 .table { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .tbody { overflow: auto; min-height: 0; }
-.th, .tr { display: grid; grid-template-columns: 1.75rem 3.25rem minmax(0, 1fr) 7rem; gap: 0.75rem; align-items: center; padding: 0 1rem; }
+.th, .tr { display: grid; grid-template-columns: 1.75rem 4.6rem minmax(0, 1fr) 7rem; gap: 0.75rem; align-items: center; padding: 0 1rem; }
 .th { padding-top: 0.6rem; padding-bottom: 0.6rem; font-size: 0.7rem; color: var(--mu); border-bottom: 1px solid var(--ln); }
 .tr { padding-top: 0.7rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--ln); cursor: pointer; outline-offset: -2px; touch-action: none; }
 .tr { transition: background var(--fast); }
