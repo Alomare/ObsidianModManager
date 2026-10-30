@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
-import { CloseIcon, FolderIcon, ProfilesIcon, SearchIcon, TrashIcon } from "../Icons";
+import { CloseIcon, FolderIcon, LockIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
@@ -15,7 +15,7 @@ import { CrashBanner } from "./CrashBanner";
 import { Drawer } from "./Drawer";
 import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
-import { changes, flatten, moveMods, nudge, toEnd, toTree, type Node } from "./layout";
+import { changes, flatten, moveMods, nudge, OBSIDIAN, pinned, toEnd, toTree, type Node } from "./layout";
 import { ModTable, type MenuTarget } from "./ModTable";
 import { filterMods } from "./rows";
 
@@ -89,23 +89,24 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
     const allOn = ids.every((id) => byId.get(id)?.on);
     const allOff = ids.every((id) => !byId.get(id)?.on);
     const removable = ids.filter((id) => !byId.get(id)?.bundled);
-    const inFolder = ids.some((id) => byId.get(id)?.folder);
+    const inFolder = ids.some((id) => byId.get(id)?.folder && !pinned(tree, id));
+    const fixed = searching || ids.every((id) => pinned(tree, id));
     return [
       ...(one ? [{ label: t("app.menu.details"), run: () => setView({ kind: "mod", id: one.id }) } as MenuItem, "sep" as const] : []),
       { label: t("app.menu.enable"), disabled: allOn, run: () => run("set_enabled", { ids, on: true }) },
       { label: t("app.menu.disable"), disabled: allOff, run: () => run("set_enabled", { ids, on: false }) },
       "sep",
-      { label: t("app.menu.moveTop"), disabled: searching, run: () => arrange(toEnd(tree, ids, "top")) },
+      { label: t("app.menu.moveTop"), disabled: fixed, run: () => arrange(toEnd(tree, ids, "top")) },
       ...(one ? [
-        { label: t("app.menu.moveUp"), hint: "Alt+↑", disabled: searching, run: () => arrange(nudge(tree, one.id, -1)) } as MenuItem,
-        { label: t("app.menu.moveDown"), hint: "Alt+↓", disabled: searching, run: () => arrange(nudge(tree, one.id, 1)) } as MenuItem,
+        { label: t("app.menu.moveUp"), hint: "Alt+↑", disabled: fixed, run: () => arrange(nudge(tree, one.id, -1)) } as MenuItem,
+        { label: t("app.menu.moveDown"), hint: "Alt+↓", disabled: fixed, run: () => arrange(nudge(tree, one.id, 1)) } as MenuItem,
       ] : []),
-      { label: t("app.menu.moveBottom"), disabled: searching, run: () => arrange(toEnd(tree, ids, "bottom")) },
+      { label: t("app.menu.moveBottom"), disabled: fixed, run: () => arrange(toEnd(tree, ids, "bottom")) },
       {
-        label: t("app.menu.moveToFolder"), icon: <FolderIcon />, disabled: searching,
+        label: t("app.menu.moveToFolder"), icon: <FolderIcon />, disabled: fixed,
         sub: [
-          ...snap.folders.map((f): MenuItem => ({ label: f.name, swatch: f.color, run: () => arrange(moveMods(tree, inOrder(ids), { folder: f.id, index: Infinity })) })),
-          ...(snap.folders.length ? ["sep" as const] : []),
+          ...snap.folders.filter((f) => !f.locked).map((f): MenuItem => ({ label: f.name, swatch: f.color, run: () => arrange(moveMods(tree, inOrder(ids), { folder: f.id, index: Infinity })) })),
+          ...(snap.folders.some((f) => !f.locked) ? ["sep" as const] : []),
           { label: t("app.menu.newFolder"), run: () => setAsk({ kind: "newFolder", ids: inOrder(ids) }) },
           ...(inFolder ? [{ label: t("app.menu.outOfFolder"), run: () => arrange(moveFolderless(ids)) } as MenuItem] : []),
         ],
@@ -128,16 +129,20 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const folderItems = (id: string): MenuItem[] => {
     const f = folderOf(id)!;
     const ids = membersOf(id);
+    const obsidian = id === OBSIDIAN;
     return [
       { label: f.collapsed ? t("app.menu.expand") : t("app.menu.collapse"), run: () => run("edit_folder", { id, collapsed: !f.collapsed }) },
-      { label: t("app.menu.editFolder"), run: () => setAsk({ kind: "editFolder", id }) },
-      { label: t("app.folder.color"), sub: FOLDER_COLORS.map((c): MenuItem => ({ label: "", hint: c === f.color ? "✓" : undefined, swatch: c, run: () => run("edit_folder", { id, color: c }) })) },
+      ...(obsidian ? [] : [
+        { label: f.locked ? t("app.menu.unlock") : t("app.menu.lock"), icon: f.locked ? <UnlockIcon /> : <LockIcon />, run: () => run("edit_folder", { id, locked: !f.locked }) } as MenuItem,
+      ]),
+      { label: t("app.menu.editFolder"), disabled: f.locked, run: () => setAsk({ kind: "editFolder", id }) },
+      { label: t("app.folder.color"), disabled: f.locked, sub: FOLDER_COLORS.map((c): MenuItem => ({ label: "", hint: c === f.color ? "✓" : undefined, swatch: c, run: () => run("edit_folder", { id, color: c }) })) },
       "sep",
       { label: t("app.menu.enableAll"), disabled: !ids.length || ids.every((m) => byId.get(m)?.on), run: () => run("set_enabled", { ids, on: true }) },
       { label: t("app.menu.disableAll"), disabled: !ids.length || ids.every((m) => !byId.get(m)?.on), run: () => run("set_enabled", { ids, on: false }) },
       { label: t("app.menu.checkAll"), disabled: !ids.length, run: () => check(ids, true) },
       "sep",
-      { label: t("app.menu.deleteFolder"), icon: <TrashIcon />, danger: true, run: () => (ids.length ? setAsk({ kind: "deleteFolder", id }) : run("delete_folder", { id, removeMods: false })) },
+      { label: t("app.menu.deleteFolder"), icon: <TrashIcon />, danger: true, disabled: f.locked, run: () => (ids.length ? setAsk({ kind: "deleteFolder", id }) : run("delete_folder", { id, removeMods: false })) },
     ];
   };
   const menuItems = (target: MenuTarget): MenuItem[] =>
@@ -175,7 +180,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
           <span className="profile-label">{t("app.mods.profile")}</span>
           <span className="profile-name">{snap.profile}</span>
         </button>
-        <button className="btn icon" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.menu.newFolder")} data-tip-title={t("app.menu.newFolder")} data-tip={t("app.folder.newHint")}>
+        <button className="btn icon head-btn" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.mods.createFolder")} data-tip-title={t("app.mods.createFolder")} data-tip={t("app.folder.newHint")}>
           <FolderIcon />
         </button>
         <label className="search">
@@ -207,6 +212,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onConflicts={(focus) => setView({ kind: "conflicts", focus })}
             onArrange={arrange}
             onCollapse={(id, collapsed) => run("edit_folder", { id, collapsed })}
+            onLock={(id, locked) => run("edit_folder", { id, locked })}
             onMenu={(x, y, target) => setMenu({ x, y, target })} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
           <div className="drop">

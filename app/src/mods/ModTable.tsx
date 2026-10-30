@@ -4,12 +4,12 @@
 // Alt+Up and Alt+Down move the focused mod or folder from the keyboard. A warning icon marks
 // mods in a conflict and opens the conflicts; a right click opens the menu.
 import { useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import { CheckIcon, ChevronIcon, WarnIcon } from "../Icons";
+import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, WarnIcon } from "../Icons";
 import { pick, t } from "../i18n";
 import { Thumb } from "../Thumb";
 import type { ConflictRow, ModRow } from "../types";
 import { conflictsOf } from "./conflicts";
-import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, type Line, type Node } from "./layout";
+import { dropSpot, folderDropIndex, lines, moveFolder, moveMods, nudge, OBSIDIAN, pinned, type Line, type Node } from "./layout";
 
 export type MenuTarget = { kind: "mod"; id: string } | { kind: "folder"; id: string };
 
@@ -30,10 +30,11 @@ type Props = {
   onConflicts: (id: string) => void;
   onArrange: (tree: Node[]) => void;
   onCollapse: (folder: string, collapsed: boolean) => void;
+  onLock: (folder: string, locked: boolean) => void;
   onMenu: (x: number, y: number, target: MenuTarget) => void;
 };
 
-type Drag = { key: string; folder: string | null; ids: string[]; x0: number; y0: number; moved: boolean; gap: number; onto: string | null };
+type Drag = { key: string; folder: string | null; ids: string[]; x0: number; y0: number; moved: boolean; gap: number; onto: string | null; fixed: boolean };
 type Shown = { key: string; el: HTMLElement; line: Line };
 type Marker = { y: number; indent: boolean; onto: string | null; x: number; py: number; label: string };
 const THRESHOLD_PX = 5;
@@ -52,7 +53,7 @@ function Check({ state, label, onChange }: { state: boolean | "mixed"; label: st
   );
 }
 
-export function ModTable({ tree, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onMenu }: Props) {
+export function ModTable({ tree, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu }: Props) {
   const body = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const before = useRef<Map<string, number> | null>(null);
@@ -101,13 +102,15 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
 
   const down = (e: PointerEvent<HTMLDivElement>, line: Line) => {
     if (e.button !== 0) return;
-    const ids = line.kind === "folder" ? [] : checked.has(line.id) ? order.filter((id) => checked.has(id)) : [line.id];
-    drag.current = { key: keyOf(line), folder: line.kind === "folder" ? line.folder.id : null, ids, x0: e.clientX, y0: e.clientY, moved: false, gap: -1, onto: null };
+    const ids = line.kind === "folder" ? [] : (checked.has(line.id) ? order.filter((id) => checked.has(id)) : [line.id]).filter((id) => !tree || !pinned(tree, id));
+    // Locked folders and the mods in them stay put; a click still opens or folds them.
+    const fixed = line.kind === "folder" ? line.folder.locked : !ids.length;
+    drag.current = { key: keyOf(line), folder: line.kind === "folder" ? line.folder.id : null, ids, x0: e.clientX, y0: e.clientY, moved: false, gap: -1, onto: null, fixed };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const move = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
-    if (!d || !tree) return;
+    if (!d || !tree || d.fixed) return;
     if (!d.moved && Math.abs(e.clientY - d.y0) < THRESHOLD_PX) return;
     d.moved = true;
     // Near the top or bottom edge the list scrolls.
@@ -198,14 +201,25 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
             const ids = node?.kind === "folder" ? node.ids : [];
             const on = ids.filter((id) => byId.get(id)?.on).length;
             const state = ids.length && ids.every((id) => checked.has(id)) ? true : ids.some((id) => checked.has(id)) ? "mixed" : false;
-            const cls = ["tr", "fr", f.collapsed && "closed", marker?.onto === f.id && "onto", draggingKeys.has(keyOf(line)) && "lifted"].filter(Boolean).join(" ");
+            const cls = ["tr", "fr", f.collapsed && "closed", f.locked && "locked", marker?.onto === f.id && !f.locked && "onto", draggingKeys.has(keyOf(line)) && "lifted"].filter(Boolean).join(" ");
             return (
               <div key={keyOf(line)} data-key={keyOf(line)} role="row" tabIndex={0} className={cls} style={{ "--fc": f.color } as CSSProperties} aria-expanded={!f.collapsed}
                 onPointerDown={(e) => down(e, line)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => key(e, line)} onContextMenu={(e) => menu(e, { kind: "folder", id: f.id })}>
                 {ids.length ? <Check state={state} label={f.name} onChange={(v) => onCheck(ids, v)} /> : <span />}
                 <span className="fr-chev"><ChevronIcon /></span>
                 <span className="fr-name">{f.name}</span>
-                <span className="fr-count">{ids.length ? t("app.folder.count", on, ids.length) : t("app.folder.empty")}</span>
+                <span className="fr-end">
+                  <span className="fr-count">{ids.length ? t("app.folder.count", on, ids.length) : t("app.folder.empty")}</span>
+                  {f.id === OBSIDIAN ? (
+                    <span className="fr-lock on" data-tip-title={t("app.folder.locked")} data-tip={t("app.folder.obsidianHint")}><LockIcon /></span>
+                  ) : (
+                    <button className={f.locked ? "bare fr-lock on" : "bare fr-lock"} aria-pressed={f.locked} aria-label={t(f.locked ? "app.menu.unlock" : "app.menu.lock")}
+                      data-tip-title={t(f.locked ? "app.folder.locked" : "app.menu.lock")} data-tip={t(f.locked ? "app.folder.lockedHint" : "app.folder.lockHint")}
+                      {...stop} onClick={() => onLock(f.id, !f.locked)}>
+                      {f.locked ? <LockIcon /> : <UnlockIcon />}
+                    </button>
+                  )}
+                </span>
               </div>
             );
           }
@@ -234,7 +248,6 @@ export function ModTable({ tree, rows, byId, order, names, conflicts, selected, 
                   <div className="nm">
                     {name}
                     <span className="ver">{m.version ?? t("app.mods.imported")}</span>
-                    {m.bundled && <span className="tag">{t("app.mods.bundled")}</span>}
                   </div>
                   {pick(m.description) && <div className="sub">{pick(m.description)}</div>}
                 </div>

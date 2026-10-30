@@ -18,7 +18,7 @@ export type ModRow = {
   import: ImportInfo | null; source: string | null; image: ImageRef | null; customImage: boolean;
   folder: string | null;
 };
-export type Folder = { id: string; name: string; color: string; collapsed: boolean };
+export type Folder = { id: string; name: string; color: string; collapsed: boolean; locked: boolean };
 export type ConflictRow = { resource: string; mods: string[]; winner: string };
 export type ChangesWaiting = "UpToDate" | "Waiting" | "Vanilla";
 export type GameState = "supported" | "unknown" | "running" | "notFound";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { changes, dropSpot, flatten, folderDropIndex, lines, moveFolder, moveMods, nudge, toEnd, toTree } from "../mods/layout";
 import type { Folder } from "../types";
 
-const F = (id: string, collapsed = false): Folder => ({ id, name: id.toUpperCase(), color: "#fff", collapsed });
+const F = (id: string, collapsed = false, locked = false): Folder => ({ id, name: id.toUpperCase(), color: "#fff", collapsed, locked });
 const e = (id: string, folder: string | null = null) => ({ id, folder });
 // a, [f1: b c], d, [f2: empty]
 const tree = () => toTree([e("a"), e("b", "f1"), e("c", "f1"), e("d")], [F("f1"), F("f2")]);
@@ -39,6 +39,20 @@ describe("folder layout", () => {
     expect(dropSpot(t, shown, 4, null, ["d"])).toEqual({ folder: "f1", index: 2 });
     expect(dropSpot(t, shown, 5, null, ["d"])).toEqual({ folder: null, index: 3 });
     expect(dropSpot(t, shown, 1, "f2", ["d"])).toEqual({ folder: "f2", index: 0 });
+  });
+
+  it("keeps locked folders in place, whole and closed to new mods", () => {
+    // [obsidian: q] a [f1 (locked): b c] d
+    const t = toTree([e("q", "obsidian"), e("a"), e("b", "f1"), e("c", "f1"), e("d")], [F("obsidian", false, true), F("f1", false, true)]);
+    expect(flatten(toEnd(t, ["d"], "top"))).toEqual(["q", "d", "a", "b", "c"]);
+    expect(flatten(moveMods(t, ["b"], { folder: null, index: 0 }))).toEqual(flatten(t));
+    expect(flatten(moveMods(t, ["a"], { folder: "f1", index: 0 }))).toEqual(flatten(t));
+    expect(flatten(moveFolder(t, "f1", 0))).toEqual(flatten(t));
+    expect(flatten(nudge(t, "a", -1))).toEqual(flatten(t)); // nothing goes above the Obsidian folder
+    const shown = lines(t).filter((l) => !(l.kind === "mod" && l.id === "d"));
+    // obsidian | q | a | f1 | b | c
+    expect(dropSpot(t, shown, 5, null, ["d"])).toEqual({ folder: null, index: 3 });
+    expect(dropSpot(t, shown, 1, "f1", ["d"])).toEqual({ folder: null, index: 3 });
   });
 
   it("drops a folder only between top-level items", () => {

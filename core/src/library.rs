@@ -200,15 +200,18 @@ impl Profile {
         entry.enabled = on;
         Ok(())
     }
-    /// Appends newly installed mods as disabled and drops entries whose mod is gone.
+    /// Appends newly installed mods as disabled, drops entries whose mod is gone, and keeps the
+    /// bundled mods first, in the locked Obsidian folder.
     pub fn sync(&mut self, lib: &Library) -> Result<()> {
-        let installed: Vec<String> = lib.list()?.into_iter().map(|m| m.id).collect();
-        self.mods.retain(|m| installed.contains(&m.id));
-        for id in installed {
-            if !self.mods.iter().any(|m| m.id == id) {
-                self.mods.push(ProfileEntry { id, enabled: false, folder: None });
+        let installed = lib.list()?;
+        self.mods.retain(|m| installed.iter().any(|i| i.id == m.id));
+        for m in &installed {
+            if !self.mods.iter().any(|e| e.id == m.id) {
+                self.mods.push(ProfileEntry { id: m.id.clone(), enabled: false, folder: None });
             }
         }
+        let bundled: Vec<&str> = installed.iter().filter(|m| m.is_bundled()).map(|m| m.id.as_str()).collect();
+        self.pin_bundled(&bundled);
         Ok(())
     }
 }

@@ -67,6 +67,8 @@ fn with_profile(data: &Path, f: impl FnOnce(&mut Profile) -> obsidian_core::Resu
     let mut p = Profile::load(data)?;
     p.sync(&lib)?;
     f(&mut p)?;
+    // Again, so no change can take the bundled mods out of their folder.
+    p.sync(&lib)?;
     p.save(data)?;
     Ok(())
 }
@@ -212,9 +214,9 @@ pub async fn create_folder(ctx: State<'_, Ctx>, name: String, color: String, ids
 }
 
 #[tauri::command]
-pub async fn edit_folder(ctx: State<'_, Ctx>, id: String, name: Option<String>, color: Option<String>, collapsed: Option<bool>) -> CmdResult<Snapshot> {
+pub async fn edit_folder(ctx: State<'_, Ctx>, id: String, name: Option<String>, color: Option<String>, collapsed: Option<bool>, locked: Option<bool>) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
-    with_profile(&ctx.data, |p| p.edit_folder(&id, name.as_deref(), color.as_deref(), collapsed))?;
+    with_profile(&ctx.data, |p| p.edit_folder(&id, name.as_deref(), color.as_deref(), collapsed, locked))?;
     fresh(&ctx)
 }
 

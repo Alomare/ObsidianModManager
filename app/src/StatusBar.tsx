@@ -1,6 +1,6 @@
 // Along the bottom: what the app is doing on the left (importing, deploying), with a glow that
 // travels to the right and fades out; on the right the version (it leads to the updates in
-// Settings), About, and the notifications shown so far.
+// Settings), the notifications shown so far, and About.
 import { useEffect, useRef, useState } from "react";
 import { AboutDialog } from "./About";
 import { useBusy } from "./busy";
@@ -30,12 +30,12 @@ export function StatusBar({ version, updateFound, onUpdates }: { version: string
           v{version}{updateFound && <i className="sb-dot" aria-hidden="true" />}
         </button>
       )}
-      <button className={about ? "sb-btn round on" : "sb-btn round"} onClick={() => setAbout(true)} aria-label={t("app.about.title")} data-tip-title={t("app.about.title")} data-tip={t("app.status.aboutHint")}>
-        <InfoIcon />
-      </button>
       <button className={log ? "sb-btn round on" : "sb-btn round"} data-pop onClick={() => setLog((v) => !v)} aria-expanded={log}
         aria-label={t("app.status.notifications")} data-tip-title={t("app.status.notifications")} data-tip={t("app.status.notificationsHint")}>
         <BellIcon />
+      </button>
+      <button className={about ? "sb-btn round on" : "sb-btn round"} onClick={() => setAbout(true)} aria-label={t("app.about.title")} data-tip-title={t("app.about.title")} data-tip={t("app.status.aboutHint")}>
+        <InfoIcon />
       </button>
       {log && <NotificationList onClose={() => setLog(false)} />}
       {about && version && <AboutDialog version={version} onClose={() => setAbout(false)} />}

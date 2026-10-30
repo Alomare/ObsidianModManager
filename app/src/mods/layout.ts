@@ -1,5 +1,7 @@
 // The mod list as a tree: mods and folders at the top, mods inside folders. The load order is the
 // tree read top to bottom. An empty folder has no place in the load order, so it comes last.
+// A locked folder keeps the place and mods it has: it doesn't move, its mods don't leave, and no
+// mod goes in. The Obsidian folder (the bundled mods) is always locked and always first.
 import type { Folder } from "../types";
 
 export type Node = { kind: "mod"; id: string } | { kind: "folder"; folder: Folder; ids: string[] };
@@ -7,6 +9,14 @@ export type Node = { kind: "mod"; id: string } | { kind: "folder"; folder: Folde
 export type Spot = { folder: string | null; index: number };
 /** One line on screen. */
 export type Line = { kind: "mod"; id: string; folder: string | null } | { kind: "folder"; folder: Folder; count: number };
+
+export const OBSIDIAN = "obsidian";
+
+/** True for a mod that sits in a locked folder. */
+export const pinned = (tree: Node[], id: string): boolean => tree.some((n) => n.kind === "folder" && n.folder.locked && n.ids.includes(id));
+const lockedFolder = (tree: Node[], id: string | null) => tree.some((n) => n.kind === "folder" && n.folder.id === id && n.folder.locked);
+/** Nothing goes above the Obsidian folder. */
+const floor = (tree: Node[]) => (tree[0]?.kind === "folder" && tree[0].folder.id === OBSIDIAN ? 1 : 0);
 
 export function toTree(entries: { id: string; folder: string | null }[], folders: Folder[]): Node[] {
   const out: Node[] = [];
@@ -54,10 +64,11 @@ const without = (tree: Node[], ids: string[]): Node[] =>
 
 /** Moves `ids` (in their current order) to `spot`, counted in the tree without them. */
 export function moveMods(tree: Node[], ids: string[], spot: Spot): Node[] {
-  const moving = flatten(tree).filter((id) => ids.includes(id));
+  const moving = flatten(tree).filter((id) => ids.includes(id) && !pinned(tree, id));
+  if (!moving.length || lockedFolder(tree, spot.folder)) return tree;
   const out = without(tree, moving);
   if (spot.folder === null) {
-    out.splice(Math.max(0, Math.min(spot.index, out.length)), 0, ...moving.map((id): Node => ({ kind: "mod", id })));
+    out.splice(Math.max(floor(out), Math.min(spot.index, out.length)), 0, ...moving.map((id): Node => ({ kind: "mod", id })));
     return out;
   }
   return out.map((n) => {
@@ -71,9 +82,9 @@ export function moveMods(tree: Node[], ids: string[], spot: Spot): Node[] {
 /** Moves a folder, mods and all, to `index` among the top level without it. */
 export function moveFolder(tree: Node[], id: string, index: number): Node[] {
   const node = tree.find((n) => n.kind === "folder" && n.folder.id === id);
-  if (!node) return tree;
+  if (!node || lockedFolder(tree, id)) return tree;
   const out = tree.filter((n) => n !== node);
-  out.splice(Math.max(0, Math.min(index, out.length)), 0, node);
+  out.splice(Math.max(floor(out), Math.min(index, out.length)), 0, node);
   return out;
 }
 
@@ -103,7 +114,10 @@ export const toEnd = (tree: Node[], ids: string[], end: "top" | "bottom"): Node[
 export function dropSpot(tree: Node[], shown: Line[], gap: number, onto: string | null, moving: string[]): Spot {
   const rest = without(tree, moving);
   if (onto) {
-    const f = rest.find((n) => n.kind === "folder" && n.folder.id === onto);
+    const at = rest.findIndex((n) => n.kind === "folder" && n.folder.id === onto);
+    const f = rest[at];
+    // A locked folder takes nothing: the mods land right after it instead.
+    if (f?.kind === "folder" && f.folder.locked) return { folder: null, index: at + 1 };
     return { folder: onto, index: f && f.kind === "folder" ? f.ids.length : 0 };
   }
   const above = shown[gap - 1];
@@ -113,7 +127,8 @@ export function dropSpot(tree: Node[], shown: Line[], gap: number, onto: string 
     return i + 1;
   };
   if (gap >= shown.length || !above) return { folder: null, index: gap >= shown.length ? rest.length : 0 };
-  if (above.kind === "folder") return above.folder.collapsed ? { folder: null, index: topIndex(above) } : { folder: above.folder.id, index: 0 };
+  if (above.kind === "folder") return above.folder.collapsed || above.folder.locked ? { folder: null, index: topIndex(above) } : { folder: above.folder.id, index: 0 };
+  if (above.folder && lockedFolder(rest, above.folder)) return { folder: null, index: topIndex(shown.find((l) => l.kind === "folder" && l.folder.id === above.folder)) };
   if (above.folder) {
     const f = rest.find((n) => n.kind === "folder" && n.folder.id === above.folder)!;
     return { folder: above.folder, index: f.kind === "folder" ? f.ids.indexOf(above.id) + 1 : 0 };
