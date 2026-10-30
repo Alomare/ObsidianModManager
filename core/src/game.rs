@@ -165,6 +165,10 @@ mod tests {
     fn running_process_is_found_by_name() {
         let me = std::env::current_exe().unwrap();
         let name = me.file_name().unwrap().to_string_lossy().to_uppercase();
+        // Linux keeps 15 characters of a process name. The game's name has to fit, or the check
+        // would never find it under Proton.
+        assert!(EXE.len() <= 15);
+        let name: String = name.chars().take(if cfg!(windows) { usize::MAX } else { 15 }).collect();
         assert!(is_running_named(&name));
         assert!(!is_running_named("no-such-process-obsidian.exe"));
     }
