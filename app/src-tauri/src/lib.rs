@@ -69,6 +69,7 @@ pub fn run() {
             commands::delete_profile,
             commands::set_consent,
             commands::set_image,
+            commands::discord_widget,
             commands::system_info,
             commands::set_game_dir,
             commands::check_game,

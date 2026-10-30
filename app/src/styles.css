@@ -385,7 +385,8 @@ button.thumb:hover { border-color: var(--gold); }
 .home-brand img { width: 6rem; height: 6rem; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5)); }
 .home-brand h1 { margin: 0; font-family: "Saira Variable", sans-serif; font-weight: 770; font-size: 3.33rem; line-height: 0.95; letter-spacing: 0.06em; -webkit-text-stroke: 0; text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5); }
 .home-brand p { margin: 0.05rem 0 0; font-family: "Saira Variable", sans-serif; font-weight: 500; font-size: 1.2rem; letter-spacing: 0.32em; text-transform: uppercase; color: #c9c8c3; }
-.home-links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.home-links { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.6rem; }
+.home-left { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .home .btn { height: 2rem; padding: 0 0.95rem; gap: 0.45rem; font-size: 0.64rem; letter-spacing: 0.08em; }
 .home .btn:not(.play) { background: rgba(255, 255, 255, 0.12); color: #f2f1ed; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); backdrop-filter: blur(6px); }
 .home .btn:not(.play):hover { background: rgba(255, 255, 255, 0.22); }
@@ -393,3 +394,28 @@ button.thumb:hover { border-color: var(--gold); }
 .home .btn.discord { background: #5865f2; color: #fff; box-shadow: none; backdrop-filter: none; }
 .home .btn.discord:hover { background: #6d78f5; }
 .home .btn svg { width: 0.9rem; height: 0.9rem; }
+
+/* Discord: the button is the bottom edge of a drawer; the server widget slides up out of it. */
+.dc { width: 19rem; display: flex; flex-direction: column; }
+.dc .btn.discord { width: 100%; justify-content: flex-start; }
+.dc-arrow { margin-left: auto; display: inline-flex; transform: rotate(180deg); transition: transform 220ms ease; }
+.dc.open .dc-arrow { transform: none; }
+.dc-slide { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 260ms ease; }
+.dc.open .dc-slide { grid-template-rows: 1fr; }
+.dc-panel { min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: rgba(17, 18, 23, 0.82); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); border-top: 3px solid #5865f2; opacity: 0; transform: translateY(0.6rem); transition: opacity 220ms ease, transform 260ms ease; }
+.dc.open .dc-panel { opacity: 1; transform: none; }
+.dc-head { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 0.9rem 0.6rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.dc-head b { font-family: "Saira Variable", sans-serif; font-weight: 660; font-size: 0.95rem; }
+.dc-head span { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #b5b4af; }
+.dc-members { list-style: none; margin: 0; padding: 0.4rem 0; max-height: 13rem; overflow: auto; }
+.dc-members li { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.9rem; font-size: 0.85rem; }
+.dc-avatar { position: relative; width: 1.6rem; height: 1.6rem; flex: none; }
+.dc-avatar img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+.dc-avatar .dc-dot { position: absolute; right: -0.1rem; bottom: -0.1rem; box-shadow: 0 0 0 2px #111217; }
+.dc-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; background: #80848e; }
+.dc-dot.online { background: #23a55a; }
+.dc-dot.idle { background: #f0b232; }
+.dc-dot.dnd { background: #f23f43; }
+.dc-note { margin: 0; padding: 0.9rem; font-size: 0.85rem; color: #b5b4af; }
+.home .btn.dc-join { margin: 0.4rem 0.9rem 0.9rem; height: 1.9rem; background: #23a55a; box-shadow: none; backdrop-filter: none; }
+.home .btn.dc-join:hover { background: #2dc26b; }

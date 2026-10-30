@@ -199,6 +199,17 @@ pub async fn set_image(ctx: State<'_, Ctx>, owner: String, key: String, path: Op
     fresh(&ctx)
 }
 
+const DISCORD_WIDGET: &str = "https://discord.com/api/guilds/1565499689321762908/widget.json";
+
+/// The Discord server's public widget (its name and who is online), for Home. Fetched here because
+/// Discord's API does not let the page ask it directly.
+#[tauri::command]
+pub async fn discord_widget() -> CmdResult<serde_json::Value> {
+    let net = |e: reqwest::Error| CmdError { code: "Network".into(), message: e.to_string() };
+    let text = reqwest::get(DISCORD_WIDGET).await.and_then(|r| r.error_for_status()).map_err(net)?.text().await.map_err(net)?;
+    serde_json::from_str(&text).map_err(|e| CmdError { code: "Network".into(), message: e.to_string() })
+}
+
 /// Consent belongs to the active profile; it reaches the game through the settings file.
 #[tauri::command]
 pub async fn set_consent(ctx: State<'_, Ctx>, on: bool) -> CmdResult<Snapshot> {
