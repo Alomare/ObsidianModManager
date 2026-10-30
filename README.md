@@ -1,22 +1,86 @@
-# Obsidian
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="app/src/assets/logo.png">
+    <img src="app/src/assets/logo-dark.png" alt="The Obsidian logo: a shield with a wrench on it" width="140">
+  </picture>
+</p>
 
-Obsidian is a mod manager for HELLDIVERS (2015), with an in-game runtime called Obsidian Loader.
+<h1 align="center">Obsidian</h1>
 
-Mods installed with Obsidian never overwrite a game file, so several mods can run side by side, and a purge brings the game back to vanilla. Mods that change the shared game run only with players who have the same mods or have agreed to play with modded players, so a vanilla player is never affected.
+<p align="center">Mod manager and mod loader for HELLDIVERS (2015).</p>
 
-Obsidian comes as a desktop app and the `obsidian` command line, which work on the same data. There is no public release yet. The design is in [docs/superpowers/specs](docs/superpowers/specs).
+<p align="center">
+  <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-2f7bf5?style=flat-square">
+  <img alt="Mods for HELLDIVERS (2015)" src="https://img.shields.io/badge/mods%20for-HELLDIVERS%20%282015%29-ffe81f?style=flat-square">
+  <img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-3a3a3a?style=flat-square">
+  <!-- the count of LANGUAGES in app/src/i18n.ts, listed under Supported Languages -->
+  <a href="#-supported-languages"><img alt="3 languages" src="https://img.shields.io/badge/languages-3-3a3a3a?style=flat-square"></a>
+  <a href="https://github.com/Alomare/ObsidianModManager/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Alomare/ObsidianModManager?style=flat-square&label=release&color=3a3a3a&include_prereleases"></a>
+</p>
 
-## Desktop app
+<p align="center">
+  <a href="https://dsc.gg/hd1modding"><img alt="Ask on the official Discord" src="https://img.shields.io/badge/Official%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
+</p>
 
-The app handles your mods, load order, folders, conflicts, options, keys and named profiles, with Deploy, Play and Purge one click away. Its Wiki tab has guides for players and mod authors. It runs in English, Brazilian Portuguese and Simplified Chinese, and comes as an installer that updates itself or as a portable ZIP.
+<p align="center">
+  <a href="https://github.com/Alomare/ObsidianModManager/releases/latest"><b>Download</b></a> ·
+  <a href="#how-to-use">How to Use</a> ·
+  <a href="https://github.com/Alomare/ObsidianModManager/issues">Report a Bug</a>
+</p>
 
-Mods that replace whole game files work too: Obsidian imports them and turns them into small patches the game loads on top of the originals.
+<br>
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has what you need to build it.
+<p align="center">
+  <img src="assets/readme/home.png" alt="The Home tab over HELLDIVERS cover art of four Helldivers fighting Bugs, with the logo and name at the top left, and links to Nexus, the Discord, sponsoring and the source code at the bottom left" width="100%">
+</p>
 
-## Command line
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#how-it-works">How It Works</a> ·
+  <a href="#how-to-use">How to Use</a> ·
+  <a href="#making-mods">Making Mods</a> ·
+  <a href="#questions-and-feedback">Questions and Feedback</a> ·
+  <a href="#contributing">Contributing</a> ·
+  <a href="#license">License</a>
+</p>
 
-The `obsidian` command line does the same work from a terminal. Build it with `cargo build --release`, plus `tools\build-luajit.cmd` once for the LuaJIT 2.0 compiler that turns mod scripts into code the game can run. Run it with the game closed:
+<br>
+
+## Features
+
+### 🧩 Mods
+
+The mod library. Turn mods on and off, drag them into the load order, sort them into folders, and change options and keys for each mod. Conflicts show which mods change the same thing, and profiles keep separate sets of mods and settings. Mods that name a GitHub repository update from inside the app, and old mods that replace whole game files import like any other.
+
+<img src="assets/readme/mods.png" alt="The Mods tab: the Obsidian and Favorites folders, each mod with a switch, a place in the load order and a scope, and the options of Obsidian Quality of Life on the right" width="100%">
+
+### 📖 Wiki
+
+Guides inside the app, for players and for mod authors. They cover adding mods, load order, profiles, the multiplayer rules and troubleshooting, then go from a first mod to the loader API.
+
+<img src="assets/readme/wiki.png" alt="The Wiki tab: search and the guides by group on the left, How Obsidian Works open in the middle, and the headings of the page on the right" width="100%">
+
+### 🎁 Bundled Mods
+
+Three mods come with Obsidian and stay off until you turn them on.
+
+#### Obsidian Quality of Life
+
+Skips the intro, the login screen, war briefs and planet scanning, removes the black bars on screens wider than 16:9, and can speed up or skip the results screens after a mission. Each fix is an option.
+
+#### Obsidian Trainer
+
+An in-game menu, opened with F6, for your character, weapons, stratagems, enemies, missions and game values. It doesn't change XP or rank, doesn't unlock paid DLC and doesn't touch the Galactic War. It's a session mod, so it follows the same multiplayer rules as any other.
+
+#### Obsidian API
+
+A runtime other mods can build on. It turns on with the Trainer.
+
+The Trainer and Obsidian API have been tested solo and offline, but not yet with a second player.
+
+### ⌨️ Command Line
+
+`obsidian` does the same work from a terminal, on the same data. It isn't in the downloads: build it with `cargo build --release -p obsidian-core`, and run `tools\build-luajit.cmd` once for the LuaJIT 2.0 compiler that turns mod scripts into code the game can run. Run it with the game closed:
 
 ```
 obsidian import <mod folder or .zip>   add a mod to the library (old whole-file mods work too)
@@ -36,11 +100,72 @@ obsidian update [<id>...]              install new versions from GitHub
 obsidian profile list|use|new <name>   switch between named sets of mods and settings
 ```
 
-Obsidian comes with Obsidian Quality of Life, a mod that is off until you enable it (`obsidian enable obsidian.qol`). It skips the intro, the login screen, war briefs and planet scanning, removes the black bars on screens wider than 16:9, and can speed up or skip the results screens after a mission. Each fix is an option. All are on by default except the mission end one, which starts off: `obsidian set obsidian.qol skip_login false` turns one off.
+`--game <folder>` points at another install, when Steam can't find it.
 
-Two more bundled mods go further. Obsidian Trainer (`obsidian enable obsidian.trainer`) is an in-game menu, opened with F6, for your character, weapons, stratagems, enemies, missions and the game's numbers. It's built on Obsidian API, a runtime other mods can use too, which turns on with it. Both are session mods, so they follow the same rules as any mod that changes the shared game. The trainer doesn't change XP or rank, doesn't unlock paid DLC, and doesn't touch the Galactic War. The design is in [docs/superpowers/specs/2026-10-30-obsidian-api-design.md](docs/superpowers/specs/2026-10-30-obsidian-api-design.md), and it has been smoke tested in the game solo and offline, but not yet played through or tried with a second player: section 6 there says what has run.
+### 🌐 Supported Languages
 
-Obsidian finds the game through Steam; `--game <folder>` points somewhere else. Your saves are backed up before every deploy, including the ones in Steam Cloud.
+English, Portuguese (Brazil) and Simplified Chinese, for the window, the messages and the Wiki. **Language** in Settings picks one, and until then Obsidian follows the language of Windows.
+
+<br>
+
+## How It Works
+
+- Next to each content bundle, the game also loads patch files. Obsidian reads every enabled mod, finds what each one really changes, and writes one patch per bundle, so two mods only clash when they change the same resource.
+- Game files are never edited. **Purge** deletes the patches, and the install is byte for byte vanilla again.
+- Mods that run code start through Obsidian Loader, a small script added to the game at every deploy.
+- Every mod has a scope. Client mods change only what you see, hear or press, and run in any lobby. Session mods can change the shared game, so they run alone, or in a lobby where every other player has agreed to them.
+- Missions played with session content aren't reported to the Galactic War, and vanilla players don't find modded lobbies in matchmaking. These rules stop well-behaved mods from harming anyone by accident. They aren't anti-cheat.
+- Saves are backed up before every deploy, including the ones in Steam Cloud.
+- A Rust core does the work, and the window is Tauri 2 with React.
+
+## How to Use
+
+You need Windows 10 or 11, and HELLDIVERS installed through Steam.
+
+1. Download Obsidian from [Releases](https://github.com/Alomare/ObsidianModManager/releases/latest) and run it. The installer isn't code-signed yet, so Windows may say it protected your PC: choose **More info**, then **Run anyway**.
+2. Start Obsidian. It finds the game through Steam. If it can't, pick the game folder in Settings.
+3. On the Mods tab, press **Add mods**, or drop a `.zip` or a folder on the list. [Nexus Mods](https://www.nexusmods.com/games/helldivers) has mods to try.
+4. Turn on the mods you want. When two change the same thing, the later one in the list wins.
+5. Press **Play**. Obsidian deploys your changes, then starts the game through Steam.
+
+To go back to vanilla, close the game and press **Purge**. Your library and profiles stay as they are.
+
+| Download | What it is |
+|---|---|
+| The `x64-setup.exe` file | The installer. It checks for new versions at startup and installs them when you say so. **Updates** in Settings changes that. |
+| `ObsidianModManager-<version>-portable.zip` | The portable copy, with your library in a `data` folder beside the app. Unzip it anywhere and start `Obsidian.exe`. New versions are downloaded by hand. |
+
+The window needs the Microsoft Edge WebView2 Runtime. The installer adds it when it's missing. For the portable copy, Windows 11 has it, nearly every Windows 10 PC has it too, and the rest can get [Microsoft's free download](https://developer.microsoft.com/microsoft-edge/webview2/).
+
+## Making Mods
+
+A mod is a folder with an `obsidian.json` file that describes it, plus the files it uses. A script mod needs one Lua file. Obsidian compiles the Lua when it deploys, so there's no compiler to install.
+
+The Making Mods guides in the Wiki start with [Your First Mod](app/src/wiki/40-first-mod.md), then cover [the manifest](app/src/wiki/42-manifest.md), [options and keys](app/src/wiki/44-options-and-keys.md), the [Loader API](app/src/wiki/46-loader-api.md), [Obsidian API](app/src/wiki/47-obsidian-api.md), [session mods](app/src/wiki/48-session-mods.md), [replacing game files](app/src/wiki/50-resources.md) and [sharing a mod](app/src/wiki/52-sharing.md). A GitHub repository in the `source` field lets players update the mod from inside Obsidian.
+
+## Questions and Feedback
+
+### Asking for Help
+
+Ask on the [Discord](https://dsc.gg/hd1modding) how to do something, or show what you made. Refer to the in-app Wiki before doing so.
+
+### Reporting a Bug
+
+Open an [issue](https://github.com/Alomare/ObsidianModManager/issues/new) with the version, what you did and what happened. If it happened in the game, attach `loader.log` from `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`.
+
+### Suggesting an Idea
+
+Open an [issue](https://github.com/Alomare/ObsidianModManager/issues/new) with what you'd like Obsidian to do.
+
+### Supporting Obsidian
+
+Obsidian is 100% free, no caveats. If you'd like to support it, buy me a [Ko-fi](https://ko-fi.com/alomare)!
+
+## Contributing
+
+Bug reports and help on the Discord count as much as code. The Wiki pages are Markdown files in [`app/src/wiki/`](app/src/wiki/), so a clearer sentence or a missing step is a good first pull request.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has how to build and test Obsidian.
 
 ## License
 
