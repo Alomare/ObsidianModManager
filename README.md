@@ -70,7 +70,7 @@ Skips the intro, the login screen, war briefs and planet scanning, removes the b
 
 #### Obsidian Trainer
 
-An in-game menu, opened with F6, for your character, weapons, stratagems, enemies, missions and game values. It doesn't change XP or rank, doesn't unlock paid DLC and doesn't touch the Galactic War. It's a session mod, so it follows the same multiplayer rules as any other.
+An in-game window, opened with F6, for your character, weapons, stratagems, enemies, missions and game values. It works with the mouse or the keys, and you can move and resize it. It doesn't change XP or rank, doesn't unlock paid DLC and doesn't touch the Galactic War. It's a session mod, so it follows the same multiplayer rules as any other.
 
 #### Obsidian API
 
