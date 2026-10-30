@@ -298,6 +298,13 @@ pub struct SystemInfo {
     pub backups: Vec<Backup>,
     /// The folder chosen in Settings; `None` when the game is found through Steam.
     pub chosen_game_dir: Option<PathBuf>,
+    /// Where the loader and the mods log; `None` with no game.
+    pub logs_dir: Option<PathBuf>,
+}
+
+/// The folder that holds the logs of the game in `settings`.
+fn logs_dir(settings: &AppSettings) -> Option<PathBuf> {
+    find(settings).map(|g| obsidian_core::settings::game_side_dir(&g.saves_dir).join("logs"))
 }
 
 #[tauri::command]
@@ -306,7 +313,16 @@ pub fn system_info(ctx: State<'_, Ctx>) -> SystemInfo {
         .into_iter()
         .map(|p| Backup { name: p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), path: p })
         .collect();
-    SystemInfo { data_dir: ctx.data.clone(), backups, chosen_game_dir: AppSettings::load(&ctx.data).game_dir }
+    let settings = AppSettings::load(&ctx.data);
+    SystemInfo { data_dir: ctx.data.clone(), backups, logs_dir: logs_dir(&settings), chosen_game_dir: settings.game_dir }
+}
+
+/// The text for a bug report, for the clipboard.
+#[tauri::command]
+pub fn support_report(ctx: State<'_, Ctx>) -> CmdResult<String> {
+    let portable = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("portable.txt").is_file())).unwrap_or(false);
+    let game = find(&AppSettings::load(&ctx.data));
+    Ok(obsidian_core::report::build(&ctx.data, game.as_ref(), &obsidian_core::report::AppInfo { version: env!("CARGO_PKG_VERSION"), portable })?)
 }
 
 /// Uses the game in `path`, or finds it through Steam again when `path` is null. A folder without
@@ -334,11 +350,12 @@ pub async fn check_game(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
     fresh(&ctx)
 }
 
-/// Opens a folder the app knows in Explorer: the game, the data folder, or one save backup.
+/// Opens a folder the app knows in Explorer: the game, the data folder, the logs or one save backup.
 #[tauri::command]
 pub fn open_folder(ctx: State<'_, Ctx>, app: tauri::AppHandle, path: PathBuf) -> CmdResult<()> {
     use tauri_plugin_opener::OpenerExt;
-    let known = path.starts_with(&ctx.data) || find(&AppSettings::load(&ctx.data)).is_some_and(|g| path == g.root);
+    let settings = AppSettings::load(&ctx.data);
+    let known = path.starts_with(&ctx.data) || find(&settings).is_some_and(|g| path == g.root) || logs_dir(&settings).is_some_and(|d| path == d);
     if !known {
         return Err(CmdError { code: "Io".into(), message: format!("not a folder Obsidian opens: {}", path.display()) });
     }

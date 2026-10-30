@@ -8,9 +8,11 @@ summary: Logs, crashes at startup, mods that don't load, and getting back to van
 
 When the game misbehaves, **Purge** takes every Obsidian file out of the game. If the problem stays after a purge, Obsidian isn't the cause; verify the game files in Steam.
 
-## The game crashed at startup
+## The game crashed
 
 The loader writes a line just before it starts each mod. If the game stops at that moment, the next time you open Obsidian it names the mod that was starting. Turn that mod off, deploy, and tell the author.
+
+If the game stops later, Obsidian tells you the game didn't close normally. A crash inside the game's engine usually leaves no error in the log, so try turning off the mods you added last, one at a time.
 
 ## A mod does nothing
 
@@ -31,8 +33,6 @@ The logs are in `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`:
 | `loader.log` | Each mod starting, hooks going in, the multiplayer state, and what each mod changed outside the loader |
 | `<mod id>.log` | The lines that mod wrote with `obsidian.log`, and nothing else |
 
-The game's own crash reports are in `%APPDATA%\Arrowhead\Helldivers\crash`.
-
 ## Asking for help
 
-Bring the `loader.log`, the list of mods you had on, and what happened, to the [Discord](https://dsc.gg/hd1modding) or a [GitHub issue](https://github.com/Alomare/ObsidianModManager/issues).
+Use **Copy report** in [Settings](app:settings), under Data. It copies your versions, the mods that are on and the end of `loader.log`, without your Windows account name. Paste it, with what happened, into the [Discord](https://dsc.gg/hd1modding) or a [GitHub issue](https://github.com/Alomare/ObsidianModManager/issues).

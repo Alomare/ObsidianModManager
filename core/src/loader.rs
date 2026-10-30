@@ -338,6 +338,21 @@ pub fn settings_for(lib: &Library, profile: &Profile) -> Result<Settings> {
     Ok(s)
 }
 
+/// The loader's lines that tell a normal exit from a crash, the first written once it can tell.
+const WATCHING: &str = "watching for the game to close";
+const CLOSED: &str = "game closed";
+
+/// The last line of a log whose game stopped without closing: a crash, or the process being killed.
+/// A log from before the loader could tell says nothing.
+pub fn unclean_end(log: &str) -> Option<String> {
+    let text = |line: &'_ str| line.split_once(' ').map_or(line, |(_, rest)| rest).trim().to_string();
+    let lines: Vec<&str> = log.lines().filter(|l| !l.trim().is_empty()).collect();
+    if !lines.iter().any(|l| text(l) == WATCHING) {
+        return None;
+    }
+    lines.last().map(|l| text(l)).filter(|last| last != CLOSED)
+}
+
 /// The mod named by a `loading` line that no `started`, `failed` or `refused` line followed: the
 /// mod that was starting when the game last closed or crashed.
 pub fn crash_culprit(log: &str) -> Option<String> {
@@ -472,6 +487,15 @@ mod tests {
     fn lua_strings_escape_every_byte_outside_ascii() {
         assert_eq!(to_lua(&json!("a\"b\\c\né1")), r#""a\"b\\c\010\195\1691""#);
         assert_eq!(to_lua(&json!({"k": [1, true]})), r#"{["k"] = {1, true}}"#);
+    }
+
+    #[test]
+    fn a_log_that_never_says_the_game_closed_ended_badly() {
+        assert_eq!(unclean_end("1 boot done\n2 watching for the game to close\n3 session: x\n"), Some("session: x".into()));
+        assert_eq!(unclean_end("1 watching for the game to close\n2 game closed\n"), None);
+        assert_eq!(unclean_end("1 watching for the game to close\n2 game closed\n\n"), None, "a blank end");
+        assert_eq!(unclean_end("1 boot done\n2 session: x\n"), None, "an older loader can't tell");
+        assert_eq!(unclean_end(""), None);
     }
 
     #[test]

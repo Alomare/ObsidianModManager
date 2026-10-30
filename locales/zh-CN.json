@@ -269,7 +269,6 @@
   "app.settings.textSize": "文字大小",
   "app.settings.textSizeHint": "只改变正文文字。",
   "app.settings.theme": "主题",
-  "app.settings.theme.dark": "深色",
   "app.settings.theme.default": "默认",
   "app.settings.theme.light": "浅色",
   "app.settings.updateMode": "有新版本时",
@@ -338,5 +337,15 @@
   "app.wiki.resize": "调整指南列表宽度",
   "app.wiki.search": "搜索指南",
   "app.wiki.tip": "提示",
-  "app.wiki.warning": "注意"
+  "app.wiki.warning": "注意",
+  "app.crash.copyReport": "复制报告",
+  "app.crash.dismiss": "忽略",
+  "app.crash.unclean": "游戏上次未正常关闭。",
+  "app.mods.emptyText": "将模组文件夹或 .zip 拖到这里，或恢复 Obsidian Kit。",
+  "app.mods.emptyTitle": "还没有模组",
+  "app.mods.updateAll": "全部更新（%s）",
+  "app.report.copied": "报告已复制到剪贴板，可粘贴到问题反馈中。",
+  "app.settings.logs": "打开日志",
+  "app.settings.report": "问题报告",
+  "app.settings.reportHint": "“复制报告”会复制版本、已启用的模组和游戏日志的末尾内容，可直接粘贴到问题反馈中。不含你的 Windows 账户名。"
 }

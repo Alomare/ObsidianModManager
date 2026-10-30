@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { t } from "../i18n";
-import { checkMessage, checkModUpdates, offered, updateMod } from "../mods/modUpdates";
+import { checkMessage, checkModUpdates, offered, updateMod, updateMods } from "../mods/modUpdates";
 
 const invoke = vi.hoisted(() => vi.fn());
 const notify = vi.hoisted(() => vi.fn());
@@ -53,6 +53,19 @@ describe("a check", () => {
     expect(notify.mock.calls.map((c) => c[0])).toEqual(["error"]);
   });
 
+  it("at startup, only speaks when it finds something", async () => {
+    invoke.mockResolvedValue([{ id: "a.mod", version: null, error: null }, { id: "b.mod", version: null, error: failure }]);
+    await checkModUpdates(names, true);
+    expect(notify).not.toHaveBeenCalled();
+    invoke.mockRejectedValue("offline");
+    await checkModUpdates(names, true);
+    expect(notify).not.toHaveBeenCalled();
+    invoke.mockReset();
+    invoke.mockResolvedValue([{ id: "a.mod", version: "1.1.0", error: null }]);
+    await checkModUpdates(names, true);
+    expect(notify.mock.calls).toEqual([["info", t("app.modUpdates.one")]]);
+  });
+
   it("can run again after a failure", async () => {
     invoke.mockRejectedValueOnce("boom").mockResolvedValue([]);
     await checkModUpdates(names);
@@ -75,6 +88,16 @@ describe("an update", () => {
     await updateMod("a.mod", "Mod A");
     expect(invoke).toHaveBeenCalledWith("update_mod", { id: "a.mod" });
     expect(notify.mock.calls).toEqual([["info", t("app.import.updated", "Mod A", "1.0.0", "1.1.0")]]);
+  });
+
+  it("updates several, one after the other", async () => {
+    const started: string[] = [];
+    invoke.mockImplementation(async (_cmd, args) => {
+      started.push(args.id);
+      return { snapshot: { mods: [] }, results: [] };
+    });
+    await updateMods(["a.mod", "b.mod"], names);
+    expect(started).toEqual(["a.mod", "b.mod"]);
   });
 
   it("says why it failed", async () => {

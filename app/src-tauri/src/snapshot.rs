@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use obsidian_core::compose::plan;
-use obsidian_core::deploy::{ChangesWaiting, changes_waiting_for, crash_culprit};
+use obsidian_core::deploy::{ChangesWaiting, UncleanEnd, changes_waiting_for, crash_culprit, unclean_end};
 use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
 use obsidian_core::hash::{display_name, display_text};
@@ -140,6 +140,8 @@ pub struct Snapshot {
     pub game: GameState,
     pub game_dir: Option<PathBuf>,
     pub crash_culprit: Option<String>,
+    /// The last launch stopped without closing normally. Never set while the game runs.
+    pub unclean_end: Option<UncleanEnd>,
     pub portable: bool,
     pub version: &'static str,
 }
@@ -302,6 +304,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         Some(_) => GameState::Unknown,
     };
     let crash_culprit = game_install.as_ref().and_then(crash_culprit);
+    let unclean_end = game_install.as_ref().filter(|_| game != GameState::Running).and_then(unclean_end);
     let portable = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("portable.txt").is_file())).unwrap_or(false);
 
     Ok(Snapshot {
@@ -324,6 +327,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         game,
         game_dir: game_install.map(|g| tidy(&g.root)),
         crash_culprit,
+        unclean_end,
         portable,
         version: env!("CARGO_PKG_VERSION"),
     })

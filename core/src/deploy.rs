@@ -116,7 +116,7 @@ fn remove_all<'a>(paths: impl Iterator<Item = &'a PathBuf>) {
     }
 }
 
-fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
+pub fn load_state(data_dir: &Path) -> Result<Option<DeployState>> {
     match std::fs::read_to_string(data_dir.join(STATE)) {
         Ok(t) => Ok(Some(serde_json::from_str(&t)?)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -289,11 +289,32 @@ pub fn status(game: &GameInstall, data_dir: &Path, known: &[KnownBuild]) -> Resu
     Ok(Status { gate: check_build(&game.root, known)?, deployed, foreign, crash_culprit: crash_culprit(game) })
 }
 
+/// The loader's log of the last launch.
+pub fn loader_log(game: &GameInstall) -> PathBuf {
+    settings::game_side_dir(&game.saves_dir).join("logs").join("loader.log")
+}
+
 /// The mod the loader was starting when the game last stopped, read from the loader log. Cheap,
 /// unlike `status`, which also hashes the game files.
 pub fn crash_culprit(game: &GameInstall) -> Option<String> {
-    let log = settings::game_side_dir(&game.saves_dir).join("logs").join("loader.log");
-    std::fs::read_to_string(log).ok().and_then(|t| loader::crash_culprit(&t))
+    std::fs::read_to_string(loader_log(game)).ok().and_then(|t| loader::crash_culprit(&t))
+}
+
+/// A launch that stopped without the game closing normally.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UncleanEnd {
+    /// When the log was last written, in seconds: it tells one crash from the next.
+    pub stamp: u64,
+    /// What the loader wrote last.
+    pub last: String,
+}
+
+pub fn unclean_end(game: &GameInstall) -> Option<UncleanEnd> {
+    let log = loader_log(game);
+    let last = loader::unclean_end(&std::fs::read_to_string(&log).ok()?)?;
+    let stamp = std::fs::metadata(&log).ok()?.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+    Some(UncleanEnd { stamp, last })
 }
 
 #[cfg(test)]

@@ -8,9 +8,11 @@ summary: 日志、启动时崩溃、模组不加载，以及如何恢复原版�
 
 游戏表现异常时，**清除** 会从游戏中移除 Obsidian 的所有文件。如果清除后问题依旧，原因就不在 Obsidian；请在 Steam 中验证游戏文件完整性。
 
-## 游戏启动时崩溃 {#the-game-crashed-at-startup}
+## 游戏崩溃 {#the-game-crashed}
 
 加载器在启动每个模组之前都会写一行日志。如果游戏在那一刻停止，下次打开 Obsidian 时它会指出当时正在启动的模组。停用该模组、重新部署，并告知作者。
+
+如果游戏在之后才停止，Obsidian 会告诉你游戏未正常关闭。游戏引擎内部的崩溃通常不会在日志中留下错误，因此请尝试逐个停用最近添加的模组。
 
 ## 模组没有效果 {#a-mod-does-nothing}
 
@@ -31,8 +33,6 @@ summary: 日志、启动时崩溃、模组不加载，以及如何恢复原版�
 | `loader.log` | 每个模组的启动、挂钩的安装、多人游戏状态，以及每个模组在加载器之外所做的更改 |
 | `<模组 id>.log` | 该模组用 `obsidian.log` 写下的内容，仅此而已 |
 
-游戏自身的崩溃报告位于 `%APPDATA%\Arrowhead\Helldivers\crash`。
-
 ## 寻求帮助 {#asking-for-help}
 
-请带上 `loader.log`、当时启用的模组列表和发生的情况，前往 [Discord](https://dsc.gg/hd1modding) 或提交 [GitHub issue](https://github.com/Alomare/ObsidianModManager/issues)。
+使用[设置](app:settings)的“数据”部分中的 **复制报告**。它会复制版本、已启用的模组和 `loader.log` 的末尾内容，不含你的 Windows 账户名。把它和发生的情况一起粘贴到 [Discord](https://dsc.gg/hd1modding) 或提交 [GitHub issue](https://github.com/Alomare/ObsidianModManager/issues)。

@@ -9,13 +9,14 @@ import { ExternalIcon } from "./Icons";
 import { LANGUAGES, language, t } from "./i18n";
 import { LINKS } from "./links";
 import { notify } from "./notices";
+import { copyReport } from "./report";
 import { Select } from "./Select";
 import { updateSettings, useAppSettings } from "./settings";
 import { motionOn, systemReducesMotion } from "./theme";
 import type { AppSettings, Snapshot } from "./types";
 import { checkForUpdate, installUpdate, useUpdates } from "./updates";
 
-type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null };
+type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null; logsDir: string | null };
 
 export type SettingsTab = "system" | "theme";
 
@@ -142,6 +143,10 @@ function SystemTab({ snap }: { snap: Snapshot }) {
         <Row label={info?.dataDir ?? ""} hint={snap.portable ? t("app.settings.portable") : t("app.settings.dataHint")}>
           {info && <button className="btn small" onClick={() => openFolder(info.dataDir)}>{t("app.settings.open")}</button>}
         </Row>
+        <Row label={t("app.settings.report")} hint={t("app.settings.reportHint")}>
+          {info?.logsDir && <button className="btn small" onClick={() => openFolder(info.logsDir!)}>{t("app.settings.logs")}</button>}
+          <button className="btn small" onClick={copyReport}>{t("app.crash.copyReport")}</button>
+        </Row>
         <Row label={t("app.settings.backups")} hint={t("app.settings.backupsHint")}>
           <span />
         </Row>
@@ -194,7 +199,7 @@ function ThemeTab() {
     <Section title={t("app.settings.appearance")}>
       <Row label={t("app.settings.colours")}>
         <Segmented label={t("app.settings.colours")} value={s.theme} onChange={(theme) => updateSettings({ theme })}
-          options={[["default", t("app.settings.theme.default")], ["dark", t("app.settings.theme.dark")], ["light", t("app.settings.theme.light")]]} />
+          options={[["default", t("app.settings.theme.default")], ["light", t("app.settings.theme.light")]]} />
       </Row>
       <Row label={t("app.settings.scale")}>
         <Segmented label={t("app.settings.scale")} value={s.scale} onChange={(scale) => updateSettings({ scale })}

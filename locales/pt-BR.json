@@ -269,7 +269,6 @@
   "app.settings.textSize": "Tamanho do texto",
   "app.settings.textSizeHint": "Muda só o texto corrido.",
   "app.settings.theme": "Tema",
-  "app.settings.theme.dark": "Escuro",
   "app.settings.theme.default": "Padrão",
   "app.settings.theme.light": "Claro",
   "app.settings.updateMode": "Quando sair uma nova versão",
@@ -351,5 +350,15 @@
   "menu_unavailable": "Indisponível agora.",
   "mod_failed": "Obsidian: %s falhou e fica desligado até o jogo reiniciar.",
   "session_not_cleared": "Obsidian: outros jogadores aqui usam mods diferentes, e alguns dos seus mudam arquivos do jogo que não podem ser pausados. Considere sair desta partida.",
-  "uploads_blocked": "Obsidian: resultados da Guerra Galáctica e dos placares não são enviados enquanto houver mods de sessão instalados."
+  "uploads_blocked": "Obsidian: resultados da Guerra Galáctica e dos placares não são enviados enquanto houver mods de sessão instalados.",
+  "app.crash.copyReport": "Copiar relatório",
+  "app.crash.dismiss": "Dispensar",
+  "app.crash.unclean": "O jogo não fechou normalmente da última vez.",
+  "app.mods.emptyText": "Solte aqui uma pasta de mod ou um .zip, ou traga de volta o Obsidian Kit.",
+  "app.mods.emptyTitle": "Nenhum mod ainda",
+  "app.mods.updateAll": "Atualizar todos (%s)",
+  "app.report.copied": "O relatório está na área de transferência, pronto para colar num relato de problema.",
+  "app.settings.logs": "Abrir logs",
+  "app.settings.report": "Relatório de problema",
+  "app.settings.reportHint": "Copiar relatório traz as versões, os mods ligados e o fim do log do jogo, pronto para colar num relato de problema. O nome da sua conta do Windows fica de fora."
 }

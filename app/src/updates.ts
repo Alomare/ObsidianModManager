@@ -9,12 +9,14 @@ import type { AppSettings } from "./types";
 export type UpdateState = {
   phase: "idle" | "checking" | "none" | "found" | "failed" | "downloading" | "installing";
   version: string | null;
+  /** What the new version changes, from its release. */
+  notes: string | null;
   error: string | null;
   got: number;
   total: number;
 };
 
-let state: UpdateState = { phase: "idle", version: null, error: null, got: 0, total: 0 };
+let state: UpdateState = { phase: "idle", version: null, notes: null, error: null, got: 0, total: 0 };
 let found: Update | null = null;
 const listeners = new Set<() => void>();
 const set = (patch: Partial<UpdateState>) => {
@@ -27,7 +29,7 @@ export async function checkForUpdate(): Promise<boolean> {
   set({ phase: "checking", error: null });
   try {
     found = await check({ timeout: 20000 });
-    set(found ? { phase: "found", version: found.version } : { phase: "none", version: null });
+    set(found ? { phase: "found", version: found.version, notes: found.body?.trim() || null } : { phase: "none", version: null, notes: null });
     return !!found;
   } catch (e) {
     set({ phase: "failed", error: e instanceof Error ? e.message : String(e) });

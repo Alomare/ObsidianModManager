@@ -12,10 +12,11 @@ pub const SCALES: [u32; 4] = [90, 100, 110, 125];
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
-    #[default]
-    Default,
-    Dark,
     Light,
+    /// Also what a theme this version doesn't have becomes, so one setting can't lose the others.
+    #[default]
+    #[serde(other)]
+    Default,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -103,10 +104,18 @@ mod tests {
         let s = AppSettings { theme: Theme::Light, scale: 125, motion: Some(false), language: Some("pt-BR".into()), ..Default::default() };
         s.save(t.path()).unwrap();
         assert_eq!(AppSettings::load(t.path()), s);
-        std::fs::write(t.path().join(FILE), r#"{"theme":"dark"}"#).unwrap();
-        assert_eq!(AppSettings::load(t.path()).theme, Theme::Dark, "missing keys take defaults");
+        std::fs::write(t.path().join(FILE), r#"{"text":"large"}"#).unwrap();
+        assert_eq!(AppSettings::load(t.path()).theme, Theme::Default, "missing keys take defaults");
         std::fs::write(t.path().join(FILE), r#"{"theme":"light","nav":"left"}"#).unwrap();
         assert_eq!(AppSettings::load(t.path()).theme, Theme::Light, "keys from older versions are ignored");
+    }
+
+    #[test]
+    fn the_old_dark_theme_becomes_default_and_keeps_the_rest() {
+        let t = tempfile::tempdir().unwrap();
+        std::fs::write(t.path().join(FILE), r#"{"theme":"dark","scale":125,"language":"pt-BR"}"#).unwrap();
+        let s = AppSettings::load(t.path());
+        assert_eq!((s.theme, s.scale, s.language.as_deref()), (Theme::Default, 125, Some("pt-BR")));
     }
 
     #[test]

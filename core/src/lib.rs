@@ -22,6 +22,7 @@ pub mod options;
 pub mod paths;
 pub mod profile_zip;
 pub mod profiles;
+pub mod report;
 pub mod settings;
 pub mod starter;
 #[cfg(test)]

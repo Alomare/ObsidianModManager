@@ -65,6 +65,7 @@ function E.new(opts)
 	rawset(_G, "ARGUMENTS", {})
 	rawset(_G, "Boot", {})
 	rawset(_G, "update", nil)
+	rawset(_G, "shutdown", nil)
 
 	rawset(_G, "require", function(name)
 		if e.loaded[name] ~= nil then return e.loaded[name] end
@@ -127,9 +128,11 @@ function E.new(opts)
 		assert(loadfile(SRC .. "boot.lua"))("foundation/lua/build_date_information")
 	end
 
-	-- What the boot script does after the loader: define update, then require game modules during init.
+	-- What the boot script does after the loader: define shutdown and update, then require game modules during init.
 	function e:start_frames()
 		rawset(_G, "FRAMES", 0)
+		rawset(_G, "SHUTDOWNS", 0)
+		rawset(_G, "shutdown", function() rawset(_G, "SHUTDOWNS", rawget(_G, "SHUTDOWNS") + 1) end)
 		rawset(_G, "update", function() rawset(_G, "FRAMES", rawget(_G, "FRAMES") + 1) end)
 		opts.modules = opts.modules or {}
 		opts.modules["lua/network/network_global"] = true

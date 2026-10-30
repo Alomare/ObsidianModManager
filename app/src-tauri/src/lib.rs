@@ -73,6 +73,7 @@ pub fn run() {
             commands::set_key,
             commands::remove_mods,
             commands::restore_starter_pack,
+            commands::support_report,
             commands::create_folder,
             commands::edit_folder,
             commands::delete_folder,

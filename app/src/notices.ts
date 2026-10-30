@@ -4,6 +4,8 @@ import { logNotice } from "./noticeLog";
 
 export type Notice = { id: number; kind: "info" | "error"; text: string };
 const LIFETIME_MS = 6000;
+/** Errors take longer to read and matter more. */
+const ERROR_LIFETIME_MS = 14000;
 
 let list: Notice[] = [];
 let next = 1;
@@ -20,7 +22,7 @@ export function notify(kind: Notice["kind"], text: string) {
   list = [...list.slice(-4), n];
   logNotice(kind, text);
   emit();
-  setTimeout(() => dismiss(n.id), LIFETIME_MS);
+  setTimeout(() => dismiss(n.id), kind === "error" ? ERROR_LIFETIME_MS : LIFETIME_MS);
 }
 
 export const useNotices = () =>

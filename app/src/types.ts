@@ -25,12 +25,12 @@ export type GameState = "supported" | "unknown" | "running" | "notFound";
 export type ProfileRow = { name: string; on: number; consent: boolean; image: ImageRef | null; color: string | null };
 export type Snapshot = {
   mods: ModRow[]; folders: Folder[]; profile: string; profiles: string[]; profileRows: ProfileRow[]; consent: boolean; conflicts: ConflictRow[];
-  changes: ChangesWaiting; game: GameState; gameDir: string | null; crashCulprit: string | null;
+  changes: ChangesWaiting; game: GameState; gameDir: string | null; crashCulprit: string | null; uncleanEnd: { stamp: number; last: string } | null;
   portable: boolean; version: string;
 };
 
 export type AppSettings = {
-  theme: "default" | "dark" | "light"; scale: 90 | 100 | 110 | 125;
+  theme: "default" | "light"; scale: 90 | 100 | 110 | 125;
   text: "small" | "normal" | "large"; motion: boolean | null; language: string | null;
   updates: "manual" | "prompt" | "auto"; gameDir: string | null;
 };

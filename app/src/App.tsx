@@ -4,8 +4,10 @@ import { deploy, play, purge } from "./actions";
 import { loadSnapshot, refresh, useSnapshot } from "./api";
 import { useLocked } from "./busy";
 import { Confirm } from "./Confirm";
-import { t } from "./i18n";
+import { pick, t } from "./i18n";
+import { Markdown, parse } from "./Markdown";
 import { listenForDrops, type DropState } from "./mods/dropImport";
+import { checkModUpdates } from "./mods/modUpdates";
 import { HomePage } from "./HomePage";
 import { ModsPage } from "./mods/ModsPage";
 import { NavBar } from "./NavBar";
@@ -36,9 +38,11 @@ export default function App() {
     if (profileColor) root.setProperty("--pc", profileColor);
     else root.removeProperty("--pc");
   }, [profileColor]);
-  // The update check runs once per launch, as soon as the window knows whether it is a portable copy.
+  // The update checks run once per launch, as soon as the window knows whether it is a portable copy.
   useEffect(() => {
-    if (snap && settings) startupUpdate(settings.updates, snap.portable).then((a) => setAskUpdate(a === "ask"));
+    if (!snap || !settings) return;
+    startupUpdate(settings.updates, snap.portable).then((a) => setAskUpdate(a === "ask"));
+    if (snap.mods.some((m) => m.updatable)) checkModUpdates(new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), true);
   }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -82,7 +86,9 @@ export default function App() {
       )}
       {askUpdate && (
         <Confirm title={t("app.update.title", update.version ?? "")} text={t("app.update.text")} confirm={t("app.update.install")}
-          tone="go" onCancel={() => setAskUpdate(false)} onConfirm={() => { setAskUpdate(false); installUpdate(); }} />
+          tone="go" onCancel={() => setAskUpdate(false)} onConfirm={() => { setAskUpdate(false); installUpdate(); }}>
+          {update.notes && <div className="update-notes"><Markdown tokens={parse(update.notes).tokens} /></div>}
+        </Confirm>
       )}
       <Notices />
       <Tooltip />

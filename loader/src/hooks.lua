@@ -76,6 +76,16 @@ local function install_frame()
 		for i = 1, #fns do B.pcall(fns[i]) end
 		return B.unpack(r, 1, r.n)
 	end)
+	-- The boot script defines shutdown before update. A log that says it was watching and never says
+	-- the game closed is how the app can tell a crash from a normal exit.
+	local shutdown = B.rawget(B.G, "shutdown")
+	if B.type(shutdown) == "function" then
+		B.rawset(B.G, "shutdown", function(...)
+			log.line("game closed")
+			return shutdown(...)
+		end)
+		log.line("watching for the game to close")
+	end
 end
 
 function M.on_frame(fn)

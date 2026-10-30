@@ -8,9 +8,11 @@ summary: Logs, travamentos na abertura, mods que não carregam e como voltar ao 
 
 Quando o jogo se comporta mal, **Limpar** tira do jogo todos os arquivos do Obsidian. Se o problema continuar depois disso, a causa não é o Obsidian; verifique a integridade dos arquivos na Steam.
 
-## O jogo travou ao abrir {#the-game-crashed-at-startup}
+## O jogo travou {#the-game-crashed}
 
 O loader escreve uma linha logo antes de iniciar cada mod. Se o jogo parar nesse momento, na próxima vez que você abrir o Obsidian ele aponta o mod que estava iniciando. Desligue esse mod, aplique e avise o autor.
+
+Se o jogo parar depois disso, o Obsidian avisa que ele não fechou normalmente. Um travamento dentro do motor do jogo costuma não deixar erro no log, então tente desligar os mods que você adicionou por último, um de cada vez.
 
 ## Um mod não faz nada {#a-mod-does-nothing}
 
@@ -31,8 +33,6 @@ Os logs ficam em `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`:
 | `loader.log` | Cada mod iniciando, os hooks entrando, o estado do multijogador e o que cada mod mudou fora do loader |
 | `<id do mod>.log` | As linhas que aquele mod escreveu com `obsidian.log`, e mais nada |
 
-Os relatórios de travamento do próprio jogo ficam em `%APPDATA%\Arrowhead\Helldivers\crash`.
-
 ## Pedir ajuda {#asking-for-help}
 
-Leve o `loader.log`, a lista de mods que estavam ligados e o que aconteceu ao [Discord](https://dsc.gg/hd1modding) ou a uma [issue no GitHub](https://github.com/Alomare/ObsidianModManager/issues).
+Use **Copiar relatório** em [Configurações](app:settings), na seção Dados. Ele copia as versões, os mods ligados e o fim do `loader.log`, sem o nome da sua conta do Windows. Cole isso, junto com o que aconteceu, no [Discord](https://dsc.gg/hd1modding) ou a uma [issue no GitHub](https://github.com/Alomare/ObsidianModManager/issues).

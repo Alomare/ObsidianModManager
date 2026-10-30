@@ -269,7 +269,6 @@
   "app.settings.textSize": "Text size",
   "app.settings.textSizeHint": "Changes body text only.",
   "app.settings.theme": "Theme",
-  "app.settings.theme.dark": "Dark",
   "app.settings.theme.default": "Default",
   "app.settings.theme.light": "Light",
   "app.settings.updateMode": "When a new version is out",
@@ -351,5 +350,15 @@
   "menu_unavailable": "Not available right now.",
   "mod_failed": "Obsidian: %s failed and is off until the game restarts.",
   "session_not_cleared": "Obsidian: other players here run different mods, and some of yours change game files that can't be paused. Consider leaving this game.",
-  "uploads_blocked": "Obsidian: Galactic War and leaderboard results aren't sent while session mods are deployed."
+  "uploads_blocked": "Obsidian: Galactic War and leaderboard results aren't sent while session mods are deployed.",
+  "app.crash.copyReport": "Copy report",
+  "app.crash.dismiss": "Dismiss",
+  "app.crash.unclean": "The game didn't close normally the last time it ran.",
+  "app.mods.emptyText": "Drop a mod folder or .zip here, or bring back the Obsidian Kit.",
+  "app.mods.emptyTitle": "No mods yet",
+  "app.mods.updateAll": "Update all (%s)",
+  "app.report.copied": "The report is on the clipboard, ready to paste into a bug report.",
+  "app.settings.logs": "Open logs",
+  "app.settings.report": "Problem report",
+  "app.settings.reportHint": "Copy report gives you the versions, the mods that are on and the end of the game's log, ready to paste into a bug report. Your Windows account name is left out."
 }

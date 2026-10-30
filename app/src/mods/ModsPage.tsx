@@ -8,6 +8,7 @@ import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
 import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon, UpdateIcon } from "../Icons";
 import { pick, t } from "../i18n";
+import { useNav } from "../nav";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
 import type { Snapshot } from "../types";
@@ -18,7 +19,7 @@ import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
 import { changes, flatten, moveMods, nudge, pinned, toEnd, toTree, type Node } from "./layout";
 import { ModTable, type MenuTarget } from "./ModTable";
-import { checkModUpdates, offered, updateMod, useModUpdates } from "./modUpdates";
+import { checkModUpdates, offered, updateMod, updateMods, useModUpdates } from "./modUpdates";
 import { filterMods } from "./rows";
 
 /** A mod, or the conflicts with those of one mod first. */
@@ -55,6 +56,8 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const [width, setWidth] = useState(savedWidth);
   const modUpdates = useModUpdates();
   const body = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const { tab } = useNav();
   const profileImage = snap.profileRows.find((p) => p.name === snap.profile)?.image ?? null;
 
   const byId = useMemo(() => new Map(snap.mods.map((m) => [m.id, m])), [snap.mods]);
@@ -70,6 +73,20 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   useEffect(() => {
     setChecked((c) => (([...c].every((id) => byId.has(id))) ? c : new Set([...c].filter((id) => byId.has(id)))));
   }, [byId]);
+
+  // This page stays mounted behind the other tabs, so Ctrl+F only belongs to it while it shows.
+  useEffect(() => {
+    if (tab !== "mods") return;
+    const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        search.current?.focus();
+        search.current?.select();
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [tab]);
 
   const arrange = async (next: Node[]) => {
     const { ids, moves } = changes(saved, next);
@@ -171,6 +188,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   };
 
   const sel = inOrder([...checked]);
+  const waiting = snap.mods.filter((m) => offered(modUpdates.found, m)).map((m) => m.id);
   const askFolder = ask?.kind === "editFolder" || ask?.kind === "deleteFolder" ? folderOf(ask.id) : undefined;
 
   return (
@@ -195,9 +213,10 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             <UpdateIcon />
           </button>
         )}
+        {waiting.length > 0 && <button className="btn small play" onClick={() => updateMods(waiting, names)}>{t("app.mods.updateAll", waiting.length)}</button>}
         <label className="search">
           <SearchIcon />
-          <input type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
+          <input ref={search} type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setQuery("")} />
           {query && <button className="bare" onClick={() => setQuery("")} aria-label={t("app.mods.clearSearch")} data-tip={t("app.mods.clearSearch")}><CloseIcon /></button>}
         </label>
@@ -216,6 +235,17 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onMenu={(x, y, target) => setMenu({ x, y, target })}
             updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
+          {snap.mods.length === 0 && (
+            <div className="list-empty">
+              <h2 className="cap">{t("app.mods.emptyTitle")}</h2>
+              <p className="muted">{t("app.mods.emptyText")}</p>
+              <div className="row-btns">
+                <button className="btn small" onClick={() => pickAndImport(false)}><ImportIcon />{t("app.mods.importZip")}</button>
+                <button className="btn small" onClick={() => pickAndImport(true)}><FolderIcon />{t("app.mods.importFolder")}</button>
+                <button className="btn small" onClick={() => run("restore_starter_pack")}>{t("app.settings.starterRestore")}</button>
+              </div>
+            </div>
+          )}
           {sel.length > 0 && (
             <div className="batch-dock">
               <div className="batch" role="toolbar" aria-label={t("app.mods.selection")}>
