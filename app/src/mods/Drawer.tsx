@@ -76,7 +76,7 @@ function OptionsTab({ mod }: { mod: ModRow }) {
   if (!mod.options.length) return <p className="muted pad">{t("app.drawer.noOptions")}</p>;
   return (
     <ul className="opts">
-      {mod.options.map((o) => (
+      {mod.options.filter((o) => o.visible).map((o) => (
         <li key={o.id} className="opt">
           <div className="opt-text">
             <div className="l">{pick(o.label, o.id)}</div>
@@ -101,7 +101,10 @@ function OptionControl({ mod, o }: { mod: ModRow; o: OptionRow }) {
     return <button role="switch" aria-checked={o.value === true} aria-label={label} className={o.value === true ? "sw on" : "sw"} onClick={() => set(o.value !== true)} />;
   }
   if (o.kind === "choice") {
-    return <Select value={String(o.value)} options={o.choices.map((c) => ({ value: c, label: c }))} label={label} onChange={set} />;
+    return <Select value={String(o.value)} options={o.choices.map((c, i) => ({ value: c, label: pick(o.choiceLabels[i], c) }))} label={label} onChange={set} />;
+  }
+  if (o.kind === "color") {
+    return <input type="color" className="color-ctl" value={String(o.value)} aria-label={label} onChange={(e) => set(e.target.value)} />;
   }
   if (o.kind === "number") return <NumberControl o={o} label={label} onSet={set} />;
   if (o.kind === "key") return <KeyButton value={String(o.value)} label={label} onSet={set} />;

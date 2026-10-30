@@ -1,4 +1,4 @@
-//! Square images for mods and profiles. A mod can name one in its manifest (`"image": "image.png"`,
+//! Square images for mods and profiles. A mod can name one in the manifest (`"image": "image.png"`,
 //! inside the mod folder); the player can set their own for any mod or profile, kept in
 //! `<data>/images/mods/<id>.<ext>` and `<data>/images/profiles/<name>.<ext>`. The player's image
 //! comes first.
@@ -56,7 +56,7 @@ pub fn from_manifest(lib: &Library, m: &Manifest) -> Option<PathBuf> {
     (p.starts_with(&root) && p.is_file() && allowed(&p)).then_some(p)
 }
 
-/// The image a mod shows: the player's, else the one its manifest names.
+/// The image a mod shows: the player's, else the one the mod manifest names.
 pub fn for_mod(data: &Path, lib: &Library, m: &Manifest) -> Option<PathBuf> {
     custom(data, Owner::Mod, &m.id).or_else(|| from_manifest(lib, m))
 }

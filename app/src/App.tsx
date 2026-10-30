@@ -8,7 +8,9 @@ import { t } from "./i18n";
 import { listenForDrops, type DropState } from "./mods/dropImport";
 import { HomePage } from "./HomePage";
 import { ModsPage } from "./mods/ModsPage";
-import { NavBar, type Tab } from "./NavBar";
+import { NavBar } from "./NavBar";
+import { go as setTab, useNav } from "./nav";
+import { WikiPage } from "./WikiPage";
 import { SettingsPage, type SettingsTab } from "./SettingsPage";
 import { Notices } from "./NoticeList";
 import { loadSettings, useAppSettings } from "./settings";
@@ -20,7 +22,7 @@ export default function App() {
   const snap = useSnapshot();
   const settings = useAppSettings();
   const busy = useLocked();
-  const [tab, setTab] = useState<Tab>("mods");
+  const { tab } = useNav();
   const [dropping, setDropping] = useState<DropState>(null);
   const [askPurge, setAskPurge] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("system");
@@ -53,10 +55,11 @@ export default function App() {
   return (
     <div className="app">
       <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => setAskPurge(true)} onDeploy={deploy} onPlay={play} />
-      <main className={tab === "home" ? "page bleed" : "page"}>
+      <main className={tab === "home" || tab === "wiki" ? "page bleed" : "page"}>
         {tab === "home" && <div className="view" key="home"><HomePage /></div>}
         {/* Mods stays mounted while hidden: a long list then costs nothing to come back to. */}
         {snap && <div className="view" hidden={tab !== "mods"}><ModsPage snap={snap} /></div>}
+        {tab === "wiki" && <div className="view" key="wiki"><WikiPage /></div>}
         {snap && tab === "settings" && <div className="view" key="settings"><SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} /></div>}
       </main>
       <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />

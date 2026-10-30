@@ -9,7 +9,7 @@ export const CATALOGS: Record<string, Catalog> = { en, "pt-BR": ptBR, "zh-CN": z
 export const LANGUAGES: [string, string][] = [["en", "English"], ["pt-BR", "Português (Brasil)"], ["zh-CN", "中文 (简体)"]];
 
 /** The saved choice if there is a catalog for it, else the first system language we have (by exact
- *  code, then by its first part, so "pt-PT" finds pt-BR), else English. */
+ *  code, then by the first part, so "pt-PT" finds pt-BR), else English. */
 export function pickLanguage(saved: string | null | undefined, system: readonly string[]): string {
   if (saved && CATALOGS[saved]) return saved;
   for (const s of system) {

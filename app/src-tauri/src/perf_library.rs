@@ -22,7 +22,7 @@ pub fn build(data: &Path, count: usize) -> Result<()> {
         std::fs::create_dir_all(&dir)?;
         let resources: Vec<String> = (0..RESOURCES)
             .map(|r| {
-                // Mod i shares its first SHARED resources with mod i - 1.
+                // Mod i shares the first SHARED resources of mod i with mod i - 1.
                 let n = if r < SHARED { i * 100 + SHARED + r } else { (i + 1) * 100 + r };
                 format!(r##"{{"type":"#0000000000000001","name":"#{n:016x}","bundle":"00000000000aa000","data":"r{r}.bin"}}"##)
             })

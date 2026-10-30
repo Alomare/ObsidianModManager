@@ -5,8 +5,8 @@ export type Localized = Record<string, string>;
 export type OptionRow = {
   id: string; kind: "toggle" | "number" | "choice" | "key" | "color";
   label: Localized; description: Localized; default: unknown; value: unknown;
-  min: number | null; max: number | null; step: number | null; choices: string[];
-  deploy: boolean;
+  min: number | null; max: number | null; step: number | null; choices: string[]; choiceLabels: Localized[];
+  visible: boolean; deploy: boolean;
 };
 export type KeyRow = { id: string; label: Localized; default: string; key: string | null; clash: string[] };
 export type ImportInfo = { date: string; file: string };

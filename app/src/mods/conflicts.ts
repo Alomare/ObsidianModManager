@@ -2,7 +2,7 @@
 // is not saved yet (a drag under way), so the view follows the rows as they move.
 import type { ConflictRow } from "../types";
 
-/** Each conflict with its mods in `order` and the last one as the winner. */
+/** Each conflict with the mods involved in `order` and the last one as the winner. */
 export function winners(rows: ConflictRow[], order: string[]): ConflictRow[] {
   const pos = (id: string) => order.indexOf(id);
   return rows.map((r) => {

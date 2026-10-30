@@ -12,7 +12,7 @@ const EXE: &str = "luajit.exe";
 const EXE: &str = "luajit";
 
 /// `OBSIDIAN_LUAJIT`, then `luajit/` beside the running exe, then the workspace build in `target/luajit/`;
-/// the first one that has its `lua/jit/` modules.
+/// the first one that has the `lua/jit/` modules.
 pub fn find_compiler() -> Result<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(p) = std::env::var_os("OBSIDIAN_LUAJIT") {

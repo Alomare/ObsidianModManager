@@ -83,7 +83,7 @@ pub fn plan(lib: &Library, profile: &Profile) -> Result<Composition> {
     compose_with(lib, profile, false)
 }
 
-/// When each file under a folder last changed and its size, from the folder listings: on Windows
+/// When each file under a folder last changed and how big the file is, from the folder listings: on Windows
 /// a listing carries both, where asking file by file costs a call each.
 fn file_stamps(dir: &std::path::Path) -> std::collections::HashMap<PathBuf, (std::time::SystemTime, u64)> {
     let mut out = std::collections::HashMap::new();

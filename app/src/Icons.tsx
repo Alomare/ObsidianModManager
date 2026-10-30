@@ -42,6 +42,8 @@ export const PlayIcon = () => <Icon fill="currentColor" stroke="none"><path d="M
 export const WarnIcon = () => <Icon><path d="M12 3l10 18H2zM12 10v5M12 17.5v.5" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></Icon>;
 export const ArrowIcon = () => <Icon><path d="M4 12h15M13 6l6 6-6 6" /></Icon>;
+/** An open book. */
+export const BookIcon = () => <Icon><path d="M12 6.5C10.3 5.2 7.6 4.5 3.5 4.5v14c4.1 0 6.8.7 8.5 2 1.7-1.3 4.4-2 8.5-2v-14c-4.1 0-6.8.7-8.5 2z" /><path d="M12 6.5v14" /></Icon>;
 export const ChevronIcon = () => <Icon><path d="M6 9l6 6 6-6" /></Icon>;
 export const GripIcon = () => <Icon><path d="M5 8h14M5 12h14M5 16h14" /></Icon>;
 export const CloseIcon = () => <Icon><path d="M6 6l12 12M18 6L6 18" /></Icon>;

@@ -1,4 +1,4 @@
-# A release: pushing a tag like v0.2.0 builds the installer (signed for the updater, with its .sig and
+# A release: pushing a tag like v0.2.0 builds the installer (signed for the updater, with a .sig and
 # latest.json) and the portable ZIP, and puts them in a draft release. Publishing the draft makes it the
 # release the app's updater sees.
 #
@@ -66,7 +66,7 @@ jobs:
           [ -n "$id" ] || { echo "no release id"; exit 1; }
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
-      - name: The installer, its signature and latest.json
+      - name: The installer, the signature and latest.json
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

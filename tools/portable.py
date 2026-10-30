@@ -28,7 +28,7 @@ out.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     base = "ObsidianModManager"
     z.write(exe, f"{base}/Obsidian.exe")
-    z.writestr(f"{base}/portable.txt", "This copy of Obsidian is portable: its data folder sits beside it.\n")
+    z.writestr(f"{base}/portable.txt", "This copy of Obsidian is portable: the data folder sits beside the app.\n")
     for src, dest in RESOURCES:
         assert src.exists(), f"missing {src}"
         files = [src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file())

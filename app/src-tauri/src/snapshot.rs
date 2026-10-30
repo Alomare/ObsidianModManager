@@ -1,5 +1,5 @@
 //! Everything the UI shows, read from core in one go. Every command returns a fresh snapshot, so
-//! the UI never keeps its own copy of the library or the profile.
+//! the UI never keeps a copy of the library or the profile.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -42,6 +42,10 @@ pub struct OptionRow {
     pub max: Option<f64>,
     pub step: Option<f64>,
     pub choices: Vec<String>,
+    /// The label of each choice, in the order of `choices` (empty where the manifest gives none).
+    pub choice_labels: Vec<Localized>,
+    /// False while `visible_when` doesn't match the other values: the app hides the option.
+    pub visible: bool,
     /// A change needs a deploy (it picks resources, or it is part of a session mod's mod set).
     pub deploy: bool,
 }
@@ -78,7 +82,7 @@ pub struct ModRow {
     pub name: Localized,
     pub description: Localized,
     pub authors: Vec<String>,
-    /// `None` for an imported legacy mod, which has no version of its own.
+    /// `None` for an imported legacy mod, which has no version number.
     pub version: Option<String>,
     pub scope: &'static str,
     pub bundled: bool,
@@ -175,7 +179,7 @@ fn tidy(p: &Path) -> PathBuf {
     }
 }
 
-/// A game file as people read it: its name, then the last part of its bundle's name, as in
+/// A game file as people read it: the name, then the last part of the bundle name, as in
 /// `lua/settings/status_settings (boot)`. Unknown names stay `#hash`.
 fn resource_label(bundle: &str, name: &str) -> String {
     let b = display_text(bundle);
@@ -210,6 +214,8 @@ fn option_rows(m: &Manifest, profile: &Profile) -> Result<Vec<OptionRow>> {
                 max,
                 step,
                 choices: if let OptionKind::Choice(c) = &s.kind { c.clone() } else { Vec::new() },
+                choice_labels: raw.get("choices").and_then(Value::as_array).map(|cs| cs.iter().map(|c| localized(c.get("label"))).collect()).unwrap_or_default(),
+                visible: obsidian_core::options::when_matches(&s.visible_when, &values),
                 deploy,
             }
         })
@@ -262,7 +268,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
                 KeyRow { id: k.id, label: localized(raw.get("label")), default: k.default, key, clash }
             })
             .collect();
-        // An imported legacy mod has no version of its own unless its Nexus file name gave one.
+        // An imported legacy mod has no version number unless the Nexus file name gave one.
         let unversioned = m.extra.get("legacy") == Some(&Value::Bool(true)) && m.version == semver::Version::new(0, 0, 0);
         mods.push(ModRow {
             id: m.id.clone(),
@@ -369,7 +375,7 @@ mod tests {
         assert_eq!((s.game, s.profile.as_str(), s.changes), (GameState::NotFound, "Default", ChangesWaiting::Waiting));
     }
 
-    /// The snapshot runs after every action, so its time is the delay of every click.
+    /// The snapshot runs after every action, so the time it takes is the delay of every click.
     /// `cargo test --release -p obsidian-app -- --ignored --nocapture`
     #[test]
     #[ignore = "performance; run with --release -- --ignored"]

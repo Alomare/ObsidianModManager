@@ -1,5 +1,5 @@
 // Settings (spec 4.4): System (game, language, updates, data) and Theme (colours, size,
-// animations). App settings save to app.json at once. The subtab scrolls; its header stays.
+// animations). App settings save to app.json at once. The subtab scrolls; the header stays.
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";

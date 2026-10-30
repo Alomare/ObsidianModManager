@@ -299,7 +299,6 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
             const f = line.folder;
             const node = folders.get(f.id);
             const ids = node?.kind === "folder" ? node.ids : [];
-            const on = ids.filter((id) => byId.get(id)?.on).length;
             const state = ids.length && ids.every((id) => checked.has(id)) ? true : ids.some((id) => checked.has(id)) ? "mixed" : false;
             const cls = ["tr", "fr", f.collapsed && "closed", f.locked && "locked", marker?.onto === f.id && !f.locked && "onto", draggingKeys.has(keyOf(line)) && "lifted"].filter(Boolean).join(" ");
             return (
@@ -309,7 +308,7 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
                 <span className="fr-chev"><ChevronIcon /></span>
                 <span className="fr-name">{f.name}</span>
                 <span className="fr-end">
-                  <span className="fr-count">{ids.length ? t("app.folder.count", on, ids.length) : t("app.folder.empty")}</span>
+                  {!ids.length && <span className="fr-count">{t("app.folder.empty")}</span>}
                   {f.id === OBSIDIAN ? (
                     <span className="fr-lock on" data-tip-title={t("app.folder.locked")} data-tip={t("app.folder.obsidianHint")}><LockIcon /></span>
                   ) : (

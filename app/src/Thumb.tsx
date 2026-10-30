@@ -1,4 +1,4 @@
-// The square image of a mod or profile, or its first letter when it has none. With `pick`, a click
+// The square image of a mod or profile, or the first letter of the name when there is none. With `pick`, a click
 // chooses a new image and a small button removes the player's own.
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";

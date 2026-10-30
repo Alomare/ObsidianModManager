@@ -229,7 +229,7 @@ impl Manifest {
     }
 }
 
-/// When a manifest last changed and its size: a cached parse stays good while this is the same.
+/// When a manifest last changed and the file size: a cached parse stays good while this is the same.
 /// Checking a manifest reads no other file, so the manifest alone decides.
 type Stamp = (std::time::SystemTime, u64);
 

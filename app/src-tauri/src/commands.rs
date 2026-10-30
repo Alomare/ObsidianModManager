@@ -83,7 +83,7 @@ pub struct ImportResult {
     /// installed, updated or reinstalled.
     pub kind: &'static str,
     pub name: Localized,
-    /// `None` for an imported legacy mod, which has no version of its own.
+    /// `None` for an imported legacy mod, which has no version number.
     pub version: Option<String>,
     pub old_version: Option<String>,
     pub error: Option<CmdError>,
@@ -220,7 +220,7 @@ pub async fn edit_folder(ctx: State<'_, Ctx>, id: String, name: Option<String>, 
     fresh(&ctx)
 }
 
-/// Deletes a folder. Its mods stay in the list, or with `remove_mods` leave the library (bundled
+/// Deletes a folder. The mods in it stay in the list, or with `remove_mods` leave the library (bundled
 /// mods stay either way).
 #[tauri::command]
 pub async fn delete_folder(ctx: State<'_, Ctx>, id: String, remove_mods: bool) -> CmdResult<Snapshot> {
@@ -364,7 +364,7 @@ fn live_edit(ctx: &Ctx, f: impl FnOnce(&Library, &mut Profile) -> obsidian_core:
     fresh(ctx)
 }
 
-/// `value` null resets the option to its default.
+/// `value` null resets the option to the default.
 #[tauri::command]
 pub async fn set_option(ctx: State<'_, Ctx>, id: String, option: String, value: Option<serde_json::Value>) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();

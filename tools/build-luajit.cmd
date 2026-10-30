@@ -1,7 +1,7 @@
 @echo off
 rem Builds the LuaJIT 2.0 compiler Obsidian uses into target\luajit (needs git and the Visual Studio Build Tools).
 setlocal
-rem Some shells set this, which stops msvcbuild.bat from running the tools it builds in its own folder.
+rem Some shells set this, which stops msvcbuild.bat from running the tools it builds in the build folder.
 set NoDefaultCurrentDirectoryInExePath=
 set ROOT=%~dp0..
 set SRC=%ROOT%\target\luajit-src

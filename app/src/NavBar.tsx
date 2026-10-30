@@ -1,12 +1,11 @@
-// The navigation bar: the tabs (Home, Mods, Settings), then the "prepare to play" area: the multiplayer consent of the active
+// The navigation bar: the tabs (Home, Mods, Wiki, Settings), then the "prepare to play" area: the multiplayer consent of the active
 // profile, and Purge, Deploy and Play (spec section 3). Deploy turns green while changes wait.
 import type { ComponentType } from "react";
 import { run } from "./api";
-import { CogIcon, DeployIcon, HomeIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
+import { BookIcon, CogIcon, DeployIcon, HomeIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
 import { t } from "./i18n";
+import type { Tab } from "./nav";
 import type { Snapshot } from "./types";
-
-export type Tab = "home" | "mods" | "settings";
 
 type Props = {
   tab: Tab;
@@ -18,7 +17,7 @@ type Props = {
   onPlay: () => void;
 };
 
-const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["settings", CogIcon]];
+const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["wiki", BookIcon], ["settings", CogIcon]];
 
 export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";

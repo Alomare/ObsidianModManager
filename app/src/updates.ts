@@ -1,5 +1,5 @@
 // Obsidian's own updates through the updater plugin: it reads latest.json from the newest GitHub
-// release, compares versions, downloads the installer, checks its signature and runs it (the app
+// release, compares versions, downloads the installer, checks the signature and runs it (the app
 // closes while it installs and opens again on the new version). Portable copies never install:
 // they show the new version with a link to the releases page.
 import { check, type Update } from "@tauri-apps/plugin-updater";
