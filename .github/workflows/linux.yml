@@ -1,10 +1,8 @@
-# Linux: the tests and the packages, on every push to dev. The deb and the AppImage land in the run's
-# artifacts. They join the releases once a live run under Proton has passed.
+# Linux: the tests and the packages, started by hand. The full port comes later; this shows whether
+# anything has got in its way. The deb and the AppImage land in the run's artifacts.
 name: Linux
 
 on:
-  push:
-    branches: [dev]
   workflow_dispatch:
 
 permissions:
