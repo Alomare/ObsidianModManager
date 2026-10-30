@@ -25,7 +25,7 @@ The loader also handles the multiplayer rules. Mods that change the shared game 
 
 | Tab | What it is for |
 |---|---|
-| Home | Links, and the state of the Galactic War |
+| Home | Links to the community and the source code |
 | [Mods](app:mods) | Your library: turn mods on and off, set the load order, change options and keys |
 | Wiki | These guides |
 | [Settings](app:settings) | Language, theme, game folder, updates |

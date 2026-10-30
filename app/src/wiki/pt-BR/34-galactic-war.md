@@ -1,7 +1,7 @@
 ---
 title: A Guerra Galáctica
 group: Jogar online
-summary: Por que missões com mods de sessão não contam, e de onde vem a situação da guerra no Início.
+summary: Por que missões com mods de sessão não contam para a guerra compartilhada.
 ---
 
 ## Missões com mods não contam {#modded-missions-don-t-count}
@@ -14,11 +14,3 @@ Mods de cliente não mudam isso. Só com mods de cliente, as suas missões conta
 
 > [!NOTE]
 > O bloqueio vale enquanto houver conteúdo de sessão aplicado, mesmo numa missão em que os seus mods de sessão estejam desligados. Use Limpar, ou aplique sem mods de sessão, para voltar a participar da guerra.
-
-## A guerra no Início {#the-war-on-home}
-
-O painel no canto superior direito do Início mostra o calendário da guerra, um mapa pequeno e quantos Helldivers estão lutando. No mapa, a Super Terra fica no centro, com um cone para cada inimigo; a parte clara de um cone é o território já libertado. Passe o mouse num cone para ver a região em disputa, ou na Super Terra para ver se ela está sob ataque. O Obsidian lê a guerra do servidor oficial do HELLDIVERS a cada cinco minutos enquanto o Início está aberto.
-
-O botão no canto do painel recolhe o painel.
-
-Para o histórico de temporadas passadas e estatísticas detalhadas, veja o [helldivers.bot](https://helldivers.bot), um site de fãs sem ligação com a Arrowhead nem com o Obsidian.

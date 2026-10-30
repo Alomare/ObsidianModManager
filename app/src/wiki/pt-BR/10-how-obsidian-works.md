@@ -25,7 +25,7 @@ O loader também cuida das regras do multijogador. Mods que mudam o jogo compart
 
 | Aba | Para que serve |
 |---|---|
-| Início | Links e a situação da Guerra Galáctica |
+| Início | Links para a comunidade e o código-fonte |
 | [Mods](app:mods) | A biblioteca: ligar e desligar mods, a ordem de carregamento, opções e teclas |
 | Wiki | Estes guias |
 | [Configurações](app:settings) | Idioma, tema, pasta do jogo, atualizações |
