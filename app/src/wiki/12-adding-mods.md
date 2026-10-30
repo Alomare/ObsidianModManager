@@ -35,7 +35,19 @@ Obsidian only asks GitHub when you click, and it only installs a higher version 
 
 ## Removing
 
-Right-click a mod and choose **Remove**, or check several mods and use **Remove** in the bar above the list. The mods that come with Obsidian can't be removed; they sit in the locked Obsidian folder and stay off until you turn them on.
+Right-click a mod and choose **Remove**, or check several mods and use **Remove** in the bar above the list.
+
+## Starter pack
+
+Three mods come with Obsidian, in the **STARTER PACK** folder at the top of the list: Obsidian API, [Obsidian Trainer](wiki:trainer) and Obsidian Quality of Life. Quality of Life starts on, with only the widescreen fixes enabled. The other two stay off until you turn them on.
+
+They're mods like any other. You can move them, remove them, rename or delete the folder, and update them from GitHub. To put everything back, use **Restore starter pack** in [Settings](app:settings). It brings back deleted mods and the folder, and resets their settings in the active profile.
+
+## Dependencies
+
+Some mods need others to work. The **Dependencies** tab, in the panel on the right, shows what a mod needs and which mods need it. Switching a mod on switches on what it needs, and switching it off switches off the mods that need it.
+
+If a mod needs something that isn't in your library, the tab says so, and the mod won't switch on until you add it.
 
 ## Pictures
 

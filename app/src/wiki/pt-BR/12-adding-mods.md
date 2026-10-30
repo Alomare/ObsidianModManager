@@ -35,7 +35,19 @@ O Obsidian só fala com o GitHub quando você clica, e só instala uma versão m
 
 ## Remover {#removing}
 
-Clique com o botão direito num mod e escolha **Remover**, ou marque vários mods e use **Remover** na barra acima da lista. Os mods que vêm com o Obsidian não podem ser removidos; eles ficam na pasta Obsidian, que é travada, e continuam desligados até você ligar.
+Clique com o botão direito num mod e escolha **Remover**, ou marque vários mods e use **Remover** na barra acima da lista.
+
+## Pacote inicial {#starter-pack}
+
+Três mods vêm com o Obsidian, na pasta **STARTER PACK**, no topo da lista: Obsidian API, [Obsidian Trainer](wiki:trainer) e Obsidian Qualidade de Vida. O Qualidade de Vida começa ligado, só com as correções para tela larga ativas. Os outros dois ficam desligados até você ligar.
+
+Eles são mods como quaisquer outros. Você pode mover ou remover os mods, renomear ou apagar a pasta, e atualizar os mods pelo GitHub. Para deixar tudo como era, use **Restaurar pacote inicial** em [Configurações](app:settings). Isso traz de volta os mods apagados e a pasta, e volta as configurações deles ao padrão no perfil ativo.
+
+## Dependências {#dependencies}
+
+Alguns mods precisam de outros para funcionar. A aba **Dependências**, no painel à direita, mostra do que um mod precisa e quais mods precisam dele. Ligar um mod liga o que ele precisa, e desligar desliga os mods que precisam dele.
+
+Se um mod precisa de algo que não está na sua biblioteca, a aba avisa, e o mod não liga até você adicionar o que falta.
 
 ## Imagens {#pictures}
 

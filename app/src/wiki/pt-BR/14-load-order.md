@@ -33,8 +33,6 @@ Pastas agrupam mods na lista. Elas não mudam nada no jogo: a ordem de carregame
 
 O cadeado à direita da pasta trava a pasta. Uma pasta travada mantém o nome, a cor, o lugar e os mods que tem: nada entra nem sai até você destravar.
 
-A pasta **Obsidian**, no topo, guarda os mods que vêm com o app, como o Obsidian Qualidade de Vida. Ela está sempre travada e sempre em primeiro.
-
 ## Marcar vários mods {#checking-several-mods}
 
 As caixas à esquerda selecionam mods para ações em lote. Shift+clique marca um intervalo. Com mods marcados, a barra acima da lista liga, desliga, move para uma pasta ou remove todos de uma vez.

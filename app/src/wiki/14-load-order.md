@@ -33,8 +33,6 @@ Folders group mods in the list. They change nothing in the game: the load order 
 
 The padlock at the right of a folder locks it. A locked folder keeps the name, color, place and mods it has: nothing moves in or out until you unlock it.
 
-The **Obsidian** folder at the top holds the mods that come with the app, such as Obsidian Quality of Life. It is always locked and always first.
-
 ## Checking several mods
 
 The checkboxes on the left select mods for batch actions. Shift-click checks a range. With mods checked, the bar above the list can turn them on or off, move them to a folder, or remove them.

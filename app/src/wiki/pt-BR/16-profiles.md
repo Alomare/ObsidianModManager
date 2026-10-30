@@ -17,7 +17,7 @@ A cor de um perfil aparece no botão **Perfil** e nos interruptores ligados enqu
 
 ## Compartilhar um perfil {#sharing-a-profile}
 
-**Exportar** salva o perfil ativo como `.zip`. O arquivo leva as configurações do perfil e uma cópia de cada mod ligado, menos os que vêm com o Obsidian.
+**Exportar** salva o perfil ativo como `.zip`. O arquivo leva as configurações do perfil e uma cópia de cada mod ligado.
 
 **Importar** lê um arquivo desses. Cada mod dentro dele é instalado se você não tiver, ou se a cópia do arquivo for mais nova que a sua. O perfil entra com um nome que não conflita com os seus.
 

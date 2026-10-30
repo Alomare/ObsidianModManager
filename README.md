@@ -52,7 +52,7 @@
 
 The mod library. Turn mods on and off, drag them into the load order, sort them into folders, and change options and keys for each mod. Conflicts show which mods change the same thing, and profiles keep separate sets of mods and settings. Mods that name a GitHub repository update from inside the app, and old mods that replace whole game files import like any other.
 
-<img src="assets/readme/mods.png" alt="The Mods tab: the Obsidian and Favorites folders, each mod with a switch, a place in the load order and a scope, and the options of Obsidian Quality of Life on the right" width="100%">
+<img src="assets/readme/mods.png" alt="The Mods tab: the STARTER PACK and Favorites folders, each mod with a switch, a place in the load order and a scope, and the options of Obsidian Quality of Life on the right" width="100%">
 
 ### 📖 Wiki
 
@@ -60,19 +60,19 @@ Guides inside the app, for players and for mod authors. They cover adding mods, 
 
 <img src="assets/readme/wiki.png" alt="The Wiki tab: search and the guides by group on the left, How Obsidian Works open in the middle, and the headings of the page on the right" width="100%">
 
-### 🎁 Bundled Mods
+### 🎁 Starter Pack
 
-Three mods come with Obsidian and stay off until you turn them on.
+Three mods come with Obsidian, in the STARTER PACK folder. Obsidian Quality of Life starts on with only the widescreen fixes enabled, and the other two stay off until you turn them on. They're mods like any other: each has its own repository and updates from GitHub, and you can move or delete them. **Restore starter pack** in Settings puts everything back.
 
-#### Obsidian Quality of Life
+#### [Obsidian Quality of Life](https://github.com/Alomare/ObsidianQoL)
 
 Skips the intro, the login screen, war briefs and planet scanning, removes the black bars on screens wider than 16:9, and can speed up or skip the results screens after a mission. Each fix is an option.
 
-#### Obsidian Trainer
+#### [Obsidian Trainer](https://github.com/Alomare/ObsidianTrainer)
 
 An in-game window, opened with F6, for your character, weapons, stratagems, enemies, missions and game values. It works with the mouse or the keys, and you can move and resize it. It doesn't change XP or rank, doesn't unlock paid DLC and doesn't touch the Galactic War. It's a session mod, so it follows the same multiplayer rules as any other.
 
-#### Obsidian API
+#### [Obsidian API](https://github.com/Alomare/ObsidianAPI)
 
 A runtime other mods can build on. It turns on with the Trainer.
 
@@ -169,6 +169,6 @@ Bug reports and help on the Discord count as much as code. The Wiki pages are Ma
 
 ## License
 
-Copyright (C) 2026 Alomare. Licensed under the [Apache License 2.0](LICENSE).
+Copyright (C) 2026 Alomare. Licensed under the [Apache License 2.0](LICENSE). The starter pack mods are under the MIT License, in their own repositories.
 
 Only builds from this repository's GitHub releases are official Obsidian. The license gives no right to use the Obsidian name for other builds.

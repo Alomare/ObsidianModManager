@@ -17,7 +17,7 @@ The color of a profile shows on the **Profile** button and on the switches that 
 
 ## Sharing a profile
 
-**Export** saves the active profile as a `.zip`. The file holds the profile settings and a copy of every enabled mod, except the mods that come with Obsidian.
+**Export** saves the active profile as a `.zip`. The file holds the profile settings and a copy of every enabled mod.
 
 **Import** reads such a file. Each mod in it is installed if you don't have it, or if the copy in the file is newer than yours. The profile is added under a name that doesn't clash with yours.
 
