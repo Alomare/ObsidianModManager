@@ -1,8 +1,9 @@
 // The Mods page: header, crash banner, the table and (Task 6) the drawer (spec 4.1).
 import { useMemo, useState } from "react";
 import { run } from "../api";
-import { SearchIcon, WarnIcon } from "../Icons";
+import { CloseIcon, SearchIcon, WarnIcon } from "../Icons";
 import { pick, t } from "../i18n";
+import { Select } from "../Select";
 import type { Snapshot } from "../types";
 import { CrashBanner } from "./CrashBanner";
 import { pickAndImport } from "./dropImport";
@@ -33,19 +34,17 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
     <div className="mods">
       <div className="head">
         <h1 className="cap">{t("app.nav.mods")}</h1>
-        <label className="pick">
-          <span>{t("app.mods.profile")}</span>
-          <select value={snap.profile} onChange={(e) => run("use_profile", { name: e.target.value })}>
-            {snap.profiles.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </label>
-        <button className={conflicts ? "cbtn hot" : "cbtn"} aria-pressed={view?.kind === "conflicts"} onClick={() => setView({ kind: "conflicts" })}>
+        <Select value={snap.profile} options={snap.profiles.map((p) => ({ value: p, label: p }))} prefix={t("app.mods.profile")}
+          label={t("app.mods.profile")} tip={t("app.mods.profileHint")} onChange={(name) => run("use_profile", { name })} />
+        <button className={conflicts ? "cbtn hot" : "cbtn"} data-tip={t("app.mods.conflictsHint")} aria-pressed={view?.kind === "conflicts"} onClick={() => setView({ kind: "conflicts" })}>
           <WarnIcon />
           {t("app.mods.conflicts", conflicts)}
         </button>
         <label className="search">
           <SearchIcon />
-          <input type="search" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)} />
+          <input type="text" value={query} placeholder={t("app.mods.search")} aria-label={t("app.mods.search")} onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setQuery("")} />
+          {query && <button className="bare" onClick={() => setQuery("")} aria-label={t("app.mods.clearSearch")} data-tip={t("app.mods.clearSearch")}><CloseIcon /></button>}
         </label>
       </div>
       <CrashBanner snap={snap} />

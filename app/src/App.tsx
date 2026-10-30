@@ -7,6 +7,7 @@ import { NavBar, type Tab } from "./NavBar";
 import { Notices } from "./NoticeList";
 import { loadSettings, useAppSettings } from "./settings";
 import { StatusBar } from "./StatusBar";
+import { Tooltip } from "./Tooltip";
 
 export default function App() {
   const snap = useSnapshot();
@@ -17,7 +18,14 @@ export default function App() {
 
   useEffect(() => {
     loadSettings().then(refresh);
-    return listenForDrops(setDropping);
+    // The browser menu (Back, Reload, Inspect) has no place in the app; text fields keep theirs.
+    const menu = (e: MouseEvent) => !(e.target as Element).closest?.("input, textarea") && e.preventDefault();
+    document.addEventListener("contextmenu", menu);
+    const stop = listenForDrops(setDropping);
+    return () => {
+      stop();
+      document.removeEventListener("contextmenu", menu);
+    };
   }, []);
 
   if (!settings) return null;
@@ -33,6 +41,7 @@ export default function App() {
       <StatusBar version={snap?.version ?? null} onUpdates={() => setTab("settings")} />
       {dropping && <div className="dropzone cap">{t("app.mods.dropHere")}</div>}
       <Notices />
+      <Tooltip />
     </div>
   );
 }

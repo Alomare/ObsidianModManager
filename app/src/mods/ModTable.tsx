@@ -72,7 +72,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
   return (
     <div className="table" role="table">
       <div className="th cap" role="row">
-        <span title={canDrag ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
+        <span data-tip={canDrag ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
         <span>{t("app.mods.colOn")}</span>
         <span>{t("app.mods.colMod")}</span>
         <span>{t("app.mods.colScope")}</span>
@@ -85,7 +85,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
             <div key={m.id} role="row" tabIndex={0} className={cls} aria-selected={selected === m.id}
               onPointerDown={(e) => down(e, m.id, i)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => key(e, m.id, i)}>
               <span className="num">{order.indexOf(m.id) + 1}</span>
-              <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"}
+              <button role="switch" aria-checked={m.on} aria-label={name} className={m.on ? "sw on" : "sw"} data-tip={t(m.on ? "app.mods.turnOff" : "app.mods.turnOn", name)}
                 onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onClick={() => onToggle(m.id, !m.on)} />
               <div className="who">
                 <div className="nm">
@@ -99,7 +99,7 @@ export function ModTable({ rows, order, names, canDrag, selected, onSelect, onTo
                   <div className="sub">{pick(m.description) || " "}</div>
                 )}
               </div>
-              <span className={`scope ${m.scope}`}><i />{t(`app.scope.${m.scope}`)}</span>
+              <span className={`scope ${m.scope}`} data-tip={t(`app.scope.${m.scope}Hint`)}><i />{t(`app.scope.${m.scope}`)}</span>
             </div>
           );
         })}

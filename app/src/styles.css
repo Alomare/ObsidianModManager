@@ -103,9 +103,6 @@ button.bare:hover { color: var(--tx); }
 .mods { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
 .head { display: flex; align-items: center; gap: 0.9rem; }
 .head h1 { margin: 0; font-size: 1.5rem; }
-.pick { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.25rem 0 0.75rem; height: 2.3rem; border: 1px solid var(--ln); background: var(--row); font-size: 0.875rem; color: var(--mu); }
-.pick select { background: transparent; border: 0; color: var(--tx); font-weight: 600; height: 100%; padding: 0 0.4rem; cursor: pointer; }
-.pick select option { background: var(--bg2); color: var(--tx); }
 .cbtn { display: flex; align-items: center; gap: 0.5rem; height: 2.3rem; padding: 0 0.75rem; border: 1px solid var(--ln); background: var(--row); color: var(--mu); font-size: 0.85rem; cursor: pointer; }
 .cbtn svg { width: 1rem; height: 1rem; }
 .cbtn.hot { border-color: var(--session); background: rgba(232, 137, 28, 0.12); color: var(--tx); }
@@ -203,3 +200,26 @@ button.link:hover { filter: brightness(1.2); }
 @keyframes pulse { 50% { opacity: 0.25; transform: rotate(225deg); } }
 .btn.icon.go { animation: glow 2.4s ease-in-out infinite; }
 @keyframes glow { 50% { filter: brightness(1.2); } }
+
+/* Tooltip */
+.tip { position: fixed; z-index: 100; transform: translate(-50%, -100%); width: max-content; max-width: 22rem; padding: 0.4rem 0.65rem; background: linear-gradient(160deg, var(--p1), var(--p2)); border: 1px solid var(--ln); border-bottom: 2px solid var(--gold); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); font-size: 0.8rem; line-height: 1.35; color: var(--tx); pointer-events: none; animation: tip-in 120ms ease-out; white-space: normal; }
+.tip.below { transform: translate(-50%, 0); border-bottom: 1px solid var(--ln); border-top: 2px solid var(--gold); }
+@keyframes tip-in { from { opacity: 0; } }
+
+/* Dropdown */
+.select { position: relative; }
+.select-btn { display: flex; align-items: center; gap: 0.5rem; height: 2.3rem; padding: 0 0.6rem 0 0.75rem; border: 1px solid var(--ln); background: var(--row); color: var(--tx); font-size: 0.875rem; cursor: pointer; transition: border-color var(--fast); }
+.select-btn:hover, .select.open .select-btn { border-color: var(--gold); }
+.select-prefix { color: var(--mu); }
+.select-value { font-weight: 600; }
+.select-btn svg { color: var(--mu); transition: transform var(--fast); }
+.select.open .select-btn svg { transform: rotate(180deg); }
+.select-list { position: absolute; z-index: 30; top: calc(100% + 0.25rem); left: 0; min-width: 100%; max-height: 18rem; overflow: auto; margin: 0; padding: 0.25rem 0; list-style: none; background: linear-gradient(160deg, var(--p1), var(--p2)); border: 1px solid var(--ln); border-top: 2px solid var(--gold); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4); animation: tip-in 120ms ease-out; }
+.select-list li { padding: 0.45rem 0.8rem; font-size: 0.875rem; cursor: pointer; white-space: nowrap; }
+.select-list li.hi { background: var(--row); }
+.select-list li[aria-selected="true"] { color: var(--goldtx); box-shadow: inset 3px 0 0 var(--gold); }
+
+/* Scrollbars and selection */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--mu) 45%, transparent) transparent; }
+::selection { background: rgba(240, 180, 41, 0.35); }
+.search .bare svg { width: 0.9rem; height: 0.9rem; }

@@ -110,7 +110,7 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     }
     // A Nexus download keeps the same id across versions, so a newer file updates the mod.
     let (id, version, name) = match nexus_file(&stem) {
-        Some(n) => (format!("legacy.nexus-{}", n.mod_id), n.version, n.name),
+        Some(n) => (n.id(), n.version, n.name),
         None => (legacy_id(&stem), semver::Version::new(0, 0, 0), stem),
     };
     let m = Manifest {
@@ -169,6 +169,15 @@ struct NexusFile {
     version: semver::Version,
 }
 
+impl NexusFile {
+    /// The Nexus mod page and the file name: one page can hold several files that are separate
+    /// mods, and every version of one file keeps the same id.
+    fn id(&self) -> String {
+        let slug = legacy_id(&self.name);
+        legacy_id(&format!("nexus {} {}", self.mod_id, slug.trim_start_matches("legacy.")))
+    }
+}
+
 fn nexus_file(stem: &str) -> Option<NexusFile> {
     let words: Vec<&str> = stem.split_whitespace().collect();
     let [head @ .., id, version, time, code] = words.as_slice() else { return None };
@@ -223,6 +232,12 @@ mod tests {
         let rip = nexus_file("RIP THEM APART FOR SUPER EARTH 11 1 2026-10-28T18-46Z ym1oMPKH7").unwrap();
         assert_eq!((rip.name.as_str(), rip.mod_id, rip.version.to_string()), ("RIP THEM APART FOR SUPER EARTH", 11, "1.0.0".to_string()));
         assert_eq!(nexus_file("Odd 3 1.0.4b 2026-01-02T03-04Z abc").unwrap().version.to_string(), "1.0.4");
+        // One Nexus page can hold several files that are separate mods; versions of one file share the id.
+        let id = |n: &str| nexus_file(n).unwrap().id();
+        assert_eq!(id("ThirdPersonCamera V1.2 Manual 12 1.2 2026-10-28T10-41Z 6ZKn90ihp"), "legacy.nexus-12-thirdpersoncamera-manual");
+        assert_eq!(id("ThirdPersonCamera V1.5 Manual 12 1.5 2026-10-29T20-32Z UQhsN6aoF"), "legacy.nexus-12-thirdpersoncamera-manual");
+        assert_eq!(id("Saber Unlock 14 2 2026-10-29T23-32Z E9DGIkWtE"), "legacy.nexus-14-saber-unlock");
+        assert_eq!(id("Saber-Finish-enemys and xp 14 2 2026-10-29T23-34Z VqAWU7Nfb"), "legacy.nexus-14-saber-finish-enemys-and-xp");
     }
 
     #[test]
