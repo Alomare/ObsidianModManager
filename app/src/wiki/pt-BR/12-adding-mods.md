@@ -6,7 +6,7 @@ summary: Importar um mod de um .zip ou de uma pasta, atualizar e remover.
 
 ## Importar {#importing}
 
-Arraste uma pasta de mod ou um arquivo `.zip` para a lista de mods na aba [Mods](app:mods), ou clique no **+** verde ao lado da busca e escolha um. Dá para importar vários de uma vez, e uma notificação diz o que aconteceu com cada um.
+Arraste uma pasta de mod ou um arquivo `.zip` para a lista de mods na aba [Mods](app:mods), ou clique no **+** verde ao lado de Criar pasta e escolha um. Dá para importar vários de uma vez, e uma notificação diz o que aconteceu com cada um.
 
 O Obsidian copia o mod para a biblioteca, então você pode apagar o download depois. Importar não muda nada no jogo até você aplicar.
 
