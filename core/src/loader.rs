@@ -25,11 +25,11 @@ pub const ENTRY: &str = "foundation/lua/build_date_information";
 pub const REVISION: &str = "parent: 32148:3bd83d77c8ae";
 const LANGUAGES: [&str; 4] = ["en", "fr", "es", "pt-BR"];
 
-/// `rel` beside the exe, then in this workspace. Debug builds look in the workspace first: the
-/// copy beside a dev exe is only refreshed when the Rust side rebuilds, so it goes stale after a
-/// change to a bundled mod or the loader alone.
+/// `rel` in the app's resources, beside the exe, then in this workspace. Debug builds look in the
+/// workspace first: the copy beside a dev exe is only refreshed when the Rust side rebuilds, so it
+/// goes stale after a change to a bundled mod or the loader alone.
 fn candidates(rel: &str) -> Vec<PathBuf> {
-    let mut out = Vec::new();
+    let mut out: Vec<PathBuf> = crate::paths::resource_dir().map(|d| d.join(rel)).into_iter().collect();
     if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
         out.push(dir.join(rel));
     }

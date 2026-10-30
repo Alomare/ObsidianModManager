@@ -66,6 +66,8 @@ pub enum ObsidianError {
     GameRunning,
     #[error("deploy failed and was undone: {0}")]
     DeployFailed(String),
+    #[error("the game has no Proton prefix yet: start it once through Steam, then try again")]
+    NoProtonPrefix,
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error(transparent)]

@@ -44,6 +44,9 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ctx)
         .setup(|app| {
+            if let Ok(dir) = app.path().resource_dir() {
+                obsidian_core::paths::set_resource_dir(dir);
+            }
             // Mod and profile images load straight from the data folder, and only from there.
             let data = app.state::<commands::Ctx>().data.clone();
             app.asset_protocol_scope().allow_directory(&data, true)?;

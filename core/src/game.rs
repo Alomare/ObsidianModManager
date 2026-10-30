@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 use crate::{ObsidianError, Result};
 
 pub const STEAM_DIR: &str = "steamapps/common/Helldivers";
+/// The game's Proton prefix, relative to a Steam library.
+const PROTON_PREFIX: &str = "steamapps/compatdata/394510/pfx";
+/// The roaming app data folder, relative to a Proton prefix.
+const PROTON_APPDATA: &str = "drive_c/users/steamuser/AppData/Roaming";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GameInstall {
@@ -39,12 +43,28 @@ pub fn find_game(explicit: Option<&Path>) -> Result<GameInstall> {
         Some(p) => p.to_path_buf(),
         None => find_in_libraries(&steam_libraries())?,
     };
-    Ok(GameInstall { root, saves_dir: appdata().join("Arrowhead").join("Helldivers").join("saves") })
+    let appdata = appdata(&root)?;
+    Ok(GameInstall { root, saves_dir: appdata.join("Arrowhead").join("Helldivers").join("saves") })
 }
 
-/// `OBSIDIAN_APPDATA` (tests) or the Windows roaming app data folder.
-fn appdata() -> PathBuf {
-    std::env::var_os("OBSIDIAN_APPDATA").or_else(|| std::env::var_os("APPDATA")).map(PathBuf::from).unwrap_or_default()
+/// `OBSIDIAN_APPDATA` (tests), else the roaming app data folder the game sees: the Windows one, or
+/// the one in the Proton prefix on Linux.
+fn appdata(game_root: &Path) -> Result<PathBuf> {
+    if let Some(p) = std::env::var_os("OBSIDIAN_APPDATA") {
+        return Ok(p.into());
+    }
+    if cfg!(windows) {
+        return Ok(std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_default());
+    }
+    proton_appdata(game_root, &steam_libraries()).ok_or(ObsidianError::NoProtonPrefix)
+}
+
+/// The roaming app data folder in the game's Proton prefix. Steam keeps the prefix in the library
+/// that holds the game, so that one goes first; a game folder outside Steam's layout falls back to
+/// the other libraries.
+pub fn proton_appdata(game_root: &Path, libraries: &[PathBuf]) -> Option<PathBuf> {
+    let own = game_root.ancestors().nth(3).map(Path::to_path_buf);
+    own.iter().chain(libraries).map(|lib| lib.join(PROTON_PREFIX)).find(|p| p.is_dir()).map(|p| p.join(PROTON_APPDATA))
 }
 
 fn steam_libraries() -> Vec<PathBuf> {
@@ -61,6 +81,8 @@ fn steam_libraries() -> Vec<PathBuf> {
     if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
         roots.push(home.join(".steam/steam"));
         roots.push(home.join(".local/share/Steam"));
+        roots.push(home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"));
+        roots.push(home.join("snap/steam/common/.local/share/Steam"));
     }
     let mut libs = Vec::new();
     for root in roots {
@@ -114,8 +136,30 @@ mod tests {
 
     #[test]
     fn explicit_folder_is_used_as_is() {
-        let g = spaced_tempdir();
-        assert_eq!(find_game(Some(g.path())).unwrap().root, g.path());
+        let lib = spaced_tempdir();
+        put(lib.path(), "steamapps/compatdata/394510/pfx/system.reg", b"");
+        let root = lib.path().join(STEAM_DIR);
+        assert_eq!(find_game(Some(&root)).unwrap().root, root);
+    }
+
+    #[test]
+    fn the_proton_prefix_is_the_one_beside_the_game() {
+        let (a, b) = (spaced_tempdir(), spaced_tempdir());
+        put(a.path(), "steamapps/compatdata/394510/pfx/system.reg", b"");
+        put(b.path(), "steamapps/compatdata/394510/pfx/system.reg", b"");
+        let libs = vec![a.path().to_path_buf(), b.path().to_path_buf()];
+        let found = proton_appdata(&b.path().join(STEAM_DIR), &libs).unwrap();
+        assert_eq!(found, b.path().join(PROTON_PREFIX).join(PROTON_APPDATA));
+    }
+
+    #[test]
+    fn a_game_outside_steam_uses_a_prefix_from_any_library() {
+        let (lib, elsewhere) = (spaced_tempdir(), spaced_tempdir());
+        put(lib.path(), "steamapps/compatdata/394510/pfx/system.reg", b"");
+        let libs = vec![lib.path().to_path_buf()];
+        let found = proton_appdata(&elsewhere.path().join("Helldivers"), &libs).unwrap();
+        assert!(found.starts_with(lib.path()) && found.ends_with("AppData/Roaming"));
+        assert_eq!(proton_appdata(&elsewhere.path().join("Helldivers"), &[]), None);
     }
     #[test]
     fn running_process_is_found_by_name() {

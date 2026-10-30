@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "targets": ["deb", "appimage"],
+    "resources": {
+      "../../target/luajit/luajit.exe": null,
+      "../../target/luajit/luajit": "luajit/luajit"
+    }
+  }
+}

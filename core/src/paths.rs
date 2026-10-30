@@ -1,6 +1,19 @@
 //! Where Obsidian keeps the library, profile, backups and state.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+static RESOURCES: OnceLock<PathBuf> = OnceLock::new();
+
+/// Tells core where the app's shipped files are. Windows keeps them beside the exe; Linux packages
+/// keep them under `usr/lib`, which only the app can work out.
+pub fn set_resource_dir(dir: PathBuf) {
+    let _ = RESOURCES.set(dir);
+}
+
+pub fn resource_dir() -> Option<&'static Path> {
+    RESOURCES.get().map(PathBuf::as_path)
+}
 
 /// The explicit folder, else `data` beside a portable copy (marked by `portable.txt`),
 /// else the per-user app data folder.

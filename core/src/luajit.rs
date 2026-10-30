@@ -11,12 +11,15 @@ const EXE: &str = "luajit.exe";
 #[cfg(not(windows))]
 const EXE: &str = "luajit";
 
-/// `OBSIDIAN_LUAJIT`, then `luajit/` beside the running exe, then the workspace build in `target/luajit/`;
-/// the first one that has the `lua/jit/` modules.
+/// `OBSIDIAN_LUAJIT`, then `luajit/` in the app's resources, beside the running exe, then the workspace
+/// build in `target/luajit/`; the first one that has the `lua/jit/` modules.
 pub fn find_compiler() -> Result<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(p) = std::env::var_os("OBSIDIAN_LUAJIT") {
         candidates.push(PathBuf::from(p));
+    }
+    if let Some(dir) = crate::paths::resource_dir() {
+        candidates.push(dir.join("luajit").join(EXE));
     }
     if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf())) {
         candidates.push(dir.join("luajit").join(EXE));
@@ -36,7 +39,9 @@ pub fn compile(source: &[u8], chunk: &str) -> Result<Vec<u8>> {
     let dir = tempfile::tempdir()?;
     let (src, out) = (dir.path().join("chunk.lua"), dir.path().join("chunk.ljbc"));
     std::fs::write(&src, source)?;
-    let run = Command::new(&luajit).arg("-b").arg("-s").arg(&src).arg(&out).output()?;
+    // Only the Windows build looks in `lua/` beside the exe by itself.
+    let modules = luajit.with_file_name("lua").join("?.lua");
+    let run = Command::new(&luajit).env("LUA_PATH", modules).arg("-b").arg("-s").arg(&src).arg(&out).output()?;
     if !run.status.success() {
         let raw = String::from_utf8_lossy(&run.stderr);
         let message = raw.replace(&*src.to_string_lossy(), chunk).replace(&*luajit.to_string_lossy(), "luajit");
