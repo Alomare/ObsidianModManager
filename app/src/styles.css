@@ -601,6 +601,13 @@ button.thumb:hover { border-color: var(--gold); }
 .btn:not(.actions .btn):not(.home-tuck):not(.profile-btn):not(.head-btn), .btn.head-btn.add, .search, .select-btn, .key-btn, .wiki-find {
   -webkit-mask: linear-gradient(315deg, transparent var(--cut-sm), #000 calc(var(--cut-sm) + 0.5px));
 }
+/* The fold takes the border with it, so a line in the color of the border closes the outline */
+.search, .select-btn, .key-btn { position: relative; }
+.search::after, .select-btn::after, .key-btn::after {
+  content: ""; position: absolute; right: calc(var(--cut-sm) * -0.293 - 0.7px); bottom: calc(var(--cut-sm) * 0.707 - 0.7px); width: calc(var(--cut-sm) * 2 + 1px);
+  border-top: 1px solid; border-top-color: inherit; transform: rotate(-45deg); pointer-events: none;
+}
+.key-btn::after { bottom: calc(var(--cut-sm) * 0.707 - 2.4px); }
 
 /* Profiles dialog: New and Import beside the title, one labelled action per row (Use) and icon buttons for the rest */
 .profiles-tools { display: flex; gap: 0.5rem; }
