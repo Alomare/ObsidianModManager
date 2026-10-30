@@ -2,15 +2,17 @@
 // widget shows. Each enemy holds ten regions and a homeworld; Super Earth takes them back in order.
 
 /** Region and capital names per enemy (bugs, cyborgs, illuminate), regions 1 to 11; 11 is the homeworld. */
-const REGIONS: [string, string][][] = [
+export const REGIONS: [string, string][][] = [
   [["Wise Region", "New New York"], ["Kruger System", "Liberty City"], ["Ross System", "Tiberia"], ["Struve Region", "Northman's Creek"], ["Xi Tauri Region", "New Haven"], ["Cancri System", "Freedom Fortress"], ["Higgs Region", "Martyr's Bay"], ["Hawking Region", "Segma Prime"], ["Rigel System", "Freedom Peak"], ["Aurigae Region", "Final Frontier"], ["Kepler System", "Kepler Prime"]],
   [["Sirius Region", "Stockholm City"], ["Polaris Region", "Thunder Head"], ["Pictor Sector", "New Moscow"], ["Sagan Region", "Highwind"], ["Horolium System", "Providence"], ["Gellert Region", "Gellert City"], ["Lacaille Region", "Bahia Democracia"], ["Indi System", "Winter Hold"], ["Ceti System", "Doral Creek"], ["Cygni Region", "New Berlin"], ["Cyberstan Region", "Cyberstan"]],
   [["Centaury Region", "New Hanover"], ["Barnard Region", "Iron Tower"], ["Procyon Region", "White Landing"], ["Castor System", "Justice Bay"], ["Orionis Region", "New Alexandria"], ["Prometheus System", "Ribatishiti"], ["Cassiopaiae Region", "Dal Rage"], ["Ursa Region", "Ultima"], ["Canes Region", "Jiyu Toshi"], ["Arcturus Region", "Hawk Nest"], ["Squ'bai System", "Squ'bai Shrine"]],
 ];
 export const ENEMIES = ["bugs", "cyborgs", "illuminate"] as const;
 
-export type Front = { enemy: number; status: string; region: string | null; capital: string | null; pct: number };
-export type WarEvent = { kind: "defend" | "attack"; enemy: number; place: string; pct: number; ends: number };
+/** `index`: how many regions Super Earth holds on this front (0 to 10), 11 once the enemy is defeated. */
+export type Front = { enemy: number; status: string; index: number; region: string | null; capital: string | null; pct: number };
+/** `region`: 0 is Super Earth, 1 to 10 the regions of the enemy, 11 the homeworld. */
+export type WarEvent = { kind: "defend" | "attack"; enemy: number; region: number; place: string; pct: number; ends: number };
 export type War = { season: number; day: number; players: number; fronts: Front[]; events: WarEvent[] };
 
 type Campaign = { points: number; points_max: number; status: string };
@@ -22,17 +24,17 @@ const share = (n: number, max: number) => (max > 0 ? Math.max(0, Math.min(1, n /
 
 /** Where Super Earth stands against one enemy: the region being fought over and how far along it is. */
 function front(c: Campaign, enemy: number): Front {
-  if (c.status !== "active") return { enemy, status: c.status, region: null, capital: null, pct: c.status === "defeated" ? 1 : 0 };
+  if (c.status !== "active") return { enemy, status: c.status, index: c.status === "defeated" ? 11 : 0, region: null, capital: null, pct: c.status === "defeated" ? 1 : 0 };
   const per = c.points_max / 10;
   const i = per > 0 ? Math.min(10, Math.floor(c.points / per)) : 0;
   const [region, capital] = REGIONS[enemy]?.[i] ?? [null, null];
-  return { enemy, status: c.status, region, capital, pct: i === 10 ? 1 : share(c.points - i * per, per) };
+  return { enemy, status: c.status, index: i, region, capital, pct: i === 10 ? 1 : share(c.points - i * per, per) };
 }
 
 function event(e: Event, kind: WarEvent["kind"]): WarEvent {
   // Defend events name a region by number, 0 being Super Earth; attacks go for the homeworld.
   const place = kind === "attack" ? REGIONS[e.enemy]?.[10][1] : e.region ? REGIONS[e.enemy]?.[e.region - 1]?.[0] : "Super Earth";
-  return { kind, enemy: e.enemy, place: place ?? "?", pct: share(e.points, e.points_max), ends: e.end_time };
+  return { kind, enemy: e.enemy, region: kind === "attack" ? 11 : e.region ?? 0, place: place ?? "?", pct: share(e.points, e.points_max), ends: e.end_time };
 }
 
 /** Reads the API answer (JSON text). Throws when it holds no campaign. */

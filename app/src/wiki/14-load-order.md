@@ -12,8 +12,8 @@ The number beside each mod is the place of that mod in the load order. When two 
 
 A warning sign on a row means the mod shares resources with another enabled mod. Hover over it to see which mods and how many files; click it to open the list in the panel on the right.
 
-- An orange sign means another mod overrides some of the files of this one.
-- A plain sign means this mod overrides another one.
+- A yellow sign means this mod overrides files of another mod.
+- A grey sign means another mod overrides some of the files of this one.
 
 A conflict is often fine. Two mods may change the same script on purpose, and the order decides which version you get. When the result looks wrong in game, try the other order first.
 

@@ -87,7 +87,7 @@ button.bare:hover { color: var(--tx); }
 }
 :root[data-theme="light"] .btn { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
 .btn:hover:not(:disabled) { background: var(--btn-hi); }
-.actions .btn { clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 50%, calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 50%); }
+.actions .btn { clip-path: polygon(0.42rem 0, calc(100% - 0.42rem) 0, 100% 50%, calc(100% - 0.42rem) 100%, 0.42rem 100%, 0 50%); }
 .btn.danger:hover:not(:disabled) { filter: brightness(1.12); }
 .btn.go:hover:not(:disabled) { background: linear-gradient(180deg, #55dcac, #2bab7e); }
 .btn.play:hover:not(:disabled) { background: linear-gradient(180deg, #ffd466, #f0b429); }
@@ -291,7 +291,7 @@ button.link:hover { filter: brightness(1.2); }
 .about-mod { display: flex; flex-direction: column; gap: 0.9rem; align-items: flex-start; }
 .about-mod p { margin: 0; line-height: 1.45; }
 .bare.cf-ico { color: var(--goldtx); justify-self: center; }
-.bare.cf-ico.lose { color: var(--session); }
+.bare.cf-ico.lose { color: var(--mu); }
 .bare.cf-ico:hover { filter: brightness(1.25); }
 .cf-ico svg { width: 1.15rem; height: 1.15rem; }
 .tip span { white-space: pre-line; }
@@ -491,30 +491,61 @@ button.thumb:hover { border-color: var(--gold); }
 @keyframes row-out { to { opacity: 0; transform: translateY(-0.5rem); } }
 :root[data-motion="off"] .tr.in, :root[data-motion="off"] .tr.leaving { animation: none; }
 
-/* Home: the Galactic War panel, glass over the cover at the bottom right */
-.war { position: absolute; right: 2.2rem; bottom: 1.9rem; z-index: 1; width: 19rem; padding: 0.85rem 1rem 0.75rem; background: rgba(10, 11, 13, 0.62); box-shadow: inset 0 2px 0 var(--gold), inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 30px rgba(0, 0, 0, 0.35); backdrop-filter: blur(12px); color: #f2f1ed; font-size: 0.8rem; animation: view-in 260ms ease-out; }
-.war header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.55rem; }
-.war h2 { margin: 0; font-family: "Saira Variable", sans-serif; font-weight: 770; font-size: 0.85rem; letter-spacing: 0.18em; text-transform: uppercase; cursor: default; }
-.war header span, .war-note, .war footer { color: #b9b8b2; font-size: 0.72rem; }
-.war-note { margin: 0.2rem 0 0.1rem; }
-.war-fronts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-.war-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
-.war-line b { font-family: "Saira Variable", sans-serif; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.war-line.sub { margin-top: 0.1rem; color: #c9c8c3; font-size: 0.74rem; }
-.war-line.sub span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.war-state { font-family: "Saira Variable", sans-serif; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ec); }
-.war-fronts li.defeated b, .war-fronts li.defeated .war-state { opacity: 0.6; }
-.war-bar { height: 4px; margin-top: 0.3rem; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
-.war-bar i { display: block; height: 100%; background: var(--ec); transition: width 600ms ease; }
-.war .e0 { --ec: #eba83a; }
+/* Home: the Galactic War map, glass over the cover at the top right, with a button that tucks it away */
+.home-war { position: absolute; top: 1.9rem; right: 2.2rem; z-index: 1; display: flex; align-items: flex-start; gap: 0.6rem; }
+.war-clip { overflow: hidden; }
+.war { width: 16.5rem; padding: 0.8rem 0.9rem 0.7rem; background: rgba(10, 11, 13, 0.62); box-shadow: inset 0 2px 0 var(--gold), inset 0 0 0 1px rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); color: #f2f1ed; font-size: 0.78rem; transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1), opacity 260ms ease; }
+.home-war.tucked .war { transform: translateX(100%); opacity: 0; pointer-events: none; }
+.home .btn.war-tuck { width: 2rem; height: 2rem; padding: 0; flex: none; }
+.war-tuck svg { width: 0.9rem; height: 0.9rem; transform: rotate(-90deg); transition: transform 300ms ease; }
+.home-war.tucked .war-tuck svg { transform: rotate(90deg); }
+.war header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.war h2 { margin: 0; font-size: 0.8rem; letter-spacing: 0.18em; cursor: default; }
+.war header span, .war-note, .war footer { color: #b9b8b2; font-size: 0.7rem; }
+.war-note { margin: 0.6rem 0 0.2rem; }
+.war .e0 { --ec: #e8913a; }
 .war .e1 { --ec: #e2564d; }
 .war .e2 { --ec: #6aa8ec; }
-.war-event { margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-.war-event .war-line:first-child span { color: var(--ec); font-size: 0.72rem; }
-.war footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.7rem; }
-.war button.war-more { padding: 0; gap: 0.3rem; align-items: center; color: #b9b8b2; font-size: 0.72rem; }
+
+/* The map: rings of region cells per enemy wedge */
+.war-map { display: block; width: 100%; margin: 0.35rem 0 0.2rem; overflow: visible; }
+.war-map .grid circle, .war-map .grid path { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 0.6; }
+.war-map .ring path { transition: fill 600ms ease; }
+.war-map .ring.held path { fill: rgba(214, 226, 240, 0.32); }
+.war-map .ring.enemy path { fill: color-mix(in srgb, var(--ec) 48%, transparent); }
+.war-map .ring.front path { fill: color-mix(in srgb, var(--ec) 85%, transparent); animation: war-front 2.4s ease-in-out infinite; }
+.war-map .ring.front path.won { fill: #eef4fb; animation: none; }
+.war-map .ring.fog path { fill: rgba(255, 255, 255, 0.05); }
+.war-map .ring:hover path:not(.won) { filter: brightness(1.35); }
+.war-map .ring.hit path { stroke: #fff; stroke-width: 0.8; animation: war-hit 1.2s ease-in-out infinite; }
+.war-map .homeworld path { stroke-width: 1.2; }
+.war-map .homeworld.enemy path { fill: var(--ec); stroke: color-mix(in srgb, var(--ec) 60%, #000); }
+.war-map .homeworld.held path { fill: rgba(214, 226, 240, 0.32); stroke: rgba(214, 226, 240, 0.5); }
+.war-map .homeworld.fog path { fill: rgba(255, 255, 255, 0.08); stroke: rgba(255, 255, 255, 0.15); }
+.war-map .core path { fill: #dfe8f2; stroke: #fff; stroke-width: 1.2; }
+.war-map .event-ring { fill: none; stroke: #ff5a4f; stroke-width: 2.2; transform: rotate(-90deg); }
+.war-map .homeworld .event-ring { stroke: #eef4fb; }
+.war-map .homeworld .event-ring, .war-map .core .event-ring { transform-box: fill-box; transform-origin: center; }
+.war-map .core.hit path, .war-map .homeworld.hit path { animation: war-hit 1.2s ease-in-out infinite; }
+@keyframes war-front { 50% { opacity: 0.6; } }
+@keyframes war-hit { 50% { opacity: 0.45; } }
+
+/* Under the map: the fronts in one line, then the events running now */
+.war-legend { list-style: none; margin: 0.2rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 0.3rem; }
+.war-legend li, .war-event { display: flex; align-items: center; gap: 0.35rem; }
+.war-legend i, .war-event i { width: 0.5rem; height: 0.5rem; flex: none; background: var(--ec); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.war-legend span { font-size: 0.58rem; letter-spacing: 0.06em; }
+.war-legend b { font-size: 0.72rem; }
+.war-legend li.defeated { opacity: 0.55; }
+.war-event { margin-top: 0.55rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.war-event span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.68rem; letter-spacing: 0.1em; }
+.war-event b { color: var(--ec); font-size: 0.72rem; font-weight: 600; }
+.war-event i { animation: war-hit 1.2s ease-in-out infinite; }
+.war footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.55rem; }
+.war button.war-more { padding: 0; gap: 0.3rem; align-items: center; color: #b9b8b2; font-size: 0.7rem; }
 .war button.war-more:hover { color: #f2f1ed; }
-.war-more svg { width: 0.65rem; height: 0.65rem; }
+.war-more svg { width: 0.62rem; height: 0.62rem; }
+:root[data-motion="off"] .war-map *, :root[data-motion="off"] .war-event i { animation: none !important; }
 
 /* Wiki: the guides on the left, the page in the middle, the headings of the page on the right */
 .wiki { height: 100%; display: grid; grid-template-columns: var(--wiki-w, 16rem) 0.6rem minmax(0, 1fr); background: linear-gradient(160deg, var(--p1), var(--p2)); }
@@ -525,7 +556,7 @@ button.thumb:hover { border-color: var(--gold); }
 .wiki-faq { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.55rem 0.9rem; background: none; border: 0; border-left: 3px solid transparent; text-align: left; cursor: pointer; color: var(--tx); }
 .wiki-faq:hover { background: var(--row); }
 .wiki-faq.active { background: color-mix(in srgb, var(--gold) 12%, transparent); border-left-color: var(--gold); }
-.wiki-faq-mark { flex: none; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; background: var(--gold); color: #1b1b1b; font-weight: 800; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.wiki-faq-mark { flex: none; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; background: var(--gold); color: #1b1b1b; font-weight: 800; clip-path: polygon(16% 0, 84% 0, 100% 50%, 84% 100%, 16% 100%, 0 50%); }
 .wiki-group { padding-top: 0.7rem; }
 .wiki-group h2 { margin: 0; padding: 0.25rem 0.9rem 0.3rem; font-size: 0.72rem; color: var(--goldtx); }
 .wiki-link { display: block; width: 100%; padding: 0.32rem 0.9rem 0.32rem 1.3rem; background: none; border: 0; border-left: 3px solid transparent; text-align: left; font-size: 0.9rem; color: var(--mu); cursor: pointer; }
@@ -601,3 +632,14 @@ button.thumb:hover { border-color: var(--gold); }
 .color-ctl:hover { border-color: var(--gold); }
 .color-ctl::-webkit-color-swatch-wrapper { padding: 0; }
 .color-ctl::-webkit-color-swatch { border: 0; }
+
+/* Folded corners, as in the concept: square panels lose the top left and bottom right corners,
+   buttons and fields the bottom right one. Elements with something drawn in a corner keep theirs. */
+:root { --cut: 0.5rem; --cut-sm: 0.32rem; }
+.list, .drawer, .set-section, .modal, .ctx, .select-list, .notice, .war, .profile, .wiki-step, .tip, .batch {
+  -webkit-mask: linear-gradient(135deg, transparent var(--cut), #000 calc(var(--cut) + 0.5px)), linear-gradient(315deg, transparent var(--cut), #000 calc(var(--cut) + 0.5px));
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+.btn:not(.actions .btn), .search, .select-btn, .key-btn, .wiki-find {
+  -webkit-mask: linear-gradient(315deg, transparent var(--cut-sm), #000 calc(var(--cut-sm) + 0.5px));
+}

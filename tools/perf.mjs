@@ -94,13 +94,14 @@ async function measure(done, act) {
 
 const invoke = (cmd, args = {}) => js(`window.__TAURI_INTERNALS__.invoke(${JSON.stringify(cmd)}, ${JSON.stringify(args)})`);
 const tab = (i) => `.tabs .tab:nth-child(${i})`;
+const SETTINGS = 4;
 // The nth mod row that can move (not in a locked folder).
 const rowSel = (n) => js(`[...document.querySelectorAll(".tbody .tr[data-key]:not(.fr):not(.pinned)")][${n}]?.dataset.key ?? null`);
 
 const SCENARIOS = {
-  "tab: to Settings": () => measure(`!!document.querySelector(".settings")`, () => click(tab(3))),
+  "tab: to Settings": () => measure(`!!document.querySelector(".settings")`, () => click(tab(SETTINGS))),
   "tab: to Mods": async () => {
-    await click(tab(3));
+    await click(tab(SETTINGS));
     await sleep(150);
     return measure(`!!document.querySelector(".mods .tbody")`, () => click(tab(2)));
   },

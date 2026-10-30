@@ -30,14 +30,14 @@ describe("readWar", () => {
 
   it("finds the region being fought over on an active front", () => {
     const [bugs, cyborgs] = readWar(ANSWER).fronts;
-    expect(bugs).toMatchObject({ status: "active", region: "Wise Region", capital: "New New York" });
+    expect(bugs).toMatchObject({ status: "active", index: 0, region: "Wise Region", capital: "New New York" });
     expect(bugs.pct).toBeCloseTo(1063 / 31929);
-    expect(cyborgs).toMatchObject({ status: "defeated", region: null, pct: 1 });
+    expect(cyborgs).toMatchObject({ status: "defeated", index: 11, region: null, pct: 1 });
   });
 
   it("lists only the events running now; a defend of region 0 is Super Earth, an attack the homeworld", () => {
     const events = readWar(ANSWER).events;
-    expect(events.map((e) => [e.kind, e.place])).toEqual([["defend", "Super Earth"], ["attack", "Squ'bai Shrine"]]);
+    expect(events.map((e) => [e.kind, e.region, e.place])).toEqual([["defend", 0, "Super Earth"], ["attack", 11, "Squ'bai Shrine"]]);
     expect(events[1].pct).toBe(0.25);
   });
 
