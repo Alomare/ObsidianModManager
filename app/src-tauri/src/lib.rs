@@ -2,6 +2,7 @@
 
 mod app_settings;
 mod commands;
+pub mod perf_library;
 mod snapshot;
 
 use std::sync::Mutex;
@@ -26,7 +27,9 @@ fn watch_game(app: tauri::AppHandle) {
 }
 
 pub fn run() {
-    let ctx = commands::Ctx { data: obsidian_core::paths::data_dir(None), gate: Mutex::new(Default::default()), work: Mutex::new(()) };
+    // OBSIDIAN_DATA_DIR points the app at another data folder, for the performance suite.
+    let data = obsidian_core::paths::data_dir(std::env::var_os("OBSIDIAN_DATA_DIR").map(std::path::PathBuf::from).as_deref());
+    let ctx = commands::Ctx { data, gate: Mutex::new(Default::default()), work: Mutex::new(()) };
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch brings the open window forward instead.

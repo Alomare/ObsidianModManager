@@ -25,8 +25,8 @@ export function HomePage() {
         </div>
         <div className="home-links">
           <button className="btn play" onClick={go(LINKS.nexus)}><SearchIcon />{t("app.home.nexus")}</button>
-          <button className="btn" onClick={go(LINKS.discord)}><DiscordIcon />{t("app.home.discord")}</button>
-          <button className="btn" onClick={go(LINKS.kofi)}><KofiIcon />Ko-fi</button>
+          <button className="btn discord" onClick={go(LINKS.discord)}><DiscordIcon />{t("app.home.discord")}</button>
+          <button className="btn" onClick={go(LINKS.kofi)}><KofiIcon />{t("app.home.sponsor")}</button>
         </div>
       </div>
     </div>

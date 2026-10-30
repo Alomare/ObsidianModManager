@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use obsidian_core::compose::compose;
-use obsidian_core::deploy::{ChangesWaiting, changes_waiting, crash_culprit};
+use obsidian_core::compose::plan;
+use obsidian_core::deploy::{ChangesWaiting, changes_waiting_for, crash_culprit};
 use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
 use obsidian_core::hash::{display_name, display_text};
@@ -221,7 +221,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
     profile.sync(&lib)?;
     profile.save(data)?;
     let manifests: BTreeMap<String, Manifest> = lib.list()?.into_iter().map(|m| (m.id.clone(), m)).collect();
-    let comp = compose(&lib, &profile)?;
+    let comp = plan(&lib, &profile)?;
 
     let conflicts: Vec<ConflictRow> = comp
         .conflicts
@@ -244,6 +244,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         }
     }
 
+    let mod_images = images::all_custom(data, Owner::Mod);
     let mut mods = Vec::new();
     for e in &profile.mods {
         let Some(m) = manifests.get(&e.id) else { continue };
@@ -273,8 +274,8 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             files: m.resources.iter().map(|r| resource_label(r.bundle.as_deref().unwrap_or_default(), &display_text(&r.name_text))).collect(),
             import: lib.import_info(&m.id),
             source: m.extra.get("source").and_then(Value::as_str).map(str::to_string),
-            image: image_ref(images::for_mod(data, &lib, m)),
-            custom_image: images::custom(data, Owner::Mod, &m.id).is_some(),
+            image: image_ref(mod_images.get(&m.id).cloned().or_else(|| images::from_manifest(&lib, m))),
+            custom_image: mod_images.contains_key(&m.id),
         });
     }
 
@@ -303,7 +304,7 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         profiles: profiles::list(data)?,
         consent: profile.consent,
         conflicts,
-        changes: changes_waiting(&lib, &profile, data).unwrap_or(ChangesWaiting::Waiting),
+        changes: changes_waiting_for(&comp, &profile, data).unwrap_or(ChangesWaiting::Waiting),
         game,
         game_dir: game_install.map(|g| tidy(&g.root)),
         crash_culprit,
@@ -360,5 +361,34 @@ mod tests {
         let order: Vec<&str> = s.mods.iter().map(|m| m.id.as_str()).filter(|id| *id != "obsidian.qol").collect();
         assert_eq!(order, ["legacy.two", "a.one"]);
         assert_eq!((s.game, s.profile.as_str(), s.changes), (GameState::NotFound, "Default", ChangesWaiting::Waiting));
+    }
+
+    /// The snapshot runs after every action, so its time is the delay of every click.
+    /// `cargo test --release -p obsidian-app -- --ignored --nocapture`
+    #[test]
+    #[ignore = "performance; run with --release -- --ignored"]
+    fn perf_snapshot_with_200_mods() {
+        let t = tempfile::tempdir().unwrap();
+        let data = t.path().join("data");
+        crate::perf_library::build(&data, 200).unwrap();
+        let settings = AppSettings { game_dir: Some(t.path().join("no game here")), ..Default::default() };
+        let mut times: Vec<f64> = (0..9)
+            .map(|_| {
+                let t0 = std::time::Instant::now();
+                let s = snapshot(&data, &settings, &mut GateCache::default()).unwrap();
+                assert_eq!(s.mods.len(), 201);
+                assert!(s.conflicts.len() >= 199 * 4, "neighbours share files");
+                t0.elapsed().as_secs_f64() * 1000.0
+            })
+            .collect();
+        times.sort_by(f64::total_cmp);
+        let median = times[times.len() / 2];
+        println!("snapshot, 200 mods: median {median:.1} ms, slowest {:.1} ms", times[times.len() - 1]);
+        // 200 mods is far more than people run; 100 ms here keeps a usual library near 10 ms, and
+        // a PC four times slower under half a second at this size. The first call can take seconds
+        // while Windows scans the new files; a real library pays that once, at import.
+        if !cfg!(debug_assertions) {
+            assert!(median < 100.0, "snapshot median {median:.1} ms is over the 100 ms budget");
+        }
     }
 }

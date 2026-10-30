@@ -60,7 +60,7 @@ pub fn entry_name(id: &str) -> String {
 }
 
 fn lua_resource(name: &str, bytecode: &[u8]) -> Planned {
-    Planned { type_hash: hash_name("lua"), name_hash: hash_name(name), flags: 0, data: wrap_resource(bytecode), owner: "obsidian".into() }
+    Planned::new(hash_name("lua"), hash_name(name), 0, wrap_resource(bytecode), "obsidian".into())
 }
 
 /// An entry file is bytecode when the file starts with the LuaJIT header or the resource envelope,

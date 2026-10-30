@@ -229,7 +229,38 @@ impl Manifest {
     }
 }
 
+/// When a manifest last changed and its size: a cached parse stays good while this is the same.
+/// Checking a manifest reads no other file, so the manifest alone decides.
+type Stamp = (std::time::SystemTime, u64);
+
+fn stamp(mod_dir: &Path) -> Option<Stamp> {
+    let f = std::fs::metadata(mod_dir.join(FILE)).ok()?;
+    Some((f.modified().ok()?, f.len()))
+}
+
+/// Parsed manifests by mod folder. Every action lists the library, and parsing and checking
+/// hundreds of manifests each time took most of the time an action waits.
+fn cache() -> &'static std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, (Stamp, Manifest)>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, (Stamp, Manifest)>>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(Default::default)
+}
+
 pub fn load_manifest(mod_dir: &Path) -> Result<Manifest> {
+    let stamp = stamp(mod_dir);
+    if let Some(s) = stamp
+        && let Some((cached, m)) = cache().lock().unwrap().get(mod_dir)
+        && *cached == s
+    {
+        return Ok(m.clone());
+    }
+    let m = read_manifest(mod_dir)?;
+    if let Some(s) = stamp {
+        cache().lock().unwrap().insert(mod_dir.to_path_buf(), (s, m.clone()));
+    }
+    Ok(m)
+}
+
+fn read_manifest(mod_dir: &Path) -> Result<Manifest> {
     let text = std::fs::read_to_string(mod_dir.join(FILE))?;
     let mut v: Value = serde_json::from_str(&text).map_err(|e| bad(FILE, e.to_string()))?;
     let raw = v.as_object_mut().ok_or_else(|| bad(FILE, "must be a JSON object"))?.remove("resources");
@@ -248,7 +279,14 @@ pub fn load_manifest(mod_dir: &Path) -> Result<Manifest> {
     Ok(m)
 }
 
+/// Drops the cached parse of a mod folder's manifest. The library calls it whenever it writes
+/// or removes one: the clock can give two writes in quick succession the same time.
+pub fn forget(mod_dir: &Path) {
+    cache().lock().unwrap().remove(mod_dir);
+}
+
 pub fn write_manifest(mod_dir: &Path, m: &Manifest) -> Result<()> {
+    forget(mod_dir);
     std::fs::write(mod_dir.join(FILE), serde_json::to_string_pretty(m)? + "\n")?;
     Ok(())
 }

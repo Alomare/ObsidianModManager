@@ -105,6 +105,7 @@ impl Library {
             std::fs::remove_dir_all(&target)?;
         }
         std::fs::rename(&tmp, &target)?;
+        crate::manifest::forget(&target);
         Ok(outcome)
     }
     pub fn import_info(&self, id: &str) -> Option<ImportInfo> {
@@ -118,16 +119,23 @@ impl Library {
         if m.is_bundled() {
             return Err(ObsidianError::BundledMod(id.to_string()));
         }
+        crate::manifest::forget(&dir);
         std::fs::remove_dir_all(dir)?;
         Ok(())
     }
     pub fn list(&self) -> Result<Vec<Manifest>> {
         let mut out = Vec::new();
         for e in std::fs::read_dir(&self.root)? {
-            let p = e?.path();
+            let e = e?;
+            let p = e.path();
             let tmp = p.extension().is_some_and(|x| x == "obsidian-tmp");
-            if !tmp && p.is_dir() && p.join(crate::manifest::FILE).is_file() {
-                out.push(load_manifest(&p)?);
+            if tmp || !e.file_type()?.is_dir() {
+                continue;
+            }
+            match load_manifest(&p) {
+                // A folder without a manifest is not a mod.
+                Err(crate::ObsidianError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
+                m => out.push(m?),
             }
         }
         out.sort_by(|a, b| a.id.cmp(&b.id));

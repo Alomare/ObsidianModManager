@@ -134,7 +134,7 @@ pub fn fingerprint(comp: &Composition, profile: &Profile, loader_dir: &Path) -> 
         for p in planned {
             h.update(format!("{bundle} {:016x} {:016x} {} {}
 ", p.type_hash, p.name_hash, p.flags, p.owner).as_bytes());
-            h.update(Sha256::digest(&p.data));
+            h.update(p.digest);
         }
     }
     if loader::needed(comp, profile) {
@@ -149,12 +149,18 @@ pub fn changes_waiting(lib: &Library, profile: &Profile, data_dir: &Path) -> Res
     let mut profile = profile.clone();
     profile.sync(lib)?;
     let comp = compose(lib, &profile)?;
+    changes_waiting_for(&comp, &profile, data_dir)
+}
+
+/// `changes_waiting` for a composition already made from `profile`, synced with the library.
+pub fn changes_waiting_for(comp: &Composition, profile: &Profile, data_dir: &Path) -> Result<ChangesWaiting> {
+    let (comp, profile) = (comp, profile);
     let state = load_state(data_dir)?;
     let deployed_nothing = state.as_ref().is_none_or(|s| s.files.is_empty());
-    if comp.bundles.is_empty() && !loader::needed(&comp, &profile) {
+    if comp.bundles.is_empty() && !loader::needed(comp, profile) {
         return Ok(if deployed_nothing { ChangesWaiting::Vanilla } else { ChangesWaiting::Waiting });
     }
-    let now = fingerprint(&comp, &profile, &loader::find_loader_dir()?)?;
+    let now = fingerprint(comp, profile, &loader::find_loader_dir()?)?;
     Ok(match state.and_then(|s| s.fingerprint) {
         Some(f) if f == now => ChangesWaiting::UpToDate,
         _ => ChangesWaiting::Waiting,

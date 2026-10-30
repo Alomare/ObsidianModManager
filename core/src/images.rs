@@ -34,15 +34,31 @@ pub fn custom(data: &Path, owner: Owner, key: &str) -> Option<PathBuf> {
     TYPES.iter().map(|ext| dir(data, owner).join(format!("{key}.{ext}"))).find(|p| p.is_file())
 }
 
-/// The image a mod shows: the player's, else the one its manifest names, if that file is an image
-/// inside the mod folder.
+/// Every player image of one kind, by mod id or profile name, from one folder listing.
+pub fn all_custom(data: &Path, owner: Owner) -> std::collections::HashMap<String, PathBuf> {
+    let mut out = std::collections::HashMap::new();
+    for e in std::fs::read_dir(dir(data, owner)).into_iter().flatten().flatten() {
+        let p = e.path();
+        if allowed(&p)
+            && let Some(key) = p.file_stem().and_then(|s| s.to_str())
+        {
+            out.insert(key.to_string(), p);
+        }
+    }
+    out
+}
+
+/// The image a mod's manifest names, if that file is an image inside the mod folder.
+pub fn from_manifest(lib: &Library, m: &Manifest) -> Option<PathBuf> {
+    let name = m.extra.get("image")?.as_str()?;
+    let root = std::fs::canonicalize(lib.mod_dir(&m.id)).ok()?;
+    let p = std::fs::canonicalize(root.join(name)).ok()?;
+    (p.starts_with(&root) && p.is_file() && allowed(&p)).then_some(p)
+}
+
+/// The image a mod shows: the player's, else the one its manifest names.
 pub fn for_mod(data: &Path, lib: &Library, m: &Manifest) -> Option<PathBuf> {
-    custom(data, Owner::Mod, &m.id).or_else(|| {
-        let name = m.extra.get("image")?.as_str()?;
-        let root = std::fs::canonicalize(lib.mod_dir(&m.id)).ok()?;
-        let p = std::fs::canonicalize(root.join(name)).ok()?;
-        (p.starts_with(&root) && p.is_file() && allowed(&p)).then_some(p)
-    })
+    custom(data, Owner::Mod, &m.id).or_else(|| from_manifest(lib, m))
 }
 
 /// Sets the player's image from `from` (a copy is kept), or removes it with `None`.

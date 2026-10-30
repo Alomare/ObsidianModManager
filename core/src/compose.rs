@@ -18,8 +18,30 @@ pub struct Planned {
     pub type_hash: u64,
     pub name_hash: u64,
     pub flags: u32,
+    /// Empty in a composition from `plan`, which keeps only the digest.
     pub data: Vec<u8>,
+    /// SHA-256 of the data the game gets.
+    pub digest: [u8; 32],
     pub owner: String,
+}
+
+impl Planned {
+    pub fn new(type_hash: u64, name_hash: u64, flags: u32, data: Vec<u8>, owner: String) -> Planned {
+        let digest = sha256(&data);
+        Planned { type_hash, name_hash, flags, data, digest, owner }
+    }
+}
+
+fn sha256(data: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(data).into()
+}
+
+/// Digests of resource files by path, kept while the file is unchanged, so `plan` reads (and
+/// compiles) a file only once.
+fn digests() -> &'static std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(Default::default)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,7 +69,38 @@ pub struct Composition {
     pub mods: Vec<ComposedMod>,
 }
 
+/// Everything the game would get, with the data, for a deploy.
 pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
+    compose_with(lib, profile, true)
+}
+
+/// `compose` without the data: the conflicts and a digest per resource, enough to tell whether a
+/// deploy is waiting. Unchanged files are not read again, which keeps the window quick with a
+/// large library.
+pub fn plan(lib: &Library, profile: &Profile) -> Result<Composition> {
+    compose_with(lib, profile, false)
+}
+
+/// When each file under a folder last changed and its size, from the folder listings: on Windows
+/// a listing carries both, where asking file by file costs a call each.
+fn file_stamps(dir: &std::path::Path) -> std::collections::HashMap<PathBuf, (std::time::SystemTime, u64)> {
+    let mut out = std::collections::HashMap::new();
+    let mut todo = vec![dir.to_path_buf()];
+    while let Some(d) = todo.pop() {
+        let Ok(entries) = std::fs::read_dir(&d) else { continue };
+        for e in entries.flatten() {
+            let Ok(meta) = e.metadata() else { continue };
+            if meta.is_dir() {
+                todo.push(e.path());
+            } else if let Ok(t) = meta.modified() {
+                out.insert(e.path(), (t, meta.len()));
+            }
+        }
+    }
+    out
+}
+
+fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Composition> {
     // (bundle, type, name) -> (winning resource, earlier owners it replaced)
     let mut slots: BTreeMap<(String, u64, u64), (Planned, Vec<String>)> = BTreeMap::new();
     let mut mods = Vec::new();
@@ -63,21 +116,45 @@ pub fn compose(lib: &Library, profile: &Profile) -> Result<Composition> {
             return Err(ObsidianError::ReservedResource { mod_id: m.id.clone(), name: crate::loader::ENTRY.into() });
         }
         let chosen: Vec<_> = m.resources.iter().filter(|r| when_matches(&r.when, &values)).collect();
+        let stamps = if with_data { Default::default() } else { file_stamps(&dir) };
         for r in &chosen {
             let bundle = r.bundle.clone().ok_or_else(|| ObsidianError::BundleRequired { mod_id: m.id.clone() })?;
-            let bytes = std::fs::read(dir.join(r.data_path()))?;
-            let data = match &r.payload {
-                Payload::Data(_) => bytes,
-                Payload::Bytecode(_) => {
-                    check_bytecode(&bytes)?;
-                    wrap_resource(&bytes)
-                }
-                Payload::Source(p) => {
-                    let chunk = format!("{}/{}", m.id, p.to_string_lossy().replace('\\', "/"));
-                    wrap_resource(&compile(&bytes, &chunk)?)
-                }
+            let path = dir.join(r.data_path());
+            let game_data = || -> Result<Vec<u8>> {
+                let bytes = std::fs::read(&path)?;
+                Ok(match &r.payload {
+                    Payload::Data(_) => bytes,
+                    Payload::Bytecode(_) => {
+                        check_bytecode(&bytes)?;
+                        wrap_resource(&bytes)
+                    }
+                    Payload::Source(p) => {
+                        let chunk = format!("{}/{}", m.id, p.to_string_lossy().replace('\\', "/"));
+                        wrap_resource(&compile(&bytes, &chunk)?)
+                    }
+                })
             };
-            let planned = Planned { type_hash: r.type_hash, name_hash: r.name_hash, flags: r.flags, data, owner: m.id.clone() };
+            let planned = if with_data {
+                Planned::new(r.type_hash, r.name_hash, r.flags, game_data()?, m.id.clone())
+            } else {
+                let stamp = match stamps.get(&path) {
+                    Some(s) => *s,
+                    None => {
+                        let meta = std::fs::metadata(&path)?;
+                        (meta.modified()?, meta.len())
+                    }
+                };
+                let cached = digests().lock().unwrap().get(&path).filter(|(s, _)| *s == stamp).map(|(_, d)| *d);
+                let digest = match cached {
+                    Some(d) => d,
+                    None => {
+                        let d = sha256(&game_data()?);
+                        digests().lock().unwrap().insert(path.clone(), (stamp, d));
+                        d
+                    }
+                };
+                Planned { type_hash: r.type_hash, name_hash: r.name_hash, flags: r.flags, data: Vec::new(), digest, owner: m.id.clone() }
+            };
             let key = (bundle, r.type_hash, r.name_hash);
             let losers = match slots.remove(&key) {
                 Some((old, mut losers)) => {
