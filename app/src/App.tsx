@@ -5,7 +5,7 @@ import { loadSnapshot, refresh, useSnapshot } from "./api";
 import { useLocked } from "./busy";
 import { Confirm } from "./Confirm";
 import { t } from "./i18n";
-import { listenForDrops } from "./mods/dropImport";
+import { listenForDrops, type DropState } from "./mods/dropImport";
 import { HomePage } from "./HomePage";
 import { ModsPage } from "./mods/ModsPage";
 import { NavBar, type Tab } from "./NavBar";
@@ -21,7 +21,7 @@ export default function App() {
   const settings = useAppSettings();
   const busy = useLocked();
   const [tab, setTab] = useState<Tab>("mods");
-  const [dropping, setDropping] = useState(false);
+  const [dropping, setDropping] = useState<DropState>(null);
   const [askPurge, setAskPurge] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("system");
   const [askUpdate, setAskUpdate] = useState(false);
@@ -38,7 +38,8 @@ export default function App() {
     // The browser menu (Back, Reload, Inspect) has no place in the app; text fields keep theirs.
     const menu = (e: MouseEvent) => !(e.target as Element).closest?.("input, textarea") && e.preventDefault();
     document.addEventListener("contextmenu", menu);
-    const stopDrops = listenForDrops(setDropping);
+    // Files dragged in bring the Mods tab forward, since only the mod list takes them.
+    const stopDrops = listenForDrops(() => document.querySelector(".mods .list"), () => setTab("mods"), setDropping);
     // The Rust side says when the game starts or stops; the snapshot then locks or frees the buttons.
     const game = listen("game-state", () => refresh());
     return () => {
@@ -59,7 +60,12 @@ export default function App() {
         {snap && tab === "settings" && <div className="view" key="settings"><SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} /></div>}
       </main>
       <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />
-      {dropping && <div className="dropzone cap">{t("app.mods.dropHere")}</div>}
+      {dropping && (
+        <div className={dropping.inside ? "dropzone cap over" : "dropzone cap"}
+          style={{ left: dropping.rect.left, top: dropping.rect.top, width: dropping.rect.width, height: dropping.rect.height }}>
+          {t("app.mods.dropHere")}
+        </div>
+      )}
       {askPurge && (
         <Confirm title={t("app.purge.title")} text={t("app.purge.text")} confirm={t("app.action.purge")}
           onCancel={() => setAskPurge(false)} onConfirm={() => { setAskPurge(false); purge(); }} />

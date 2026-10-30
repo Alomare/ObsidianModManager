@@ -36,7 +36,7 @@ type Props = {
 
 type Drag = { key: string; folder: string | null; ids: string[]; x0: number; y0: number; moved: boolean; gap: number; onto: string | null; fixed: boolean };
 type Shown = { key: string; el: HTMLElement; line: Line };
-type Marker = { y: number; indent: boolean; onto: string | null; x: number; py: number; label: string };
+type Marker = { y: number; color: string | null; onto: string | null; x: number; py: number; label: string };
 const THRESHOLD_PX = 5;
 const EDGE_PX = 36;
 
@@ -207,11 +207,13 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
     const at = shown[d.gap];
     const last = shown.at(-1);
     const y = at ? at.el.offsetTop : last ? last.el.offsetTop + last.el.offsetHeight : 0;
-    const indent = !d.folder && !d.onto && dropSpot(tree, shown.map((s) => s.line), d.gap, null, d.ids).folder !== null;
+    // A line that lands the mods in a folder takes the colour of that folder.
+    const into = d.folder || d.onto ? null : dropSpot(tree, shown.map((s) => s.line), d.gap, null, d.ids).folder;
+    const color = into ? (folders.get(into) as (Node & { kind: "folder" }) | undefined)?.folder.color ?? null : null;
     const label = d.folder
       ? (tree.find((n) => n.kind === "folder" && n.folder.id === d.folder) as Node & { kind: "folder" }).folder.name
       : d.ids.length === 1 ? names.get(d.ids[0]) ?? d.ids[0] : t("app.mods.nMods", d.ids.length);
-    setMarker({ y, indent, onto: d.onto, x: e.clientX, py: e.clientY, label });
+    setMarker({ y, color, onto: d.onto, x: e.clientX, py: e.clientY, label });
   };
   const up = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
@@ -332,7 +334,7 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
               lifted={draggingKeys.has(m.id)} leaving={leaving !== null && line.folder === leaving} tips={conflict?.tips ?? null} lose={conflict?.lose ?? false} h={h} lang={language()} />
           );
         })}
-        {marker && !marker.onto && <div className={marker.indent ? "drop-line in" : "drop-line"} style={{ top: marker.y }} aria-hidden="true" />}
+        {marker && !marker.onto && <div className="drop-line" style={{ top: marker.y, ...(marker.color ? { ["--lc" as string]: marker.color } : {}) }} aria-hidden="true" />}
       </div>
       {marker && <div className="drag-ghost" style={{ left: marker.x + 14, top: marker.py + 10 }} aria-hidden="true">{marker.label}</div>}
     </div>

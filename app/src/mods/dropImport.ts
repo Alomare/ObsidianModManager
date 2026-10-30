@@ -33,16 +33,30 @@ export async function pickAndImport(folder: boolean) {
   if (picked) await importPaths(Array.isArray(picked) ? picked : [picked]);
 }
 
-/** Calls `onHover` while files are dragged over the window, and imports them on drop. */
-export function listenForDrops(onHover: (over: boolean) => void): () => void {
+/** Where the drop zone sits while files are dragged over the window, and whether the pointer is in it. */
+export type DropState = { rect: DOMRect; inside: boolean } | null;
+
+/**
+ * Calls `onState` while files are dragged over the window, and imports them when they are dropped
+ * on the element `zone` returns (the mod list). Drops anywhere else are ignored.
+ */
+export function listenForDrops(zone: () => Element | null, onEnter: () => void, onState: (s: DropState) => void): () => void {
   let stop: (() => void) | null = null;
   let gone = false;
+  const at = (x: number, y: number) => {
+    const rect = zone()?.getBoundingClientRect();
+    if (!rect || !rect.width) return null;
+    // Tauri reports the pointer in physical pixels.
+    const px = x / devicePixelRatio, py = y / devicePixelRatio;
+    return { rect, inside: px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom };
+  };
   getCurrentWebview()
     .onDragDropEvent((e) => {
       const p = e.payload;
-      if (p.type === "enter" || p.type === "over") onHover(true);
-      else onHover(false);
-      if (p.type === "drop") importPaths(p.paths);
+      if (p.type === "enter") onEnter();
+      if (p.type === "enter" || p.type === "over") return onState(at(p.position.x, p.position.y));
+      onState(null);
+      if (p.type === "drop" && at(p.position.x, p.position.y)?.inside) importPaths(p.paths);
     })
     .then((f) => (gone ? f() : (stop = f)));
   return () => {
