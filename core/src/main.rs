@@ -13,8 +13,7 @@ use obsidian_core::import::import_path;
 use obsidian_core::library::{InstallOutcome, Library, Profile};
 use obsidian_core::manifest::Scope;
 use obsidian_core::paths::data_dir;
-use obsidian_core::loader::{find_bundled_dir, settings_for};
-use obsidian_core::options::{parse_keybinds, validate};
+use obsidian_core::loader::find_bundled_dir;
 use obsidian_core::profiles;
 use obsidian_core::{ObsidianError, Result};
 
@@ -238,19 +237,14 @@ fn run(cli: Cli) -> Result<()> {
             live_change(&profile, &data, &lib, &game()?, &format!("Session mods from other Obsidian users are now {}", if profile.consent { "allowed" } else { "not allowed" }))?;
         }
         Command::Set { id, option, value } => {
-            let m = lib.list()?.into_iter().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;
-            let specs = m.option_specs()?;
-            let spec = specs.iter().find(|s| s.id == option).ok_or_else(|| ObsidianError::UnknownOption { mod_id: id.clone(), option: option.clone() })?;
             // 7, true and "night" all work; anything that isn't JSON is taken as text.
             let parsed = serde_json::from_str(&value).unwrap_or(serde_json::Value::String(value.clone()));
-            let v = validate(spec, &parsed)?;
-            profile.options.entry(id.clone()).or_default().insert(option.clone(), v.clone());
-            let redeploy = m.resources.iter().any(|r| r.when.contains_key(&option)) || (m.scope == Scope::Session && !spec.client) || m.entry.is_none();
-            if redeploy {
-                profile.save(&data)?;
-                println!("{id} {option} is now {v}. Run obsidian deploy to apply.");
-            } else {
-                live_change(&profile, &data, &lib, &game()?, &format!("{id} {option} is now {v}"))?;
+            match obsidian_core::edit::set_option(&lib, &mut profile, &id, &option, Some(&parsed))? {
+                obsidian_core::edit::Applies::AfterDeploy => {
+                    profile.save(&data)?;
+                    println!("{id} {option} is now {parsed}. Run obsidian deploy to apply.");
+                }
+                obsidian_core::edit::Applies::NextLaunch => live_change(&profile, &data, &lib, &game()?, &format!("{id} {option} is now {parsed}"))?,
             }
         }
         Command::Remove { id } => {
@@ -259,11 +253,7 @@ fn run(cli: Cli) -> Result<()> {
             live_change(&profile, &data, &lib, &game()?, &format!("Removed {id}"))?;
         }
         Command::Key { id, keybind, key } => {
-            let m = lib.list()?.into_iter().find(|m| m.id == id).ok_or_else(|| ObsidianError::ModMissing(id.clone()))?;
-            if !parse_keybinds(&m.keybinds)?.iter().any(|k| k.id == keybind) {
-                return Err(ObsidianError::UnknownKeybind { mod_id: id, keybind });
-            }
-            profile.keys.entry(id.clone()).or_default().insert(keybind.clone(), key.clone());
+            obsidian_core::edit::set_key(&lib, &mut profile, &id, &keybind, Some(&key))?;
             live_change(&profile, &data, &lib, &game()?, &format!("{id} {keybind} is now {key}"))?;
         }
         Command::Profile { action } => match action {
@@ -292,7 +282,7 @@ fn run(cli: Cli) -> Result<()> {
 /// needs no redeploy once the loader is in the game.
 fn live_change(profile: &Profile, data: &std::path::Path, lib: &Library, g: &GameInstall, what: &str) -> Result<()> {
     profile.save(data)?;
-    obsidian_core::settings::write(&obsidian_core::settings::game_side_dir(&g.saves_dir), &settings_for(lib, profile)?)?;
+    obsidian_core::edit::write_settings(lib, profile, &g.saves_dir)?;
     // The loader lives in the boot bundle patch, so a deploy that wrote none has no loader in the game.
     let loader_deployed = status(g, data, KNOWN_BUILDS)
         .ok()

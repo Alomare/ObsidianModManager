@@ -41,7 +41,7 @@ fn bad(i: usize, reason: impl Into<String>) -> ObsidianError {
     ObsidianError::BadManifest { field: format!("options[{i}]"), reason: reason.into() }
 }
 
-fn is_key_name(s: &str) -> bool {
+pub fn is_key_name(s: &str) -> bool {
     !s.is_empty() && s.len() <= 32 && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
 }
 

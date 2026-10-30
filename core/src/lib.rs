@@ -4,6 +4,7 @@ pub mod backup;
 pub mod bundle;
 pub mod compose;
 pub mod deploy;
+pub mod edit;
 pub mod error;
 pub mod game;
 pub mod gate;
