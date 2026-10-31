@@ -20,8 +20,10 @@ A maioria dos mods de HD1 que circulam hoje substitui bundles inteiros do jogo, 
 
 Mods antigos entram com o escopo **sessão**, porque o Obsidian não tem como saber o que eles mudam num jogo compartilhado ([Escopos](wiki:scopes)). Eles também não podem ser desligados no meio de uma missão.
 
+Um patch para outro mod não traz esse mod junto. Importe os dois e deixe o patch mais abaixo na lista. Confira para qual versão o patch foi feito: os arquivos que os dois têm em comum vêm do patch, então um patch para uma versão antiga volta esses arquivos para aquela versão.
+
 > [!NOTE]
-> Para comparar os bundles, o jogo precisa estar na versão original que o Obsidian conhece. Use Limpar antes se outra ferramenta mexeu nos arquivos do jogo.
+> Para comparar os bundles, os arquivos do jogo precisam ser os originais, então a importação para se não forem. Se você copiou um mod para a pasta do jogo à mão, verifique os arquivos do jogo na Steam e importe de novo.
 
 ## Atualizar {#updating}
 

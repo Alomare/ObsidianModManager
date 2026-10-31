@@ -36,6 +36,10 @@ Yes. Drop the mod onto the list as usual. Obsidian keeps only the parts that dif
 
 The one lower in the list ([Load order](wiki:load-order)).
 
+### Do I need an ultrawide mod?
+
+No. Obsidian Quality of Life removes the black bars on wide screens, and that option starts on. An imported ultrawide patch does the same job, but it counts as a session mod ([Scopes](wiki:scopes)).
+
 ### What is Obsidian Quality of Life?
 
 A client mod that comes with Obsidian: it skips the intro, the login screen, war briefs and planet scanning, removes the black bars on wide screens, and can speed up or skip the results screens after a mission. Each fix is an option. It starts on with only the widescreen fixes enabled; find it in the Obsidian Kit folder at the top of the list.

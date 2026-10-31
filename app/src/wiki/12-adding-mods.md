@@ -20,8 +20,10 @@ Most HD1 mods shared today replace whole game bundles, with files named like `9e
 
 Older mods are imported with the **session** scope, because Obsidian can't tell what they change in a shared game ([Scopes](wiki:scopes)). They also can't be switched off in the middle of a mission.
 
+A patch for another mod doesn't bring that mod with it. Import both and put the patch lower in the list. Check which version the patch was built for: the files the two share come from the patch, so a patch for an older version takes them back to that version.
+
 > [!NOTE]
-> To compare bundles, the game has to be the vanilla build Obsidian knows. Purge first if another tool has changed the game files.
+> To compare bundles, the game files have to be the original ones, so the import stops if they aren't. If you copied a mod into the game folder by hand, verify the game files in Steam and import it again.
 
 ## Updating
 

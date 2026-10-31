@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::bundle::{self, Entry};
 use crate::game::GameInstall;
+use crate::gate::{KNOWN_BUILDS, KnownBuild, check_build};
 use crate::hash::{format_name, format_type, hash_name};
 use crate::library::{InstallOutcome, Library};
 use crate::manifest::{self, Manifest, Payload, ResourceSpec, Scope, write_manifest};
@@ -23,6 +24,10 @@ pub struct ImportReport {
 }
 
 pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<ImportReport> {
+    import_against(src, game, lib, KNOWN_BUILDS)
+}
+
+fn import_against(src: &Path, game: &GameInstall, lib: &Library, known: &[KnownBuild]) -> Result<ImportReport> {
     let extracted;
     let root: &Path = if src.is_dir() {
         src
@@ -47,6 +52,12 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     let bundles: Vec<&PathBuf> = files.iter().filter(|p| p.file_name().is_some_and(|n| is_bundle_name(&n.to_string_lossy()))).collect();
     if bundles.is_empty() {
         return Err(ObsidianError::NothingToImport(src.display().to_string()));
+    }
+    // With a mod copied over the game's files, only what differs from that mod would be kept, and the
+    // import would look fine until Steam restored the files and left a piece of a mod in the library.
+    let gate = check_build(&game.root, known)?;
+    if !gate.supported() {
+        return Err(ObsidianError::GameFilesChanged(gate));
     }
     let staged = tempfile::tempdir()?;
     let (mut changed, mut added, mut removed_ignored) = (0, 0, 0);
@@ -281,6 +292,9 @@ mod tests {
         assert_eq!(id("ThirdPersonCamera V1.5 Manual 12 1.5 2026-10-29T20-32Z UQhsN6aoF"), "legacy.nexus-12-thirdpersoncamera-manual");
         assert_eq!(id("Saber Unlock 14 2 2026-10-29T23-32Z E9DGIkWtE"), "legacy.nexus-14-saber-unlock");
         assert_eq!(id("Saber-Finish-enemys and xp 14 2 2026-10-29T23-34Z VqAWU7Nfb"), "legacy.nexus-14-saber-finish-enemys-and-xp");
+        assert_eq!(id("ThirdPersonCamera V2.1 Manual 12 2.1 2026-10-31T03-40Z 2wl9CLqaU"), "legacy.nexus-12-thirdpersoncamera-manual");
+        assert_eq!(id("Ultrawide Standalone Patch 15 1 2026-10-30T16-35Z AgGVhMvu6"), "legacy.nexus-15-ultrawide-standalone-patch");
+        assert_eq!(id("Ultrawide Third Person Patch 15 1.1 2026-10-31T02-28Z xNtc1Ee3u"), "legacy.nexus-15-ultrawide-third-person-patch");
     }
 
     #[test]
@@ -294,6 +308,13 @@ mod tests {
     use crate::testutil::spaced_tempdir;
 
     const LUA: u64 = 0xa14e8dfa2cd117e2;
+
+    /// Each test's game counts as a known build of its own, with the files it has right now.
+    fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<ImportReport> {
+        let names: Vec<String> = std::fs::read_dir(game.contents())?.map(|e| format!("contents/{}", e.unwrap().file_name().to_string_lossy())).collect();
+        let names: Vec<&str> = names.iter().map(String::as_str).collect();
+        import_against(src, game, lib, crate::gate::fake_build(&game.root, &names))
+    }
 
     fn e(type_hash: u64, name_hash: u64, flags: u32, data: &[u8]) -> Entry {
         Entry { type_hash, name_hash, flags, variants: vec![Variant { lang: 0, data: data.to_vec(), stream_size: 0 }] }
@@ -410,6 +431,26 @@ mod tests {
     fn mod_identical_to_the_game_is_nothing_to_import() {
         let f = fixture(vec![e(LUA, 1, 0, b"old"), e(LUA, 2, 0, b"keep")]);
         assert!(matches!(import_path(&f.mod_dir, &f.game, &f.lib), Err(ObsidianError::NothingToImport(_))));
+    }
+
+    #[test]
+    fn a_game_changed_by_hand_stops_a_legacy_import() {
+        let f = fixture(standard());
+        let known = crate::gate::fake_build(&f.game.root, &["contents/00000000000000aa"]);
+        // An older version of the mod copied over the game's file, as mod readmes tell players to do.
+        let older = Bundle { props: [9; 256], entries: vec![e(LUA, 1, 0, b"older"), e(LUA, 2, 0, b"keep"), e(hash_name("texture"), 3, 7, b"add")] };
+        bundle::write_file(&f.game.contents().join("00000000000000aa"), &older).unwrap();
+        assert!(matches!(import_against(&f.mod_dir, &f.game, &f.lib, known), Err(ObsidianError::GameFilesChanged(_))));
+        assert!(f.lib.list().unwrap().is_empty(), "no piece of the mod reaches the library");
+    }
+
+    #[test]
+    fn a_changed_game_still_takes_a_mod_made_for_obsidian() {
+        let f = fixture(standard());
+        let known = crate::gate::fake_build(&f.game.root, &["contents/00000000000000aa"]);
+        std::fs::write(f.game.contents().join("00000000000000aa"), b"changed").unwrap();
+        crate::testutil::put(&f.mod_dir.join("kmod"), "obsidian.json", br#"{"obsidian":1,"id":"me.kmod","version":"1.0.0","name":{"en":"K"}}"#);
+        assert_eq!(import_against(&f.mod_dir, &f.game, &f.lib, known).unwrap().id, "me.kmod");
     }
 
     #[test]

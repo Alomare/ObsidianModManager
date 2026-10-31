@@ -53,7 +53,7 @@ fn purge_works_with_a_broken_mod_in_the_library() {
 }
 
 #[test]
-fn legacy_folder_imports_and_lists() {
+fn a_legacy_mod_needs_the_original_game_files() {
     let t = spaced();
     let game = t.path().join("game");
     std::fs::create_dir_all(game.join("contents")).unwrap();
@@ -62,9 +62,10 @@ fn legacy_folder_imports_and_lists() {
     std::fs::create_dir_all(&m).unwrap();
     bundle::write_file(&m.join("00000000000000aa"), &bundle_with(b"new")).unwrap();
     let data = t.path().join("data");
-    obsidian(&game, &data).arg("import").arg(&m).assert().success();
+    let out = obsidian(&game, &data).arg("import").arg(&m).assert().failure().get_output().stderr.clone();
+    assert!(String::from_utf8(out).unwrap().contains("verify the game files in Steam"));
     let out = obsidian(&game, &data).arg("list").assert().success().get_output().stdout.clone();
-    assert!(String::from_utf8(out).unwrap().contains("legacy.my-mod-v2"));
+    assert!(!String::from_utf8(out).unwrap().contains("legacy.my-mod-v2"));
 }
 
 fn settings_path(appdata: &std::path::Path) -> std::path::PathBuf {
@@ -121,10 +122,9 @@ fn removed_mod_leaves_every_profile() {
     let t = spaced();
     let game = t.path().join("game");
     std::fs::create_dir_all(game.join("contents")).unwrap();
-    bundle::write_file(&game.join("contents/00000000000000aa"), &bundle_with(b"old")).unwrap();
     let m = t.path().join("My Mod (v2)");
     std::fs::create_dir_all(&m).unwrap();
-    bundle::write_file(&m.join("00000000000000aa"), &bundle_with(b"new")).unwrap();
+    std::fs::write(m.join("obsidian.json"), br#"{"obsidian":1,"id":"me.my-mod","version":"1.0.0","name":{"en":"My Mod"}}"#).unwrap();
     let (data, appdata) = (t.path().join("data"), t.path().join("appdata"));
     let run = |args: &[&str]| {
         let mut c = obsidian(&game, &data);
@@ -132,9 +132,9 @@ fn removed_mod_leaves_every_profile() {
         c
     };
     run(&["import", m.to_str().unwrap()]).assert().success();
-    run(&["enable", "legacy.my-mod-v2"]).assert().success();
+    run(&["enable", "me.my-mod"]).assert().success();
     run(&["profile", "new", "Other", "--copy", "Default"]).assert().success();
-    run(&["remove", "legacy.my-mod-v2"]).assert().success();
+    run(&["remove", "me.my-mod"]).assert().success();
     for name in ["Default", "Other"] {
         run(&["profile", "use", name]).assert().success();
         let list = String::from_utf8(run(&["list"]).assert().success().get_output().stdout.clone()).unwrap();

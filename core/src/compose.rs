@@ -178,9 +178,11 @@ fn file_stamps(dir: &Path) -> std::collections::HashMap<PathBuf, Stamp> {
     out
 }
 
+/// The resource that wins one (bundle, type, name), and the earlier owners it replaced with the digests of their data.
+type Slot = (Planned, Vec<(String, [u8; 32])>);
+
 fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Composition> {
-    // (bundle, type, name) -> (winning resource, earlier owners it replaced)
-    let mut slots: BTreeMap<(String, u64, u64), (Planned, Vec<String>)> = BTreeMap::new();
+    let mut slots: BTreeMap<(String, u64, u64), Slot> = BTreeMap::new();
     let mut mods = Vec::new();
     let reserved = (hash_name("lua"), hash_name(crate::loader::ENTRY));
     let mut worked_out = false;
@@ -240,14 +242,14 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
                 Planned { type_hash: r.type_hash, name_hash: r.name_hash, flags: r.flags, data: Vec::new(), digest, owner: m.id.clone() }
             };
             let key = (bundle, r.type_hash, r.name_hash);
-            let losers = match slots.remove(&key) {
-                Some((old, mut losers)) => {
-                    losers.push(old.owner);
-                    losers
+            let earlier = match slots.remove(&key) {
+                Some((old, mut earlier)) => {
+                    earlier.push((old.owner, old.digest));
+                    earlier
                 }
                 None => Vec::new(),
             };
-            slots.insert(key, (planned, losers));
+            slots.insert(key, (planned, earlier));
         }
         let resources = chosen.len();
         mods.push(ComposedMod { manifest: m, dir, values, resources });
@@ -264,7 +266,9 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
         save_digests(lib.data_dir());
     }
     let mut out = Composition { mods, ..Default::default() };
-    for ((bundle, type_hash, name_hash), (planned, losers)) in slots {
+    for ((bundle, type_hash, name_hash), (planned, earlier)) in slots {
+        // A mod carrying the same data as the winner loses nothing.
+        let losers: Vec<String> = earlier.into_iter().filter(|(_, digest)| *digest != planned.digest).map(|(owner, _)| owner).collect();
         if !losers.is_empty() {
             out.conflicts.push(Conflict { bundle: bundle.clone(), type_hash, name_hash, winner: planned.owner.clone(), losers });
         }
@@ -311,6 +315,23 @@ mod tests {
         assert_eq!(c.bundles["00000000000000aa"][0].data, b"two");
         assert_eq!(c.conflicts.len(), 1);
         assert_eq!((c.conflicts[0].winner.as_str(), c.conflicts[0].losers.clone()), ("second", vec!["first".to_string()]));
+    }
+
+    #[test]
+    fn the_same_data_in_two_mods_is_no_conflict() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        add_mod(t.path(), &lib, "first", "data", b"same");
+        add_mod(t.path(), &lib, "second", "data", b"same");
+        add_mod(t.path(), &lib, "third", "data", b"other");
+        let both = profile(&[("first", true), ("second", true)]);
+        assert!(compose(&lib, &both).unwrap().conflicts.is_empty());
+        assert!(plan(&lib, &both).unwrap().conflicts.is_empty());
+        let c = compose(&lib, &profile(&[("first", true), ("second", true), ("third", true)])).unwrap();
+        assert_eq!(c.conflicts.len(), 1);
+        assert_eq!(c.conflicts[0].losers, ["first", "second"], "both lose to data that differs");
+        let c = compose(&lib, &profile(&[("third", true), ("first", true), ("second", true)])).unwrap();
+        assert_eq!(c.conflicts[0].losers, ["third"], "the mod that matches the winner stays out of the list");
     }
 
     #[test]
