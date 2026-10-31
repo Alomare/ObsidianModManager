@@ -1,5 +1,6 @@
 // Mod updates from GitHub (design: 2026-10-30-obsidian-mod-updates-design.md). A check runs at startup
-// and when the player asks, and what it finds lasts until the app closes. Nothing installs by itself.
+// and when the player asks, for one mod, a folder or the whole list, and what it finds lasts until the
+// app closes. Nothing installs by itself.
 import { useSyncExternalStore } from "react";
 import { call, errorText, setSnapshot } from "../api";
 import { withTask } from "../busy";
@@ -9,9 +10,10 @@ import type { CmdError, ImportBatch } from "../types";
 import { importMessage } from "./dropImport";
 
 type Checked = { id: string; version: string | null; error: CmdError | null };
-export type ModUpdates = { checking: boolean; found: Record<string, string> };
+/** `checking` holds the mods of the check under way; one runs at a time. */
+export type ModUpdates = { checking: string[]; found: Record<string, string> };
 
-let state: ModUpdates = { checking: false, found: {} };
+let state: ModUpdates = { checking: [], found: {} };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<ModUpdates>) => {
   state = { ...state, ...patch };
@@ -22,32 +24,35 @@ const set = (patch: Partial<ModUpdates>) => {
 export const offered = (found: ModUpdates["found"], mod: { id: string; version: string | null }): string | null =>
   found[mod.id] && found[mod.id] !== mod.version ? found[mod.id] : null;
 
-/** The notice for a finished check. */
-export function checkMessage(count: number): string {
-  if (count === 0) return t("app.modUpdates.none");
+/** The notice for a finished check; `what` names the mod or folder when it wasn't the whole list. */
+export function checkMessage(count: number, what?: string): string {
+  if (count === 0) return what ? t("app.modUpdates.noneFor", what) : t("app.modUpdates.none");
   return count === 1 ? t("app.modUpdates.one") : t("app.modUpdates.many", count);
 }
 
 /** At `startup` it speaks only when it finds something: no update, or no network, is no news. */
-export async function checkModUpdates(names: Map<string, string>, startup = false) {
-  if (state.checking) return;
-  set({ checking: true });
+export async function checkModUpdates(ids: string[], names: Map<string, string>, { what, startup = false }: { what?: string; startup?: boolean } = {}) {
+  if (state.checking.length) return;
+  set({ checking: ids });
   try {
-    const list = await withTask(t("app.task.check_mod_updates"), () => call<Checked[]>("check_mod_updates"));
-    const found = Object.fromEntries(list.flatMap((c) => (c.version ? [[c.id, c.version]] : [])));
-    set({ checking: false, found });
+    const list = await withTask(t("app.task.check_mod_updates"), () => call<Checked[]>("check_mod_updates", { ids }));
+    // What this check didn't ask about keeps its last answer.
+    const found = Object.fromEntries(Object.entries(state.found).filter(([id]) => !ids.includes(id)));
+    for (const c of list) if (c.version) found[c.id] = c.version;
+    const count = list.filter((c) => c.version).length;
+    set({ checking: [], found });
     if (startup) {
-      if (Object.keys(found).length) notify("info", checkMessage(Object.keys(found).length));
+      if (count) notify("info", checkMessage(count));
       return;
     }
     const failed = list.filter((c) => c.error);
-    if (failed.length < list.length) notify("info", checkMessage(Object.keys(found).length));
+    if (failed.length < list.length) notify("info", checkMessage(count, what));
     // The rate limit is one problem, however many mods it stopped.
     const limit = failed.find((c) => c.error?.code === "UpdateLimited");
     if (limit) notify("error", errorText(limit.error));
     for (const c of failed) if (c !== limit && c.error?.code !== "UpdateLimited") notify("error", t("app.modUpdates.failed", names.get(c.id) ?? c.id, errorText(c.error)));
   } catch (e) {
-    set({ checking: false });
+    set({ checking: [] });
     if (!startup) notify("error", errorText(e));
   }
 }

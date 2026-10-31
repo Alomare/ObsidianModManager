@@ -2,9 +2,10 @@
 // line shows where they land, and a folder's name lights up when they would go in at the end of that folder.
 // Dragging a checked mod takes every checked mod. After a move the rows slide to their places.
 // Alt+Up and Alt+Down move the focused mod or folder from the keyboard. A warning icon marks
-// mods in a conflict and opens the conflicts; a right click opens the menu.
+// mods in a conflict and opens the conflicts; a right click opens the menu. The column beside the
+// switches asks GitHub for updates to one mod, a folder or the whole list, as the checkboxes do.
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type MutableRefObject, type PointerEvent } from "react";
-import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, WarnIcon } from "../Icons";
+import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, UpdateIcon, WarnIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Thumb } from "../Thumb";
 import { offered } from "./modUpdates";
@@ -36,6 +37,10 @@ type Props = {
   /** New versions found by the last check, by mod id. */
   updates: Record<string, string>;
   onUpdate: (id: string) => void;
+  /** The mods of the update check under way. */
+  checking: string[];
+  /** `what` names the mod or folder; left out, the whole list. */
+  onCheckUpdates: (ids: string[], what?: string) => void;
 };
 
 type Drag = { key: string; folder: string | null; ids: string[]; x0: number; y0: number; moved: boolean; gap: number; onto: string | null; fixed: boolean };
@@ -57,6 +62,15 @@ function Check({ state, label, onChange }: { state: boolean | "mixed"; label: st
   );
 }
 
+/** Asks GitHub about what its row stands for. The arrows turn while that check runs. */
+function UpdateCheck({ label, spinning, off, onCheck }: { label: string; spinning: boolean; off: boolean; onCheck: () => void }) {
+  return (
+    <button className={spinning ? "bare up-ck spin" : "bare up-ck"} disabled={off} aria-label={label} data-tip-title={label} data-tip={t("app.mods.checkUpdatesHint")} {...stop} onClick={onCheck}>
+      <UpdateIcon />
+    </button>
+  );
+}
+
 /** What a row calls back into; kept in a ref so the rows never see new functions. */
 type Handlers = {
   down: (e: PointerEvent<HTMLDivElement>, line: Line) => void;
@@ -68,17 +82,18 @@ type Handlers = {
   toggle: (id: string, on: boolean) => void;
   conflicts: (id: string) => void;
   update: (id: string) => void;
+  checkUpdates: (ids: string[], what?: string) => void;
 };
 type RowProps = {
   id: string; folder: string | null; color: string | null; name: string; description: string; version: string | null; update: string | null;
   scope: string; on: boolean; imagePath: string | null; imageV: number; num: number; pinned: boolean; selected: boolean; checked: boolean;
-  lifted: boolean; leaving: boolean; tips: string | null; lose: boolean; h: MutableRefObject<Handlers>;
+  lifted: boolean; leaving: boolean; tips: string | null; lose: boolean; updatable: boolean; spinning: boolean; checkOff: boolean; h: MutableRefObject<Handlers>;
   /** The UI language: the row's texts change with it. */
   lang: string;
 };
 
 /** One mod. Every prop is a plain value, so a click elsewhere in a long list leaves this row alone. */
-const ModLine = memo(function ModLine({ id, folder, color, name, description, version, update, scope, on, imagePath, imageV, num, pinned: fixed, selected, checked, lifted, leaving, tips, lose, h }: RowProps) {
+const ModLine = memo(function ModLine({ id, folder, color, name, description, version, update, scope, on, imagePath, imageV, num, pinned: fixed, selected, checked, lifted, leaving, tips, lose, updatable, spinning, checkOff, h }: RowProps) {
   const line: Line = { kind: "mod", id, folder };
   const image: ImageRef | null = useMemo(() => (imagePath ? { path: imagePath, v: imageV } : null), [imagePath, imageV]);
   const cls = ["tr", folder && "in", fixed && "pinned", selected && "sel", checked && "checked", lifted && "lifted", leaving && "leaving"].filter(Boolean).join(" ");
@@ -90,15 +105,14 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
       <span className="num">{num}</span>
       <button role="switch" aria-checked={on} aria-label={name} className={on ? "sw on" : "sw"} data-tip={t(on ? "app.mods.turnOff" : "app.mods.turnOn", name)}
         {...stop} onClick={() => h.current.toggle(id, !on)} />
-      <div className="mod-cell">
+      {updatable ? <UpdateCheck label={t("app.mods.checkOne", name)} spinning={spinning} off={checkOff} onCheck={() => h.current.checkUpdates([id], name)} /> : <span />}
+      <div className="mod-cell" data-tip-title={description ? name : undefined} data-tip={description || undefined}>
         <Thumb image={image} name={name} />
         <div className="who">
           <div className="nm">
             {name}
-            <span className="ver">{version ?? t("app.mods.imported")}</span>
             {update && <button className="tag update-tag" data-tip={t("app.mods.updateHint")} {...stop} onClick={() => h.current.update(id)}>{t("app.mods.updateTo", update)}</button>}
           </div>
-          {description && <div className="sub">{description}</div>}
         </div>
       </div>
       {tips ? (
@@ -107,7 +121,8 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
           <WarnIcon />
         </button>
       ) : <span />}
-      <span className={`scope ${scope}`} data-tip-title={t(`app.scope.${scope}Mod`)} data-tip={t(`app.scope.${scope}Hint`)}><i />{t(`app.scope.${scope}`)}</span>
+      <span className="ver">{version ?? t("app.mods.imported")}</span>
+      <span className={`scope ${scope}`} role="img" aria-label={t(`app.scope.${scope}Mod`)} data-tip-title={t(`app.scope.${scope}Mod`)} data-tip={t(`app.scope.${scope}Hint`)}><i /></span>
     </div>
   );
 });
@@ -115,7 +130,7 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
 /** How long the mods of a closing folder take to fade before the rows below move up. */
 const CLOSE_MS = 140;
 
-export function ModTable({ tree: saved, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu, updates, onUpdate }: Props) {
+export function ModTable({ tree: saved, rows, byId, order, names, conflicts, selected, checked, onCheck, onSelect, onToggle, onConflicts, onArrange, onCollapse, onLock, onMenu, updates, onUpdate, checking, onCheckUpdates }: Props) {
   const body = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const before = useRef<Map<string, number> | null>(null);
@@ -285,9 +300,12 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
     return out;
   }, [conflicts, names]);
   const h = useRef<Handlers>(null!);
-  h.current = { down, move, up, key, menu, check, toggle: (id, on) => onToggle([id], on), conflicts: onConflicts, update: onUpdate };
+  h.current = { down, move, up, key, menu, check, toggle: (id, on) => onToggle([id], on), conflicts: onConflicts, update: onUpdate, checkUpdates: onCheckUpdates };
   const allState = visibleMods.length && visibleMods.every((id) => checked.has(id)) ? true : visibleMods.some((id) => checked.has(id)) ? "mixed" : false;
   const draggingKeys = new Set(drag.current?.moved ? (drag.current.folder ? [drag.current.key] : drag.current.ids) : []);
+  // The whole library, closed folders and all, unlike the checkbox above: a check leaves nothing out.
+  const updatable = order.filter((id) => byId.get(id)?.updatable);
+  const checkingNow = checking.length > 0;
 
   return (
     <div className="table" role="table">
@@ -295,9 +313,11 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
         <Check state={allState} label={t("app.mods.checkAll")} onChange={(on) => onCheck(visibleMods, on)} />
         <span data-tip-title={t("app.mods.orderTitle")} data-tip={tree ? t("app.mods.orderHint") : t("app.mods.reorderOff")}>#</span>
         <span>{t("app.mods.colOn")}</span>
+        {updatable.length ? <UpdateCheck label={t("app.mods.checkUpdates")} spinning={updatable.every((id) => checking.includes(id))} off={checkingNow} onCheck={() => onCheckUpdates(updatable)} /> : <span />}
         <span>{t("app.mods.colMod")}</span>
         <span />
-        <span>{t("app.mods.colScope")}</span>
+        <span>{t("app.mods.colVersion")}</span>
+        <span className="th-scope">{t("app.mods.colScope")}</span>
       </div>
       <div ref={body} className={marker ? "tbody dragging-list" : "tbody"}>
         {all.map((line) => {
@@ -306,12 +326,15 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
             const node = folders.get(f.id);
             const ids = node?.kind === "folder" ? node.ids : [];
             const state = ids.length && ids.every((id) => checked.has(id)) ? true : ids.some((id) => checked.has(id)) ? "mixed" : false;
-            const cls = ["tr", "fr", f.collapsed && "closed", f.locked && "locked", marker?.onto === f.id && !f.locked && "onto", draggingKeys.has(keyOf(line)) && "lifted"].filter(Boolean).join(" ");
+            const inFolder = ids.filter((id) => byId.get(id)?.updatable);
+            const cls =["tr", "fr", f.collapsed && "closed", f.locked && "locked", marker?.onto === f.id && !f.locked && "onto", draggingKeys.has(keyOf(line)) && "lifted"].filter(Boolean).join(" ");
             return (
               <div key={keyOf(line)} data-key={keyOf(line)} role="row" tabIndex={0} className={cls} style={{ "--fc": f.color } as CSSProperties} aria-expanded={!f.collapsed}
                 onPointerDown={(e) => down(e, line)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={(e) => key(e, line)} onContextMenu={(e) => menu(e, { kind: "folder", id: f.id })}>
                 {ids.length ? <Check state={state} label={f.name} onChange={(v) => onCheck(ids, v)} /> : <span />}
                 <span className="fr-chev"><ChevronIcon /></span>
+                <span />
+                {inFolder.length ? <UpdateCheck label={t("app.mods.checkOne", f.name)} spinning={inFolder.every((id) => checking.includes(id))} off={checkingNow} onCheck={() => onCheckUpdates(inFolder, f.name)} /> : <span />}
                 <span className="fr-name">{f.name}</span>
                 <span className="fr-end">
                   {!ids.length && <span className="fr-count">{t("app.folder.empty")}</span>}
@@ -332,7 +355,8 @@ export function ModTable({ tree: saved, rows, byId, order, names, conflicts, sel
             <ModLine key={m.id} id={m.id} folder={line.folder} color={folder?.kind === "folder" ? folder.folder.color : null} name={names.get(m.id) ?? m.id}
               description={pick(m.description)} version={m.version} update={offered(updates, m)} scope={m.scope} on={m.on} imagePath={m.image?.path ?? null} imageV={m.image?.v ?? 0} num={position.get(m.id) ?? 0}
               pinned={!!folder && folder.kind === "folder" && folder.folder.locked} selected={selected === m.id} checked={checked.has(m.id)}
-              lifted={draggingKeys.has(m.id)} leaving={leaving !== null && line.folder === leaving} tips={conflict?.tips ?? null} lose={conflict?.lose ?? false} h={h} lang={language()} />
+              lifted={draggingKeys.has(m.id)} leaving={leaving !== null && line.folder === leaving} tips={conflict?.tips ?? null} lose={conflict?.lose ?? false}
+              updatable={m.updatable} spinning={checking.includes(m.id)} checkOff={checkingNow} h={h} lang={language()} />
           );
         })}
         {marker && !marker.onto && <div className="drop-line" style={{ top: marker.y, ...(marker.color ? { ["--lc" as string]: marker.color } : {}) }} aria-hidden="true" />}

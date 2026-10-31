@@ -385,8 +385,6 @@ pub struct ModUpdate {
     pub error: Option<CmdError>,
 }
 
-/// Asks GitHub about the mods that name a repository. Only reading the library takes a turn, so
-/// the other commands don't wait for the network.
 /// What a version of Obsidian changes, as the GitHub release reads now.
 #[tauri::command]
 pub async fn release_notes(version: String) -> CmdResult<Option<String>> {
@@ -394,12 +392,15 @@ pub async fn release_notes(version: String) -> CmdResult<Option<String>> {
     Ok(GitHub::default().notes(&repo, &format!("v{version}"))?)
 }
 
+/// Asks GitHub about the mods in `ids` that name a repository. Only reading the library takes a
+/// turn, so the other commands don't wait for the network.
 #[tauri::command]
-pub async fn check_mod_updates(ctx: State<'_, Ctx>) -> CmdResult<Vec<ModUpdate>> {
-    let mods = {
+pub async fn check_mod_updates(ctx: State<'_, Ctx>, ids: Vec<String>) -> CmdResult<Vec<ModUpdate>> {
+    let mut mods = {
         let _turn = ctx.turn();
         Library::open(&ctx.data)?.list()?
     };
+    mods.retain(|m| ids.contains(&m.id));
     let checked = updates::check(&GitHub::default(), &mods);
     Ok(checked
         .into_iter()

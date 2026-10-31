@@ -11,12 +11,18 @@ const Icon = ({ children, ...p }: SVGProps<SVGSVGElement> & { children: ReactNod
 /** A wrench. */
 export const ModsIcon = () => <Icon><path d="M14.6 6.4a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.4-3.4a5.6 5.6 0 0 1-7.6 7.3l-7 7a2.1 2.1 0 0 1-3-3l7-7a5.6 5.6 0 0 1 7.3-7.6z" /></Icon>;
 export const HomeIcon = () => <Icon><path d="M3.5 11L12 3.5l8.5 7.5" /><path d="M5.5 9.5v11h5v-6h3v6h5v-11" /></Icon>;
-export const FolderIcon = () => <Icon><path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4.8l2 2.2h8.2A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" /></Icon>;
+const FOLDER = "M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4.8l2 2.2h8.2A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z";
+export const FolderIcon = () => <Icon><path d={FOLDER} /></Icon>;
+/** A folder outline with a plus inside. */
+export const FolderAddIcon = () => <Icon strokeWidth="2"><path d={FOLDER} /><path d="M12 10.2v6.6M8.7 13.5h6.6" /></Icon>;
 /** Solid, to read as a state at small sizes. */
 export const LockIcon = () => <Icon strokeWidth="2.4"><path d="M8 11V7.8a4 4 0 0 1 8 0V11" /><rect x="4.5" y="10.5" width="15" height="10.5" rx="1.5" fill="currentColor" stroke="none" /></Icon>;
 export const UnlockIcon = () => <Icon strokeWidth="2.4"><path d="M8 11V7.8a4 4 0 0 1 7.6-1.7" /><rect x="4.5" y="10.5" width="15" height="10.5" rx="1.5" fill="currentColor" stroke="none" /></Icon>;
 export const TrashIcon = () => <Icon><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5" /></Icon>;
 export const CheckIcon = () => <Icon strokeWidth="2.6"><path d="M5 12.5l4.5 4.5L19 7.5" /></Icon>;
+/** The switch of a mod row, on and off. */
+export const SwitchOnIcon = () => <Icon><rect x="2" y="6.5" width="20" height="11" rx="1" fill="currentColor" /><rect x="14" y="9.5" width="5" height="5" fill="var(--btn)" stroke="none" /></Icon>;
+export const SwitchOffIcon = () => <Icon><rect x="2" y="6.5" width="20" height="11" rx="1" /><rect x="5" y="9.5" width="5" height="5" fill="currentColor" stroke="none" /></Icon>;
 /** A filled square with an arrow leaving it: the link opens outside the app. */
 export const OutboundIcon = () => (
   <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="outbound">

@@ -18,7 +18,7 @@ A session mod can change the shared game: balance, enemies, spawns, missions, ph
 
 Mods that don't declare a scope count as session mods. So do older mods imported from whole bundles, because Obsidian can't know what they change.
 
-The scope shows on every row of the mod list, and in the details of each mod.
+Every row of the mod list has a diamond for the scope, green for client and orange for session. Hover over it for the name. The details of each mod say it too.
 
 ## Who decides the scope
 

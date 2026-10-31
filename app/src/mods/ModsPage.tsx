@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
-import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon, UpdateIcon } from "../Icons";
+import { CloseIcon, FolderAddIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, SwitchOffIcon, SwitchOnIcon, TrashIcon, UnlockIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { useNav } from "../nav";
 import { ProfilesDialog } from "../ProfilesDialog";
@@ -202,19 +202,13 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
           <span className="profile-label">{t("app.mods.profile")}</span>
           <span className="profile-name">{snap.profile}</span>
         </button>
-        <button className="btn icon head-btn" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.mods.createFolder")} data-tip-title={t("app.mods.createFolder")} data-tip={t("app.folder.newHint")}>
-          <FolderIcon />
+        <button className="btn icon head-btn blue" onClick={() => setAsk({ kind: "newFolder", ids: [] })} aria-label={t("app.mods.createFolder")} data-tip-title={t("app.mods.createFolder")} data-tip={t("app.folder.newHint")}>
+          <FolderAddIcon />
         </button>
         <button className="btn icon head-btn add" data-pop aria-label={t("app.mods.add")} data-tip-title={t("app.mods.add")} data-tip={t("app.mods.addHint")}
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAddMenu({ x: r.left, y: r.bottom + 4 }); }}>
           <PlusIcon />
         </button>
-        {snap.mods.some((m) => m.updatable) && (
-          <button className="btn icon head-btn" disabled={modUpdates.checking} onClick={() => checkModUpdates(names)} aria-label={t("app.mods.checkUpdates")}
-            data-tip-title={t("app.mods.checkUpdates")} data-tip={t("app.mods.checkUpdatesHint")}>
-            <UpdateIcon />
-          </button>
-        )}
         {waiting.length > 0 && <button className="btn small play" onClick={() => updateMods(waiting, names)}>{t("app.mods.updateAll", waiting.length)}</button>}
         <label className="search">
           <SearchIcon />
@@ -236,7 +230,8 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onCollapse={(id, collapsed) => run("edit_folder", { id, collapsed })}
             onLock={(id, locked) => run("edit_folder", { id, locked })}
             onMenu={(x, y, target) => setMenu({ x, y, target })}
-            updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)} />
+            updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)}
+            checking={modUpdates.checking} onCheckUpdates={(ids, what) => checkModUpdates(ids, names, { what })} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
           {snap.mods.length === 0 && (
             <div className="list-empty">
@@ -253,8 +248,8 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             <div className="batch-dock">
               <div className="batch" role="toolbar" aria-label={t("app.mods.selection")}>
                 <span className="batch-n">{t("app.mods.nChecked", sel.length)}</span>
-                <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: true })}>{t("app.menu.enable")}</button>
-                <button className="btn small" onClick={() => run("set_enabled", { ids: sel, on: false })}>{t("app.menu.disable")}</button>
+                <button className="btn small icon" onClick={() => run("set_enabled", { ids: sel, on: true })} aria-label={t("app.menu.enable")} data-tip={t("app.menu.enable")}><SwitchOnIcon /></button>
+                <button className="btn small icon" onClick={() => run("set_enabled", { ids: sel, on: false })} aria-label={t("app.menu.disable")} data-tip={t("app.menu.disable")}><SwitchOffIcon /></button>
                 <button className="btn small" data-pop onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.left, y: r.top - 4, up: true, target: { kind: "mod", id: sel[0] } }); }}>
                   <FolderIcon />{t("app.mods.moreActions")}
                 </button>

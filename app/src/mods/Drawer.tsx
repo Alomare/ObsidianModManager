@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
-import { ArrowIcon, CloseIcon, ExternalIcon, FileIcon, InfoIcon, KeyboardIcon, LinkIcon, ResetIcon, SlidersIcon } from "../Icons";
+import { ArrowIcon, CloseIcon, ExternalIcon, FileIcon, InfoIcon, KeyboardIcon, LinkIcon, ResetIcon, SlidersIcon, TrashIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Select } from "../Select";
 import { Thumb } from "../Thumb";
@@ -43,6 +43,7 @@ const TAB_ICONS: Record<Tab, () => React.JSX.Element> = { about: InfoIcon, optio
 
 function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModRow; mods: ModRow[]; conflicts: ConflictRow[]; names: Map<string, string>; onOpen: (id: string) => void; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("about");
+  const [ask, setAsk] = useState(false);
   const name = pick(mod.name, mod.id);
   const { needs, neededBy } = dependencies(mod, mods);
   const tabs: [Tab, number | null][] = [["about", null], ["options", mod.options.length], ["keys", mod.keybinds.length], ["files", mod.files.length], ["deps", needs.length + neededBy.length]];
@@ -56,7 +57,10 @@ function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModR
             {[mod.authors.join(", "), mod.version ?? t("app.mods.imported"), t(`app.scope.${mod.scope}`)].filter(Boolean).join(" · ")}
           </div>
         </div>
-        <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
+        <div className="dh-end">
+          <button className="bare" onClick={onClose} aria-label={t("app.close")} data-tip={t("app.close")}><CloseIcon /></button>
+          <button className="bare dh-remove" onClick={() => setAsk(true)} aria-label={t("app.drawer.remove")} data-tip={t("app.drawer.remove")}><TrashIcon /></button>
+        </div>
       </div>
       <div className="dtabs" role="tablist">
         {tabs.map(([id, n]) => {
@@ -70,12 +74,16 @@ function ModDrawer({ mod, mods, conflicts, names, onOpen, onClose }: { mod: ModR
         })}
       </div>
       <div className="dbody">
-        {tab === "about" && <AboutTab mod={mod} onRemoved={onClose} />}
+        {tab === "about" && <AboutTab mod={mod} />}
         {tab === "options" && <OptionsTab mod={mod} />}
         {tab === "keys" && <KeysTab mod={mod} names={names} />}
         {tab === "files" && <FilesTab mod={mod} conflicts={conflicts} names={names} />}
         {tab === "deps" && <DepsTab needs={needs} neededBy={neededBy} names={names} onOpen={onOpen} />}
       </div>
+      {ask && (
+        <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
+          onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mods", { ids: [mod.id] })) onClose(); }} />
+      )}
     </aside>
   );
 }
@@ -233,10 +241,8 @@ function DepsTab({ needs, neededBy, names, onOpen }: { needs: Dep[]; neededBy: D
   );
 }
 
-function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
-  const [ask, setAsk] = useState(false);
-  const name = pick(mod.name, mod.id);
-  const date = mod.import ? new Date(mod.import.date).toLocaleString(language(), { dateStyle: "medium", timeStyle: "short" }) : null;
+function AboutTab({ mod }: { mod: ModRow }) {
+  const date =mod.import ? new Date(mod.import.date).toLocaleString(language(), { dateStyle: "medium", timeStyle: "short" }) : null;
   return (
     <div className="about-mod pad">
       {pick(mod.description) && <p>{pick(mod.description)}</p>}
@@ -246,11 +252,6 @@ function AboutTab({ mod, onRemoved }: { mod: ModRow; onRemoved: () => void }) {
         {mod.source && <><dt>{t("app.drawer.source")}</dt><dd><button className="link" onClick={() => openUrl(mod.source!).catch(() => {})}>{mod.source} <ExternalIcon /></button></dd></>}
         {mod.import && <><dt>{t("app.drawer.imported")}</dt><dd>{date}</dd><dt>{t("app.drawer.file")}</dt><dd className="mono">{mod.import.file}</dd></>}
       </dl>
-      <button className="btn small danger" onClick={() => setAsk(true)}>{t("app.drawer.remove")}</button>
-      {ask && (
-        <Confirm title={t("app.drawer.removeTitle", name)} text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")}
-          onCancel={() => setAsk(false)} onConfirm={async () => { setAsk(false); if (await run("remove_mods", { ids: [mod.id] })) onRemoved(); }} />
-      )}
     </div>
   );
 }

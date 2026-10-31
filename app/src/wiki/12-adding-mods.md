@@ -31,13 +31,13 @@ Import the new version the same way. A mod with the same id replaces the one in 
 
 ### From GitHub
 
-A mod can name its GitHub repository. When one does, a button with two arrows appears beside the green **+** in the [Mods](app:mods) tab. It asks GitHub for new versions, and each mod that has one shows an **Update to** button beside its version. Click that, then deploy.
+A mod can name its GitHub repository. When one does, a button with two arrows appears on its row in the [Mods](app:mods) tab, between the switch and the name, and asks GitHub for a new version of that mod. The same button on a folder asks about every mod in that folder, and the one at the top of the list asks about them all. A mod that has a new version shows an **Update to** button beside its name. Click that, then deploy.
 
 Obsidian asks GitHub when it starts and when you click, and it only offers a higher version of the same mod. Nothing installs until you choose to: use the tag on a mod, or **Update all** when several are waiting.
 
 ## Removing
 
-Right-click a mod and choose **Remove**, or check several mods and use **Remove** in the bar above the list.
+Right-click a mod and choose **Remove**, or use the bin under the close button in the details of a mod. To remove several, check them and use **Remove** in the bar at the foot of the list.
 
 ## Obsidian Kit
 

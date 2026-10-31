@@ -1,5 +1,6 @@
 // The navigation bar: the tabs (Home, Mods, Wiki), then the "prepare to play" area: the multiplayer consent of the active
 // profile, Purge, Deploy and Play, and the Settings tab at the far end (spec section 3). Deploy turns green while changes wait.
+// When one of the three starts, a wave in its color crosses the bar, and it stays while the work lasts.
 import type { ComponentType } from "react";
 import { run } from "./api";
 import { BookIcon, CogIcon, DeployIcon, HomeIcon, ModsIcon, PlayIcon, PurgeIcon, WarnIcon } from "./Icons";
@@ -7,11 +8,16 @@ import { t } from "./i18n";
 import type { Tab } from "./nav";
 import type { Snapshot } from "./types";
 
+/** `n` restarts the wave when one is already crossing. */
+export type Wave = { tone: "red" | "green" | "grey" | "yellow"; n: number };
+
 type Props = {
   tab: Tab;
   onTab: (t: Tab) => void;
   snap: Snapshot | null;
   busy: boolean;
+  wave: Wave | null;
+  onWaveEnd: () => void;
   onPurge: () => void;
   onDeploy: () => void;
   onPlay: () => void;
@@ -19,7 +25,7 @@ type Props = {
 
 const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["wiki", BookIcon]];
 
-export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Props) {
+export function NavBar({ tab, onTab, snap, busy, wave, onWaveEnd, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
   const missing = snap?.game === "notFound";
   const locked = busy || running || !snap || missing;
@@ -29,6 +35,7 @@ export function NavBar({ tab, onTab, snap, busy, onPurge, onDeploy, onPlay }: Pr
   const warn = snap && (missing || snap.game === "unknown") ? t(`app.game.${snap.game}`) : null;
   return (
     <nav className="nav">
+      {wave && <span key={wave.n} className={`nav-wave ${wave.tone}`} aria-hidden="true" onAnimationIteration={(e) => e.animationName === "wave-pass" && !busy && onWaveEnd()} />}
       <div className="tabs" role="tablist">
         {TABS.map(([id, Icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "tab cur" : "tab"} onClick={() => onTab(id)}>

@@ -10,7 +10,7 @@ import { listenForDrops, type DropState } from "./mods/dropImport";
 import { checkModUpdates } from "./mods/modUpdates";
 import { HomePage } from "./HomePage";
 import { ModsPage } from "./mods/ModsPage";
-import { NavBar } from "./NavBar";
+import { NavBar, type Wave } from "./NavBar";
 import { go as setTab, useNav } from "./nav";
 import { WikiPage } from "./WikiPage";
 import { SettingsPage, type SettingsTab } from "./SettingsPage";
@@ -29,7 +29,11 @@ export default function App() {
   const [askPurge, setAskPurge] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("system");
   const [askUpdate, setAskUpdate] = useState(false);
+  const [wave, setWave] = useState<Wave | null>(null);
   const update = useUpdates();
+  const startWave = (tone: Wave["tone"]) => {
+    if (document.documentElement.dataset.motion !== "off") setWave((w) => ({ tone, n: (w?.n ?? 0) + 1 }));
+  };
   const ready = !!snap && !!settings;
   // The color of the active profile tints the Profile button and the switches that are on.
   const profileColor = snap?.profileRows.find((p) => p.name === snap.profile)?.color ?? null;
@@ -42,7 +46,8 @@ export default function App() {
   useEffect(() => {
     if (!snap || !settings) return;
     startupUpdate(settings.updates, snap.portable).then((a) => setAskUpdate(a === "ask"));
-    if (snap.mods.some((m) => m.updatable)) checkModUpdates(new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), true);
+    const updatable = snap.mods.filter((m) => m.updatable).map((m) => m.id);
+    if (updatable.length) checkModUpdates(updatable, new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), { startup: true });
   }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -65,7 +70,8 @@ export default function App() {
   if (!settings) return null;
   return (
     <div className="app">
-      <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} onPurge={() => setAskPurge(true)} onDeploy={deploy} onPlay={play} />
+      <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} wave={wave} onWaveEnd={() => setWave(null)} onPurge={() => setAskPurge(true)}
+        onDeploy={() => { startWave(snap?.changes === "Waiting" ? "green" : "grey"); deploy(); }} onPlay={() => { startWave("yellow"); play(); }} />
       <main className={tab === "home" || tab === "wiki" ? "page bleed" : "page"}>
         {tab === "home" && <div className="view" key="home"><HomePage /></div>}
         {/* Mods stays mounted while hidden: a long list then costs nothing to come back to. */}
@@ -82,7 +88,7 @@ export default function App() {
       )}
       {askPurge && (
         <Confirm title={t("app.purge.title")} text={t("app.purge.text")} confirm={t("app.action.purge")}
-          onCancel={() => setAskPurge(false)} onConfirm={() => { setAskPurge(false); purge(); }} />
+          onCancel={() => setAskPurge(false)} onConfirm={() => { setAskPurge(false); startWave("red"); purge(); }} />
       )}
       {askUpdate && (
         <Confirm title={t("app.update.title", update.version ?? "")} text={t("app.update.text")} confirm={t("app.update.install")}
