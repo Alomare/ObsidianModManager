@@ -387,6 +387,13 @@ pub struct ModUpdate {
 
 /// Asks GitHub about the mods that name a repository. Only reading the library takes a turn, so
 /// the other commands don't wait for the network.
+/// What a version of Obsidian changes, as the GitHub release reads now.
+#[tauri::command]
+pub async fn release_notes(version: String) -> CmdResult<Option<String>> {
+    let Some(repo) = updates::github_repo(APP_SOURCE) else { return Ok(None) };
+    Ok(GitHub::default().notes(&repo, &format!("v{version}"))?)
+}
+
 #[tauri::command]
 pub async fn check_mod_updates(ctx: State<'_, Ctx>) -> CmdResult<Vec<ModUpdate>> {
     let mods = {
@@ -471,6 +478,7 @@ pub async fn restore_starter_pack(ctx: State<'_, Ctx>) -> CmdResult<Snapshot> {
 }
 
 const STEAM_LAUNCH: &str = "steam://rungameid/394510";
+const APP_SOURCE: &str = "https://github.com/Alomare/ObsidianModManager";
 
 fn game_of(ctx: &Ctx) -> CmdResult<GameInstall> {
     Ok(find(&AppSettings::load(&ctx.data)).ok_or_else(|| ObsidianError::GameNotFound(String::new()))?)

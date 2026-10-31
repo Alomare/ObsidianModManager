@@ -75,8 +75,8 @@ jobs:
             -F draft=true -F prerelease=$pre -F body=@"$notes" --jq .id)
           [ -n "$id" ] || { echo "no release id"; exit 1; }
           echo "id=$id" >> "$GITHUB_OUTPUT"
-          # The app's update prompt reads latest.json, and the action fills that from releaseBody, never
-          # from the draft. So the notes are final at the tag: an edit to the draft won't reach the app.
+          # The action fills latest.json from releaseBody, never from the draft. The app shows the text on
+          # GitHub, so editing the release counts, and this copy stands in when GitHub can't be read.
           { echo "notes<<NOTES_END"; cat "$notes"; echo; echo NOTES_END; } >> "$GITHUB_OUTPUT"
 
       - name: The installer, the signature and latest.json

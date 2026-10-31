@@ -113,6 +113,8 @@ end, { icon = "player" })
 
 Qualquer linha aceita `help`, um texto mostrado enquanto está selecionada, e `enabled`, uma função que devolve `false` e um motivo. Um texto devolvido por uma ação aparece como aviso. Uma ação pode chamar `page:refresh()` para montar a página de novo. Uma linha que falha mostra o erro e não conta contra o seu mod.
 
+Uma linha `toggle`, `number` ou `choice` aceita `default`, o valor inicial. Ela ganha um botão de redefinir no fim da linha, aceso quando o valor muda, e R faz o mesmo pelo teclado. Quando escrever um valor não é o caminho de volta, passe `reset`, uma função que desfaz, e `changed`, uma que diz se há algo para desfazer.
+
 As páginas de um mod de sessão não aparecem, e fecham, enquanto o lobby não estiver liberado.
 
 ### obsidian.menu.open(), close(), toggle(), is_open() {#obsidian-menu-open}

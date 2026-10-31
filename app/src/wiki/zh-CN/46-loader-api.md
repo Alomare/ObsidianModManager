@@ -113,6 +113,8 @@ end, { icon = "player" })
 
 每一行都可以设置 `help`（选中时显示的文字）和 `enabled`（返回 `false` 和原因的函数）。操作返回的字符串会以提示显示。操作可以调用 `page:refresh()` 重新构建页面。出错的行会显示错误，且不会计入模组的错误次数。
 
+`toggle`、`number` 和 `choice` 行可以设置 `default`（初始值）。这样行末会出现重置按钮，数值改变后亮起，按 R 效果相同。如果写入数值无法还原，请提供 `reset`（执行撤销的函数）和 `changed`（判断是否有内容可撤销的函数）。
+
 大厅未处于许可状态时，会话模组的页面不会列出，已打开的也会关闭。
 
 ### obsidian.menu.open(), close(), toggle(), is_open() {#obsidian-menu-open}

@@ -56,6 +56,11 @@ struct RawRelease {
     assets: Vec<Asset>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RawNotes {
+    body: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct Release {
     pub version: Version,
@@ -92,7 +97,20 @@ impl GitHub {
 
     /// The newest release of `repo`. GitHub leaves out drafts and prereleases.
     pub fn latest(&self, repo: &Repo) -> Result<Release> {
-        let url = format!("{}/repos/{repo}/releases/latest", self.api);
+        let raw: RawRelease = serde_json::from_str(&self.release_json(repo, "latest")?)?;
+        let tag = raw.tag_name.strip_prefix(['v', 'V']).unwrap_or(&raw.tag_name);
+        let version = Version::parse(tag).map_err(|_| ObsidianError::NoRelease(repo.to_string()))?;
+        Ok(Release { version, assets: raw.assets })
+    }
+
+    /// The notes of one release as GitHub has them now, so an edit there counts.
+    pub fn notes(&self, repo: &Repo, tag: &str) -> Result<Option<String>> {
+        let raw: RawNotes = serde_json::from_str(&self.release_json(repo, &format!("tags/{tag}"))?)?;
+        Ok(raw.body.filter(|b| !b.trim().is_empty()))
+    }
+
+    fn release_json(&self, repo: &Repo, which: &str) -> Result<String> {
+        let url = format!("{}/repos/{repo}/releases/{which}", self.api);
         let mut res = self.agent.get(&url).header("Accept", "application/vnd.github+json").call().map_err(network)?;
         match res.status().as_u16() {
             200 => {}
@@ -100,10 +118,7 @@ impl GitHub {
             403 | 429 if res.headers().get("x-ratelimit-remaining").is_some_and(|v| v == "0") => return Err(ObsidianError::UpdateLimited),
             code => return Err(network(format!("GitHub answered {code}"))),
         }
-        let raw: RawRelease = serde_json::from_str(&res.body_mut().read_to_string().map_err(network)?)?;
-        let tag = raw.tag_name.strip_prefix(['v', 'V']).unwrap_or(&raw.tag_name);
-        let version = Version::parse(tag).map_err(|_| ObsidianError::NoRelease(repo.to_string()))?;
-        Ok(Release { version, assets: raw.assets })
+        res.body_mut().read_to_string().map_err(network)
     }
 
     fn download(&self, url: &str, to: &Path) -> Result<()> {
@@ -277,6 +292,23 @@ mod tests {
     fn mods_without_a_repository_are_left_out_of_a_check() {
         let plain: Manifest = serde_json::from_str(r#"{"obsidian":1,"id":"b.mod","version":"1.0.0","name":{"en":"B"}}"#).unwrap();
         assert!(check(&github("v1.0.0", vec![]), &[plain]).is_empty());
+    }
+
+    #[test]
+    fn release_notes_read_as_github_has_them_now() {
+        let (base, routes) = server();
+        {
+            let mut routes = routes.lock().unwrap();
+            routes.push(("/repos/me/mod/releases/tags/v1.0.1".into(), 200, br#"{"body":"Edited on GitHub"}"#.to_vec()));
+            routes.push(("/repos/me/mod/releases/tags/v1.0.2".into(), 200, br#"{"body":"  "}"#.to_vec()));
+            routes.push(("/repos/me/mod/releases/tags/v1.0.3".into(), 200, br#"{"body":null}"#.to_vec()));
+        }
+        let github = GitHub::at(base);
+        let repo = github_repo("https://github.com/me/mod").unwrap();
+        assert_eq!(github.notes(&repo, "v1.0.1").unwrap().as_deref(), Some("Edited on GitHub"));
+        assert_eq!(github.notes(&repo, "v1.0.2").unwrap(), None, "blank text counts as none");
+        assert_eq!(github.notes(&repo, "v1.0.3").unwrap(), None);
+        assert!(matches!(github.notes(&repo, "v9.9.9"), Err(ObsidianError::NoRelease(_))));
     }
 
     #[test]

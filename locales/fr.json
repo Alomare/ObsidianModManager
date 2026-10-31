@@ -6,7 +6,7 @@
   "menu_empty": "Aucun mod n'a ajouté de page.",
   "menu_failed": "Cette page n'a pas pu s'ouvrir. Voir le journal.",
   "menu_filter": "Filtre",
-  "menu_keys": "Flèches : aller, Entrée : choisir, Tab : filtrer, Échap : retour",
+  "menu_keys": "Flèches : aller, Entrée : choisir, Tab : filtrer, R : réinitialiser, Échap : retour",
   "menu_title": "Obsidian",
   "menu_unavailable": "Indisponible pour le moment.",
   "mod_failed": "Obsidian : %s a échoué et reste désactivé jusqu'au redémarrage du jeu.",

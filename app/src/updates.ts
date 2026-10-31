@@ -4,6 +4,7 @@
 // they show the new version with a link to the releases page.
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useSyncExternalStore } from "react";
+import { call } from "./api";
 import type { AppSettings } from "./types";
 
 export type UpdateState = {
@@ -24,12 +25,19 @@ const set = (patch: Partial<UpdateState>) => {
   listeners.forEach((f) => f());
 };
 
+// latest.json is frozen at the build, so the text on GitHub replaces it when it can be read.
+const liveNotes = (version: string) =>
+  call<string | null>("release_notes", { version })
+    .then((notes) => { if (notes && state.version === version) set({ notes: notes.trim() }); })
+    .catch(() => {});
+
 export async function checkForUpdate(): Promise<boolean> {
   if (state.phase === "checking" || state.phase === "downloading" || state.phase === "installing") return state.phase !== "checking" && !!found;
   set({ phase: "checking", error: null });
   try {
     found = await check({ timeout: 20000 });
     set(found ? { phase: "found", version: found.version, notes: found.body?.trim() || null } : { phase: "none", version: null, notes: null });
+    if (found) void liveNotes(found.version);
     return !!found;
   } catch (e) {
     set({ phase: "failed", error: e instanceof Error ? e.message : String(e) });
@@ -61,5 +69,7 @@ export async function startupUpdate(mode: AppSettings["updates"], portable: bool
   return "ask";
 }
 
+export const updateState = () => state;
+
 export const useUpdates = () =>
-  useSyncExternalStore((f) => { listeners.add(f); return () => { listeners.delete(f); }; }, () => state);
+  useSyncExternalStore((f) => { listeners.add(f); return () => { listeners.delete(f); }; }, updateState);
