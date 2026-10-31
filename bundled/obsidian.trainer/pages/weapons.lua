@@ -30,7 +30,7 @@ return function(page)
 
 	page:header(t("give"))
 	page:choice(t("give_upgrades"), {
-		help = U.help("give_upgrades"),
+		help = U.help("give_upgrades"), default = "own",
 		choices = { { id = "own", label = t("upgrades_own") }, { id = "none", label = t("upgrades_none") }, { id = "all", label = t("upgrades_all") } },
 		get = function() return upgrades end,
 		set = function(v) upgrades = v end,

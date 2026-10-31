@@ -2053,4 +2053,50 @@ test("nothing_of_this_release_writes_a_protected_key", function()
 	no_tampering(game)
 end)
 
+test("a_component_this_state_never_registered_reads_as_empty", function()
+	local api, game = start({ state = "menu" })
+	local function refused() error("attempt to index a nil value") end
+	game.state.entity_manager = { has_entities = function() return false end, get_master_entities = refused, get_slave_entities = refused }
+	game.state.mission_manager = nil
+	E.eq(next(api.game.masters("objective_extract_lz")), nil)
+	E.eq(next(api.game.slaves("objective_extract_lz")), nil)
+	E.eq(api.enemies.count(), 0, "the count on the Enemies page, on the ship")
+	E.eq(api.player.teleport_extraction(), false, "says why, with nothing to go to")
+end)
+
+test("the_safe_limit_counts_corpses_and_the_queue", function()
+	local api, game = start()
+	local base = api.enemies.carried()
+	E.eq(base, api.enemies.count(), "only living enemies so far")
+	game.enemies[1].slave.health.is_dead = true
+	E.eq(api.enemies.carried(), base, "a corpse is still on the map")
+	E.eq(api.enemies.count(), base - 1)
+	game.state.encounter_manager.num_queued_enemies = 5
+	game.state.patrol_manager.num_queued_enemies = 3
+	E.eq(api.enemies.carried(), base + 8)
+	E.eq(api.enemies.room(), api.enemies.MAX_SAFE - base - 8)
+	game.state.encounter_manager.num_queued_enemies = 1000
+	E.eq(api.enemies.room(), 0, "never below nothing")
+end)
+
+test("the_limit_is_for_the_trainer_and_spawn_keeps_its_power", function()
+	local api, game = start()
+	game.state.encounter_manager.num_queued_enemies = 1000
+	E.eq(api.enemies.spawn("bug_scout", 5), true)
+end)
+
+test("one_table_edit_can_be_told_apart_and_undone", function()
+	local api = start()
+	local t = { a = 1, b = 2 }
+	E.eq(api.edits.table_changed(t, "a"), false)
+	api.edits.set_table("thing", t, "a", 5)
+	api.edits.set_table("thing", t, "b", 6)
+	E.eq(api.edits.table_changed(t, "a"), true)
+	E.eq(api.edits.revert_table(t, "a"), true)
+	E.eq(t.a, 1)
+	E.eq(t.b, 6, "the other edit stays")
+	E.eq(api.edits.table_changed(t, "a"), false)
+	E.eq(api.edits.revert_table(t, "a"), false, "nothing left to undo")
+end)
+
 return T

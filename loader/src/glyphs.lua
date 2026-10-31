@@ -23,15 +23,20 @@ local function disc(cx, cy, r, sides)
 	return out
 end
 
--- A hollow circle, as one quad per side. turn: the angle of the first corner.
-local function ring(cx, cy, r, width, sides, turn)
+-- Part of a hollow circle, as one quad per side, between two angles.
+local function arc(cx, cy, r, width, sides, from, to)
 	local out, inner = {}, r - width
 	for i = 0, sides - 1 do
-		local a, b = (turn or 0) + i * 2 * pi / sides, (turn or 0) + (i + 1) * 2 * pi / sides
+		local a, b = from + i * (to - from) / sides, from + (i + 1) * (to - from) / sides
 		out[#out + 1] = { cx + inner * cos(a), cy + inner * sin(a), cx + r * cos(a), cy + r * sin(a),
 			cx + r * cos(b), cy + r * sin(b), cx + inner * cos(b), cy + inner * sin(b) }
 	end
 	return out
+end
+
+-- A hollow circle. turn: the angle of the first corner.
+local function ring(cx, cy, r, width, sides, turn)
+	return arc(cx, cy, r, width, sides, turn or 0, (turn or 0) + 2 * pi)
 end
 
 local function join(...)
@@ -81,4 +86,5 @@ return {
 	search = join(ring(6.8, 9.2, 5, 1.7, 10), line(10.2, 5.8, 14.6, 1.4, 2.1)),
 	run = { { 4, 2, 13.6, 8, 4, 14 } },
 	edit = join(line(2, 2, 14, 2, 1.6), line(4.6, 6, 11, 12.4, 2.6)),
+	reset = join(arc(8.4, 7.4, 6.4, 1.7, 14, pi * 1.14, pi * 2.75), { 2.07, 8.92, 6.53, 9.27, 2.43, 13.37 }),
 }

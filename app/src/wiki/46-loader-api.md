@@ -113,6 +113,8 @@ end, { icon = "player" })
 
 Any row takes `help`, a text shown while it's selected, and `enabled`, a function that returns `false` and a reason. A string returned by an action shows as a toast. An action can call `page:refresh()` to build the page again. A failing row shows the error and doesn't count against your mod.
 
+A `toggle`, `number` or `choice` row takes `default`, the value it starts at. It then gets a reset button at the end of the row, lit once the value has moved, and R does the same from the keyboard. Where writing a value isn't the way back, give `reset`, a function that undoes it, and `changed`, one that says whether there's anything to undo.
+
 A session mod's pages aren't listed, and close, while the lobby isn't cleared.
 
 ### obsidian.menu.open(), close(), toggle(), is_open()

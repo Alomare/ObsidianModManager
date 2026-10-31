@@ -361,7 +361,7 @@
   "menu_empty": "No mod has added a page.",
   "menu_failed": "This page failed to open. See the log.",
   "menu_filter": "Filter",
-  "menu_keys": "Arrows move, Enter selects, Tab filters, Esc goes back",
+  "menu_keys": "Arrows move, Enter selects, Tab filters, R resets, Esc goes back",
   "menu_title": "Obsidian",
   "menu_unavailable": "Not available right now.",
   "mod_failed": "Obsidian: %s failed and is off until the game restarts.",

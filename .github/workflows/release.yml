@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: The tag matches the version in every file
+      - name: The tag matches the version in every file, and has its notes
         run: |
           v="${GITHUB_REF_NAME#v}"
           for f in app/package.json app/src-tauri/tauri.conf.json; do
@@ -34,6 +34,7 @@ jobs:
           for f in app/src-tauri/Cargo.toml core/Cargo.toml; do
             grep -q "^version = \"$v\"" "$f" || { echo "$f does not say $v"; exit 1; }
           done
+          [ -s "docs/releases/$v.md" ] || { echo "docs/releases/$v.md is missing"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:
@@ -69,10 +70,14 @@ jobs:
           # with a suffix (v1.1.0-beta.1) stays away from the updater.
           pre=false
           [[ "$GITHUB_REF_NAME" == *-* ]] && pre=true
+          notes="docs/releases/${GITHUB_REF_NAME#v}.md"
           id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$GITHUB_REF_NAME" -f name="Obsidian ${GITHUB_REF_NAME#v}" \
-            -F draft=true -F prerelease=$pre -F generate_release_notes=true --jq .id)
+            -F draft=true -F prerelease=$pre -F body=@"$notes" --jq .id)
           [ -n "$id" ] || { echo "no release id"; exit 1; }
           echo "id=$id" >> "$GITHUB_OUTPUT"
+          # The app's update prompt reads latest.json, and the action fills that from releaseBody, never
+          # from the draft. So the notes are final at the tag: an edit to the draft won't reach the app.
+          { echo "notes<<NOTES_END"; cat "$notes"; echo; echo NOTES_END; } >> "$GITHUB_OUTPUT"
 
       - name: The installer, the signature and latest.json
         uses: tauri-apps/tauri-action@v0
@@ -83,6 +88,7 @@ jobs:
         with:
           projectPath: app
           releaseId: ${{ steps.draft.outputs.id }}
+          releaseBody: ${{ steps.draft.outputs.notes }}
 
       - name: The portable ZIP
         run: |

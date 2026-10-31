@@ -445,7 +445,18 @@ function G.start(ids, opts)
 	local state = {
 		players = { record }, mission_manager = mission_manager, mission_seed = 12345, event_delegate = G.delegate(),
 		respawn_position = { x = 2, y = 2, z = 0 },
-		entity_manager = { get_master_entities = function(_, n) return masters[n] or {} end, get_slave_entities = function(_, n) return slaves[n] or {} end },
+		entity_manager = {
+			has_entities = function(_, n) return next(masters[n] or {}) ~= nil or next(slaves[n] or {}) ~= nil end,
+			-- As in the game: a component the state never registered has no table to read.
+			get_master_entities = function(_, n)
+				if not (masters[n] or slaves[n]) then error("entity_manager: attempt to index a nil value") end
+				return masters[n] or {}
+			end,
+			get_slave_entities = function(_, n)
+				if not (masters[n] or slaves[n]) then error("entity_manager: attempt to index a nil value") end
+				return slaves[n] or {}
+			end,
+		},
 		network_router = { transmit_to = function(_, ...) game.rpc[#game.rpc + 1] = { ... } end },
 		encounter_manager = {
 			max_num_enemies = 8, mission_difficulty = 5, mission_enemy = "bugs",

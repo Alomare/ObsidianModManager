@@ -20,6 +20,7 @@ RESOURCES = [
     (ROOT / "locales", "locales"),
     (ROOT / "target" / "luajit" / "luajit.exe", "luajit/luajit.exe"),
     (ROOT / "target" / "luajit" / "lua", "luajit/lua"),
+    (ROOT / "THIRD-PARTY-NOTICES.txt", "THIRD-PARTY-NOTICES.txt"),
 ]
 
 exe = RELEASE / "Obsidian.exe"

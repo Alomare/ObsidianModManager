@@ -7,21 +7,33 @@ local amount, where = 1, "ahead"
 
 local FACTIONS = { { id = "bugs", key = "faction_bugs" }, { id = "cyborgs", key = "faction_cyborgs" }, { id = "illuminates", key = "faction_illuminates" } }
 
+-- A map packed far past what the game ever puts on it can take the mission down, so spawning stops
+-- short of that.
+local function if_room(run)
+	return function()
+		if enemies.room() < 1 then return U.why("map_full") end
+		return run()
+	end
+end
+
 local function spawn_list(faction)
 	return function(page)
 		page:choice(t("spawn_where"), {
 			choices = { { id = "ahead", label = t("where_ahead") }, { id = "cursor", label = t("where_cursor") } },
+			default = "ahead",
 			get = function() return where end,
 			set = function(v) where = v end,
 		})
-		page:number(t("spawn_amount"), { min = 1, max = 30, step = 1, get = function() return amount end, set = function(v) amount = v end })
+		page:number(t("spawn_amount"), { min = 1, max = 30, step = 1, default = 1, get = function() return amount end, set = function(v) amount = v end })
 		for _, enemy in ipairs(catalog.enemies(faction)) do
 			if not enemy.boss and enemies.available(enemy) then
-				page:action(enemy.name, function()
-					local ok, why = enemies.spawn(enemy.key, amount, where ~= "ahead" and where or nil)
-					if ok then return t("done") end
-					return U.why(why)
-				end)
+				page:action(enemy.name, if_room(function()
+					local room = enemies.room()
+					local ok, why = enemies.spawn(enemy.key, math.min(amount, room), where ~= "ahead" and where or nil)
+					if not ok then return U.why(why) end
+					if amount > room then return t("spawned_some", room) end
+					return t("done")
+				end))
 			end
 		end
 	end
@@ -29,7 +41,7 @@ end
 
 local function group_list(page)
 	for _, key in ipairs(catalog.enemy_groups()) do
-		page:action(catalog.text(key), U.act(enemies.spawn_group, key), { enabled = U.host_only })
+		page:action(catalog.text(key), if_room(U.act(enemies.spawn_group, key)), { enabled = U.host_only })
 	end
 end
 
@@ -37,7 +49,7 @@ local function wave_list(page)
 	local names = enemies.waves()
 	if #names == 0 then page:label(t("no_waves")) end
 	for _, name in ipairs(names) do
-		page:action(catalog.text(name), U.act(enemies.force_wave, name), { enabled = U.host_only })
+		page:action(catalog.text(name), if_room(U.act(enemies.force_wave, name)), { enabled = U.host_only })
 	end
 end
 
@@ -45,7 +57,7 @@ return function(page)
 	page:label(function() return t("enemy_count", enemies.count()) end)
 	page:header(t("control"))
 	page:toggle(t("no_spawns"), {
-		help = U.help("no_spawns"), enabled = U.host_only,
+		help = U.help("no_spawns"), enabled = U.host_only, default = false,
 		get = function() return api.effects.is_on("no_spawns") end,
 		set = function(v) api.effects.set("no_spawns", v) end,
 	})

@@ -1181,8 +1181,8 @@ function D.map(player)
 	end
 	local manager = st.entity_manager
 	local units = global("Unit")
-	if manager and units then
-		for unit in B.pairs(manager:get_slave_entities("show_on_map") or {}) do
+	if manager and units and manager:has_entities("show_on_map") then
+		for unit in B.pairs(manager:get_slave_entities("show_on_map")) do
 			local at = units.world_position(unit, 0)
 			markers[#markers + 1] = { x = at.x, y = at.y, z = at.z }
 		end

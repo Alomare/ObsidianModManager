@@ -885,7 +885,7 @@ local function with_players(ui, game)
 		hud = { hud_info = { { state = "map", health_state = health, shield_state = { shieldpoints = 5 }, inventory_state = inventory,
 			character_state = { sprint_stamina = 2 }, stratagem_cooldowns = { 4 }, respawn_countdown = 7, map_zoom = 2, map_offset = { x = 1, y = 2 } } } },
 		generated_level = { map_size = { x = 10, y = 12 } },
-		entity_manager = { get_slave_entities = function(_, name) return name == "show_on_map" and { [unit] = {} } or {} end },
+		entity_manager = { has_entities = function(_, name) return name == "show_on_map" end, get_slave_entities = function() return { [unit] = {} } end },
 		mission_manager = { get_objectives = function() return { { name = "o", type = "t", state = "pending", group = 1, params = { 1, 3 } } } end },
 		mission_seed = 77, game_over_timer = 5,
 	}

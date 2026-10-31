@@ -49,6 +49,10 @@ The menu blocks your character while it's open, and it closes by itself when the
 - **Console:** the developers' own commands.
 - **Changes:** what's switched on, and the way back.
 
+Every value has a reset button at the end of its row, lit once you've changed it, so you don't need the Changes page to undo one thing. R does the same for the selected row.
+
+Spawning stops once the map carries 64 enemies, corpses included. Far more than that can crash the game.
+
 Actions that only the host can do say so when you choose them.
 
 ## What it won't do

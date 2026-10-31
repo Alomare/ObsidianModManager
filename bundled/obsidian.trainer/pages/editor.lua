@@ -66,15 +66,17 @@ local function unit_field(page, settings_path, field, name)
 	if value == nil and field.type ~= "boolean" then return end
 	local help = help_of(field)
 	local opts = { min = field.min, max = field.max, apply = field.apply, target = name, new = field.opt }
+	local function changed() return (edits.original(settings_path, field.path)) end
+	local function reset() edits.revert_where(settings_path, field.path) end
 	if field.type == "boolean" then
 		page:toggle(label_of(field), {
-			help = help,
+			help = help, changed = changed, reset = reset,
 			get = function() return edits.value(settings_path, field.path) == true end,
 			set = function(v) note(edits.set_unit(settings_path, field.path, v, opts)) end,
 		})
 	else
 		page:number(label_of(field), {
-			help = help, min = field.min, max = field.max, step = step_of(field),
+			help = help, min = field.min, max = field.max, step = step_of(field), changed = changed, reset = reset,
 			get = function() return edits.value(settings_path, field.path) end,
 			set = function(v) note(edits.set_unit(settings_path, field.path, v, opts)) end,
 		})
@@ -157,6 +159,8 @@ local function table_fields(family, target, write)
 				page:number(field.label, {
 					min = field.min, max = field.max, step = step_of(field),
 					help = field.meaning and (field.meaning .. ". " .. t("applies_" .. field.apply)) or nil,
+					changed = function() return edits.table_changed(target, field.path) end,
+					reset = function() edits.revert_table(target, field.path) end,
 					get = function() return edits.table_value(target, field.path) or 0 end,
 					set = function(v) note(write(field, v)) end,
 				})

@@ -26,6 +26,7 @@ end
 return function(page)
 	page:choice(t("spawn_where"), {
 		choices = { { id = "ahead", label = t("where_ahead") }, { id = "cursor", label = t("where_cursor") } },
+		default = "ahead",
 		get = function() return where end,
 		set = function(v) where = v end,
 	})

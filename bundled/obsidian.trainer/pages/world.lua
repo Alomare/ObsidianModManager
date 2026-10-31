@@ -3,7 +3,8 @@ local U = obsidian.module("pages/ui")
 local api, t = U.api, U.t
 local world = api.world
 
-local blast = { power = 500, radius = 8 }
+local BLAST_POWER, BLAST_RADIUS = 500, 8
+local blast = { power = BLAST_POWER, radius = BLAST_RADIUS }
 
 local FOG = {
 	{ id = false, key = "tint_planet" },
@@ -23,7 +24,7 @@ local function tint(page, key, name, list)
 	local choices = {}
 	for i, c in ipairs(list) do choices[i] = { id = c.id, label = t(c.key) } end
 	page:choice(t(key), {
-		choices = choices, help = U.help(key),
+		choices = choices, help = U.help(key), default = false,
 		get = function() return api.effects.get("shading_" .. name) end,
 		set = function(v) world.shading(name, "vector3", v or nil) end,
 	})
@@ -40,7 +41,7 @@ end
 
 local function volume(page, key, bus)
 	page:number(t(key), {
-		min = -60, max = 12, step = 3, format = "%+d dB",
+		min = -60, max = 12, step = 3, format = "%+d dB", default = 0,
 		get = function() return api.effects.get("bus_" .. bus) or 0 end,
 		set = function(v) api.audio.bus(bus, v ~= 0 and v or false) end,
 	})
@@ -84,8 +85,8 @@ return function(page)
 	U.action(page, "clear_decals", world.clear_decals)
 
 	page:header(t("blast"))
-	page:number(t("blast_power"), { min = 10, max = 20000, step = 50, get = function() return blast.power end, set = function(v) blast.power = v end })
-	page:number(t("blast_radius"), { min = 1, max = 30, step = 1, get = function() return blast.radius end, set = function(v) blast.radius = v end })
+	page:number(t("blast_power"), { min = 10, max = 20000, step = 50, default = BLAST_POWER, get = function() return blast.power end, set = function(v) blast.power = v end })
+	page:number(t("blast_radius"), { min = 1, max = 30, step = 1, default = BLAST_RADIUS, get = function() return blast.radius end, set = function(v) blast.radius = v end })
 	page:action(t("blast_cursor"), function()
 		local ok, why = world.explode(world.cursor(), blast.power, blast.radius)
 		if ok then return t("done") end

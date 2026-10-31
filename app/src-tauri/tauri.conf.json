@@ -44,7 +44,8 @@
       "../../bundled/": "bundled/",
       "../../locales/": "locales/",
       "../../target/luajit/luajit.exe": "luajit/luajit.exe",
-      "../../target/luajit/lua/": "luajit/lua/"
+      "../../target/luajit/lua/": "luajit/lua/",
+      "../../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
     },
     "windows": {
       "nsis": {

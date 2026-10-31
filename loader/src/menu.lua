@@ -27,11 +27,11 @@ local DEFAULT_W, DEFAULT_H, MIN_W, MIN_H = 760, 540, 500, 320
 local TITLE_H, NAV_W, NAV_ROW, PAGE_H, ROW_H, FOOT_H = 32, 178, 30, 36, 27, 62
 local PAD, INDENT, CUT, GRIP, TRACK_W, HELP_LINES = 14, 20, 9, 16, 5, 2
 local SWITCH_W, SWITCH_H, STEPPER_W, STEP_W, BUTTON_W, TOAST_H, FILTER_W = 36, 16, 88, 22, 28, 28, 190
-local WHEEL_ROWS, WIDTHS_KEPT, TOAST_GAP = 3, 4096, 16
+local WHEEL_ROWS, WIDTHS_KEPT, TOAST_GAP, RESET_W, RESET_SIZE = 3, 4096, 16, 24, 12
 
 local NAV_KEYS = {
 	up = { "up", "w" }, down = { "down", "s" }, left = { "left", "a" }, right = { "right", "d" },
-	select = { "enter", "e" }, back = { "esc", "q" }, filter = { "tab" },
+	select = { "enter", "e" }, back = { "esc", "q" }, filter = { "tab" }, reset = { "r" },
 }
 local REPEATS = { up = true, down = true, left = true, right = true }
 local ADJUSTABLE = { number = true, choice = true, toggle = true }
@@ -39,7 +39,7 @@ local ADJUSTABLE = { number = true, choice = true, toggle = true }
 -- Obsidian's default theme.
 local GOLD, WHITE, GREY, FAINT, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 158, 160, 157 }, { 255, 155, 94 }, { 15, 17, 19 }
 local PANEL, HEADER, WELL, FIELD = { 41, 44, 48, 250 }, { 54, 57, 62, 255 }, { 28, 30, 33, 200 }, { 21, 23, 25, 255 }
-local HOVER, SELECTED, FOCUS, DIVIDER = { 255, 255, 255, 13 }, { 255, 255, 255, 20 }, { 240, 180, 41, 40 }, { 255, 255, 255, 26 }
+local HOVER, SELECTED, FOCUS, DIVIDER, RESTING = { 255, 255, 255, 13 }, { 255, 255, 255, 20 }, { 240, 180, 41, 40 }, { 255, 255, 255, 26 }, { 255, 255, 255, 46 }
 
 -- Saira for names and Barlow for reading, in loader/fonts. This is the one place that picks them.
 local TITLE = { font = "ui_heading", size = 21, tracking = 0.5 }
@@ -449,6 +449,36 @@ local function activate(frame, it)
 	if frame.page.dirty then build(frame) end
 end
 
+-- A row's way back to where it started: a default the menu writes, or a reset of its own.
+local function resettable(it)
+	return it.default ~= nil or it.reset ~= nil
+end
+
+local function same(a, b)
+	if B.type(a) == "number" and B.type(b) == "number" then return B.abs(a - b) < 1e-6 end
+	return a == b
+end
+
+local function changed(frame, it)
+	if it.changed then
+		local ok, value = run(frame.state, "changed", it.changed)
+		return ok and value and true or false
+	end
+	if it.default == nil then return it.reset ~= nil end
+	local ok, value = run(frame.state, "get", it.get)
+	return ok and not same(value, it.default)
+end
+
+local function reset_row(frame, it)
+	if not (resettable(it) and changed(frame, it) and check_enabled(frame, it)) then return end
+	if it.reset then
+		local ok, err = run(frame.state, "reset", it.reset)
+		if not ok then M.toast(B.tostring(err)) end
+	else
+		write(frame, it, it.default)
+	end
+end
+
 local function adjust(frame, it, direction)
 	if not check_enabled(frame, it) then return end
 	if it.kind == "number" then
@@ -585,6 +615,8 @@ local function handle(ev)
 		move(frame, list, 1)
 	elseif ev.filter then
 		begin_filter(frame)
+	elseif ev.reset then
+		if it and selectable(it) then reset_row(frame, it) end
 	elseif ev.left and #M.stack == 1 and not (it and ADJUSTABLE[it.kind]) then
 		M.nav = true
 	elseif it and selectable(it) then
@@ -808,6 +840,17 @@ local function draw_control(frame, row, right, mx, my, lit)
 	return 0
 end
 
+-- Always there on a row that has a way back, so the column reads as one, and lit once there's
+-- something to go back from.
+local function draw_reset(frame, row, right, mx, my)
+	if not resettable(row.it) then return end
+	row.reset = { x = right - RESET_W, y = row.y, w = RESET_W, h = ROW_H }
+	local c = RESTING
+	if changed(frame, row.it) then c = inside(row.reset, mx, my) and GOLD or WHITE end
+	M.kit.z = LAYER_MARK
+	M.kit:glyph("reset", right - RESET_SIZE, row.y + (ROW_H - RESET_SIZE) / 2, RESET_SIZE, c)
+end
+
 local function draw_scroll(frame, list, shown, right, top, mx, my)
 	if #list <= shown then return end
 	local kit, track_h = M.kit, shown * ROW_H
@@ -851,15 +894,23 @@ local function draw_foot(frame, list, shown, left, right, bottom)
 	local grip = (inside(hits.grip, M.mouse_x or -1, M.mouse_y or -1) or (M.drag and M.drag.kind == "size")) and GOLD or GREY
 	kit.z = LAYER_MARK
 	for row_at = 0, 2 do
-		for dot = row_at, 2 do
+		for dot = 0, 2 - row_at do
 			kit:rect(right - 6 - dot * 4, bottom + CUT - 3 + row_at * 4, 2, 2, grip)
 		end
 	end
 end
 
+local function any_resettable(list)
+	for _, it in B.ipairs(list) do
+		if resettable(it) then return true end
+	end
+	return false
+end
+
 local function draw_rows(frame, list, shown, left, right, top, mx, my)
 	local kit, hits = M.kit, M.hits
 	local row_right = right - PAD - TRACK_W
+	local control_right = any_resettable(list) and row_right - RESET_W or row_right
 	local y = top
 	for i = frame.top, B.min(#list, frame.top + shown - 1) do
 		y = y - ROW_H
@@ -886,8 +937,9 @@ local function draw_rows(frame, list, shown, left, right, top, mx, my)
 		elseif it.kind == "label" then
 			put(fit(label, row.w - PAD * 2, BODY), left + PAD, mid(y, ROW_H, BODY), BODY, GREY)
 		else
-			local used = draw_control(frame, row, row_right, mx, my, active or over)
-			put(fit(label, row_right - used - 12 - (left + INDENT), BODY), left + INDENT, mid(y, ROW_H, BODY), BODY, WHITE)
+			local used = draw_control(frame, row, control_right, mx, my, active or over)
+			draw_reset(frame, row, row_right, mx, my)
+			put(fit(label, control_right - used - 12 - (left + INDENT), BODY), left + INDENT, mid(y, ROW_H, BODY), BODY, WHITE)
 		end
 	end
 end
@@ -1055,6 +1107,7 @@ local function click_row(frame, row, x, y)
 	if not selectable(it) then return end
 	M.nav = false
 	frame.selected = row.index
+	if inside(row.reset, x, y) then return reset_row(frame, it) end
 	local direction = inside(row.minus, x, y) and -1 or (inside(row.plus, x, y) and 1 or nil)
 	if direction then
 		adjust(frame, it, direction)

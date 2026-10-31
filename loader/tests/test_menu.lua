@@ -827,4 +827,89 @@ test("a_new_state_keeps_the_cursor_it_set_for_itself", function()
 	E.eq(ui.cursor.clipped, false, "and so does its clipping")
 end)
 
+local RESETS = [[
+	VALUES = { god = true, speed = 5, edited = true }
+	obsidian.menu.add("Player", function(page)
+		page:toggle("God mode", { default = false, get = function() return VALUES.god end, set = function(v) VALUES.god = v end })
+		page:number("Speed", { default = 5, min = 1, max = 10, step = 1, get = function() return VALUES.speed end, set = function(v) VALUES.speed = v end })
+		page:number("Edited", { changed = function() return VALUES.edited end, reset = function() VALUES.edited = false end,
+			get = function() return 1 end, set = function() end })
+		page:action("Heal", function() VALUES.healed = true end)
+	end)
+]]
+
+local function click_area(e, ui, area)
+	ui.click(middle(e, area))
+	ui.frame()
+end
+
+test("a_rows_reset_button_puts_it_back_and_stops_there", function()
+	local e, ui = start(RESETS)
+	open_root(ui)
+	local button = row_named(e, "God mode").reset
+	click_area(e, ui, button)
+	E.eq(values().god, false, "back at its default")
+	click_area(e, ui, button)
+	E.eq(values().god, false, "the button isn't a second toggle")
+end)
+
+test("the_button_of_a_row_at_its_default_does_nothing", function()
+	local e, ui = start(RESETS)
+	open_root(ui)
+	click_area(e, ui, row_named(e, "Speed").reset)
+	E.eq(menu_of(e).field, nil, "a click there doesn't start typing, as a click on the row would")
+	E.eq(values().speed, 5)
+end)
+
+test("a_row_with_a_way_back_of_its_own_uses_it", function()
+	local e, ui = start(RESETS)
+	open_root(ui)
+	click_area(e, ui, row_named(e, "Edited").reset)
+	E.eq(values().edited, false)
+end)
+
+test("r_resets_the_selected_row", function()
+	local e, ui = start(RESETS)
+	open_player(e, ui)
+	ui.frame()
+	E.eq(menu_of(e).nav, false, "the keys are on the page")
+	ui.tap("r")
+	E.eq(values().god, false)
+	E.eq(values().speed, 5, "and only that row")
+end)
+
+test("the_column_sits_right_of_the_controls_on_every_row", function()
+	local e, ui = start(RESETS)
+	open_root(ui)
+	local row = row_named(e, "Speed")
+	E.eq(row.plus.x + row.plus.w <= row.reset.x, true, "the stepper stops short of the button")
+	E.eq(row_named(e, "Heal").reset, nil, "a row with nothing to reset has no button")
+end)
+
+test("a_page_with_nothing_to_reset_has_no_column", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	local row = row_named(e, "Speed")
+	E.eq(row.reset, nil)
+	local win = menu_of(e).win
+	E.eq(row.plus.x + row.plus.w > win.x + win.w - 40, true, "the controls keep the edge")
+end)
+
+test("the_grip_fills_the_corner_it_drags", function()
+	local e, ui = start(PAGE)
+	open_root(ui)
+	ui.frame()
+	local kit, dots = menu_of(e).kit, {}
+	for _, r in ipairs(ui.rects) do
+		if r.size.x == 2 * kit.scale and r.size.y == 2 * kit.scale then dots[#dots + 1] = r.pos end
+	end
+	E.eq(#dots, 6, "three rows of dots")
+	local top, right = dots[1], dots[1]
+	for _, d in ipairs(dots) do
+		if d.y > top.y then top = d end
+		if d.x > right.x then right = d end
+	end
+	E.eq(top.x, right.x, "the single dot on top sits over the right edge")
+end)
+
 return T

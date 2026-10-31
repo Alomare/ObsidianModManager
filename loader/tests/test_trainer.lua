@@ -33,12 +33,21 @@ local function walk(M, ui, seen, press, path)
 			local label = type(it.label) == "function" and it.label() or it.label
 			core.current = previous
 			seen[#seen + 1] = path .. " / " .. tostring(label)
+			if seen.rows then seen.rows[#seen.rows + 1] = it end
 			if it.kind == "page" then
 				ui.tap("enter")
 				if M.stack[#M.stack] ~= frame then
 					walk(M, ui, seen, press, path .. "/" .. tostring(label))
 					ui.tap("esc")
 					if M.stack[#M.stack] ~= frame then return end
+				end
+			elseif press == "reset" then
+				ui.tap("r")
+			elseif press == "values" then
+				if it.kind == "number" then
+					ui.tap("right")
+				elseif it.kind == "toggle" or it.kind == "choice" then
+					ui.tap("enter")
 				end
 			elseif press then
 				ui.tap("enter")
@@ -371,6 +380,66 @@ test("the_texts_stay_inside_what_the_font_can_draw", function()
 			E.eq(v:find("[\196-\244]") == nil, true, lang .. " " .. k .. " has a character outside Latin-1")
 		end
 	end
+end)
+
+test("every_value_row_has_a_way_back", function()
+	local e, game, ui, M = start()
+	rawget(_G, "obsidian").menu.open()
+	local seen = { rows = {} }
+	walk_all(M, ui, seen, false)
+	local checked = 0
+	for _, it in ipairs(seen.rows) do
+		-- Extra lives is the mission's own count, with no number to go back to.
+		if (it.kind == "toggle" or it.kind == "number" or it.kind == "choice") and it.label ~= "Extra lives" then
+			checked = checked + 1
+			E.eq(it.default ~= nil or it.reset ~= nil, true, "no way back: " .. tostring(it.label))
+		end
+	end
+	E.eq(checked > 100, true, "the walk reached the rows")
+end)
+
+test("the_reset_column_undoes_everything_the_rows_can_change", function()
+	local e, game, ui, M = start()
+	record_toasts(M)
+	local api = rawget(_G, "obsidian").import("obsidian.api")
+	rawget(_G, "obsidian").menu.open()
+	walk_all(M, ui, {}, "values")
+	E.eq(#api.effects.active() > 10, true, "the rows switched things on")
+	E.eq(api.edits.count() > 10, true, "and edited the game's data")
+	walk_all(M, ui, {}, "reset")
+	E.eq(table.concat(api.effects.active(), ","), "", "nothing left on")
+	E.eq(api.edits.count(), 0, "no edit left on the Changes page")
+	assert_clean(e, game, ui)
+end)
+
+test("spawning_stops_short_of_a_packed_map", function()
+	local e, game = start()
+	e:core().current = e:core().mods_by_id["obsidian.trainer"]
+	local obsidian = rawget(_G, "obsidian")
+	local api = obsidian.import("obsidian.api")
+	local rows, page = {}, {}
+	function page:header() end
+	function page:label() end
+	function page:action(label, fn) rows[label] = fn end
+	function page:page(label, build) rows[label] = build end
+	function page:number(label, opts) rows[label] = opts end
+	function page:toggle(label, opts) rows[label] = opts end
+	function page:choice(label, opts) rows[label] = opts end
+	e.loaded["obsidian/mods/obsidian.trainer/pages/enemies"](page)
+	rows[obsidian.text("spawn_faction", obsidian.text("faction_bugs"))](page)
+	rows[obsidian.text("spawn_amount")].set(30)
+	local name
+	for _, enemy in ipairs(api.catalog.enemies("bugs")) do
+		if not name and not enemy.boss and api.enemies.available(enemy) then name = enemy.name end
+	end
+	local queue = game.state.encounter_manager
+	queue.num_queued_enemies = api.enemies.MAX_SAFE - api.enemies.carried() - 5
+	E.eq(rows[name](), obsidian.text("spawned_some", 5), "says it fell short")
+	E.eq(game.spawned[#game.spawned], 5, "and sends what fits")
+	queue.num_queued_enemies = api.enemies.MAX_SAFE
+	local before = #game.spawned
+	E.eq(rows[name](), obsidian.text("why_map_full"))
+	E.eq(#game.spawned, before, "nothing more")
 end)
 
 return T

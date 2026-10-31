@@ -3,7 +3,9 @@ local U = obsidian.module("pages/ui")
 local api, t = U.api, U.t
 local mission = api.mission
 
-local practice = { time = 2, environment = 1, enemy = 1, kind = 1, difficulty = 5 }
+local PRACTICE = { time = 2, environment = 1, enemy = 1, kind = 1, difficulty = 5 }
+local practice = {}
+for field, value in pairs(PRACTICE) do practice[field] = value end
 
 local function choices(list)
 	local out = {}
@@ -12,7 +14,7 @@ local function choices(list)
 end
 
 local function pick(page, key, field, list)
-	page:choice(t(key), { choices = choices(list), get = function() return practice[field] end, set = function(v) practice[field] = v end })
+	page:choice(t(key), { choices = choices(list), default = PRACTICE[field], get = function() return practice[field] end, set = function(v) practice[field] = v end })
 end
 
 local function practice_page(page)
@@ -20,7 +22,7 @@ local function practice_page(page)
 	pick(page, "seed_environment", "environment", mission.ENVIRONMENTS)
 	pick(page, "seed_enemy", "enemy", mission.FACTIONS)
 	pick(page, "seed_kind", "kind", mission.TYPES)
-	page:number(t("seed_difficulty"), { min = 1, max = 15, step = 1, get = function() return practice.difficulty end, set = function(v) practice.difficulty = v end })
+	page:number(t("seed_difficulty"), { min = 1, max = 15, step = 1, default = PRACTICE.difficulty, get = function() return practice.difficulty end, set = function(v) practice.difficulty = v end })
 	page:action(t("practice_start"), U.act(mission.practice, practice), { help = U.help("practice_start") })
 end
 

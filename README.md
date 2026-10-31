@@ -124,7 +124,7 @@ You need Windows 10 or 11, and HELLDIVERS installed through Steam.
 
 1. Download Obsidian from [Releases](https://github.com/Alomare/ObsidianModManager/releases/latest) and run it. The installer isn't code-signed yet, so Windows may say it protected your PC: choose **More info**, then **Run anyway**.
 2. Start Obsidian. It finds the game through Steam. If it can't, pick the game folder in Settings.
-3. On the Mods tab, press **Add mods**, or drop a `.zip` or a folder on the list. [Nexus Mods](https://www.nexusmods.com/games/helldivers) has mods to try.
+3. On the Mods tab, press the green **+**, or drop a `.zip` or a folder on the list. [Nexus Mods](https://www.nexusmods.com/games/helldivers) has mods to try.
 4. Turn on the mods you want. When two change the same thing, the later one in the list wins.
 5. Press **Play**. Obsidian deploys your changes, then starts the game through Steam.
 
