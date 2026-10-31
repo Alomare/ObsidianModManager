@@ -16,7 +16,7 @@ end
 
 test("every_module_loads_and_the_api_is_exported", function()
 	local api = start()
-	for _, name in ipairs({ "game", "effects", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress" }) do
+	for _, name in ipairs({ "game", "effects", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress", "events", "combat", "vehicles", "lobby", "ui" }) do
 		E.eq(type(api[name]), "table", name)
 	end
 end)
@@ -232,8 +232,148 @@ end)
 test("support_weapons_are_found_through_their_crate", function()
 	local api = start()
 	local list = api.catalog.support_weapons()
-	E.eq(#list, 1)
+	E.eq(#list, 2)
 	E.eq(list[1].unit_path, "equipment/mg")
+end)
+
+test("the_mortar_and_the_other_anti_tank_weapons_are_support_weapons", function()
+	local api = start()
+	E.eq(api.catalog.support_weapons()[2].name, "stratagem_mortar", "its subtypes are weapon and anti_tank")
+end)
+
+test("a_weapon_comes_with_the_upgrades_the_player_owns", function()
+	local api, game = start()
+	E.eq(api.gear.give_weapon("primary_weapon", "equipment/rifle"), true)
+	E.eq(G.command(game, "inventory", "set_weapon").data.upgrade_value, 5)
+	game.commands = {}
+	E.eq(api.gear.give_weapon("support_weapon", "equipment/mg"), true)
+	E.eq(G.command(game, "inventory", "set_weapon").data.upgrade_value, 2, "kept under the stratagem's name")
+	game.commands = {}
+	E.eq(api.gear.give_weapon("support_weapon", "equipment/mortar"), true)
+	E.eq(G.command(game, "inventory", "set_weapon").data.upgrade_value, 0, "none owned")
+end)
+
+test("a_weapon_can_ask_for_its_upgrades_and_the_game_range_is_kept", function()
+	local api, game = start()
+	E.eq(api.gear.give_weapon("primary_weapon", "equipment/rifle", 3), true)
+	E.eq(G.command(game, "inventory", "set_weapon").data.upgrade_value, 3)
+	game.commands = {}
+	for _, bad in ipairs({ -1, 16, 1.5, 0 / 0, "all" }) do
+		local ok, why = api.gear.give_weapon("primary_weapon", "equipment/rifle", bad)
+		E.eq(ok, false)
+		E.eq(why, "out_of_range")
+	end
+	E.eq(#game.commands, 0, "the upgradeable component would have asserted")
+end)
+
+test("a_perk_swap_takes_the_old_one_off_and_sets_up_the_new_one", function()
+	local api, game = start()
+	local inv = game.me.master.inventory
+	E.eq(api.gear.give_perk("perk_lasersight"), true)
+	E.eq(table.concat(game.perk_calls, ","), "cardio remove_master,laser setup_master,laser setup_slave")
+	E.eq(inv.perk, 2)
+	E.eq(inv.dirty, true, "peers hear of it")
+	E.eq(G.command(game, "inventory", "set_perk"), nil, "the command skips all of that")
+	game.perk_calls = {}
+	E.eq(api.gear.give_perk("perk_cardio"), true)
+	E.eq(table.concat(game.perk_calls, ","), "laser remove_slave,cardio setup_master")
+end)
+
+test("a_perk_can_be_given_when_the_player_has_none", function()
+	local api, game = start()
+	game.me.master.inventory.perk = 0
+	E.eq(api.gear.give_perk("perk_cardio"), true)
+	E.eq(table.concat(game.perk_calls, ","), "cardio setup_master")
+end)
+
+test("laser_sight_stays_out_of_coop_where_peers_would_run_it_with_no_setup", function()
+	local api, game = start()
+	rawget(_G, "NetworkGlobal").lobby.members = function() return { "me", "friend" } end
+	local ok, why = api.gear.give_perk("perk_lasersight")
+	E.eq(ok, false)
+	E.eq(why, "alone_only")
+	E.eq(#game.perk_calls, 0)
+	E.eq(api.gear.give_perk("perk_cardio"), true, "other perks have no such code")
+end)
+
+test("a_perk_that_doesnt_exist_is_refused", function()
+	local api = start()
+	local ok, why = api.gear.give_perk("perk_nothing")
+	E.eq(ok, false)
+	E.eq(why, "not_available")
+end)
+
+test("a_stratagem_edit_holds_at_every_upgrade_level_and_undoes_as_one", function()
+	local api = start()
+	local s = api.catalog.stratagem("stratagem_resupply")
+	E.eq(api.stratagems.edit("stratagem_resupply", "cooldown_time", 30), true)
+	E.eq(s.cooldown_time, 30)
+	E.eq(s.upgrades[1].cooldown_time, 30, "level 1 sets its own")
+	E.eq(s.upgrades[2].cooldown_time, nil, "level 2 doesn't, and inherits")
+	E.eq(s.upgrades[3].cooldown_time, 30)
+	E.eq(api.edits.count(), 1, "one change on the list")
+	api.edits.revert_all()
+	E.eq(s.cooldown_time, 120)
+	E.eq(s.upgrades[1].cooldown_time, 90)
+	E.eq(s.upgrades[3].cooldown_time, 60)
+end)
+
+test("a_stratagem_edit_is_checked_and_paid_stratagems_are_out", function()
+	local api = start()
+	local ok, why = api.stratagems.edit("stratagem_resupply", "cooldown_time", 5000)
+	E.eq(ok, false)
+	E.eq(why, "out_of_range")
+	E.eq(select(2, api.stratagems.edit("stratagem_dlc", "cooldown_time", 5)), "not_available")
+end)
+
+test("the_enemy_cap_lifts_both_limits_and_gives_both_back", function()
+	local api, game, e = start()
+	local em = game.state.encounter_manager
+	em.max_num_enemies = 8
+	api.effects.set("enemy_cap", 24)
+	E.eq(rawget(_G, "GameSettings").MAX_NUM_ALLOWED_ENEMIES, 24)
+	E.eq(em.max_num_enemies, 24, "the limit waves stop at")
+	em.max_num_enemies = 10
+	e:frames(1)
+	E.eq(em.max_num_enemies, 24, "held against the mission's start writing it")
+	api.effects.set("enemy_cap", false)
+	E.eq(rawget(_G, "GameSettings").MAX_NUM_ALLOWED_ENEMIES, 16)
+	E.eq(em.max_num_enemies, 8)
+end)
+
+test("auto_gives_the_mission_its_own_light_back", function()
+	local api, game = start()
+	api.effects.set("time_of_day", "night")
+	E.eq(game.shading_setting, "night")
+	api.effects.set("time_of_day", false)
+	E.eq(game.shading_setting, "dusk")
+end)
+
+test("finishing_objectives_lets_a_player_out_of_a_terminal", function()
+	local api, game = start()
+	api.mission.finish_objectives()
+	E.eq(G.command(game, "character", "exit_interact_objective"), nil, "nobody is in one")
+	game.me.master.character.current_interact_objective_unit = "terminal"
+	api.mission.finish_objectives()
+	E.eq(G.command(game, "character", "exit_interact_objective").unit, game.me)
+end)
+
+test("the_consoles_spawn_enemy_runs_only_alone", function()
+	local api = start()
+	local debug_table = { console = "the dummy" }
+	rawset(_G, "Debug", debug_table)
+	rawget(_G, "Application").build = function() return "release" end
+	api.console.installed = false
+	api.console.install()
+	debug_table.console:register_plugin("enemy_spawner", { spawn_enemy = function() rawset(_G, "SPAWNED", true) end })
+	rawget(_G, "NetworkGlobal").lobby.members = function() return { "me", "friend" } end
+	local ok, why = api.console.run("spawn_enemy characters/bug_scout/bug_scout")
+	E.eq(ok, false)
+	E.eq(why, "alone_only")
+	E.eq(rawget(_G, "SPAWNED"), nil, "a peer without the package couldn't mirror it")
+	rawget(_G, "NetworkGlobal").lobby.members = function() return { "me" } end
+	E.eq(api.console.run("spawn_enemy characters/bug_scout/bug_scout"), true)
+	E.eq(rawget(_G, "SPAWNED"), true)
 end)
 
 test("a_display_name_falls_back_to_something_readable", function()
@@ -512,6 +652,763 @@ test("a_shake_is_dropped_only_when_asked", function()
 	api.effects.set("no_camera_shake", true)
 	rawget(_G, "CameraManager").add_shake(rawget(_G, "CameraManager"))
 	E.eq(game.shakes, 1)
+end)
+
+local function hooked(e)
+	e.opts.modules["x"] = true
+	rawget(_G, "require")("x")
+end
+
+local function subscribe(e, api, name, fn)
+	e:core().current = e:core().mods_by_id["obsidian.api"]
+	return api.events.on(name, fn)
+end
+
+test("a_mod_hears_a_game_event_with_what_the_game_sends", function()
+	local api, game, e = start()
+	local heard
+	E.eq(api.events.on("on_enemy_killed", function(...) heard = { ... } end), true)
+	e:frames(1)
+	game.state.event_delegate:trigger("on_enemy_killed", "bug", "bullet", "player")
+	E.eq(table.concat(heard, ","), "bug,bullet,player")
+end)
+
+test("nothing_joins_the_games_delegate_until_a_mod_asks", function()
+	local api, game, e = start()
+	e:frames(1)
+	E.eq(next(game.state.event_delegate.events), nil)
+end)
+
+test("every_new_state_gets_a_listener_and_no_delegate_gets_two", function()
+	local api, game, e = start()
+	local count = 0
+	api.events.on("on_player_death", function() count = count + 1 end)
+	e:frames(3)
+	game.state.event_delegate = G.delegate()
+	e:frames(3)
+	game.state.event_delegate:trigger("on_player_death", "unit")
+	E.eq(count, 1, "heard once, on the new delegate")
+	E.lacks(e:log("obsidianapi"), "already registered", "the game's assert")
+end)
+
+test("a_failing_callback_stops_neither_the_game_nor_the_others", function()
+	local api, game, e = start()
+	local reached = false
+	api.events.on("on_objective_completed", function() error("broken mod") end)
+	api.events.on("on_objective_completed", function() reached = true end)
+	e:frames(1)
+	game.state.event_delegate:trigger("on_objective_completed")
+	E.eq(reached, true)
+end)
+
+test("events_stop_when_the_session_stops_being_cleared", function()
+	local lobby = { my_id = "me", members = { "me" }, data = {} }
+	local api, game, e = start({ lobby = lobby })
+	local count = 0
+	api.events.on("on_enemy_spawned", function() count = count + 1 end)
+	e:frames(2)
+	game.state.event_delegate:trigger("on_enemy_spawned", "bug", "name")
+	E.eq(count, 1)
+	lobby.members = { "me", "stranger" }
+	e:frames(31)
+	game.state.event_delegate:trigger("on_enemy_spawned", "bug", "name")
+	E.eq(count, 1, "the delegate isn't gated by the loader")
+end)
+
+test("a_mod_that_was_switched_off_hears_nothing", function()
+	local api, game, e = start()
+	local count = 0
+	api.events.on("on_avatar_extract", function() count = count + 1 end)
+	e:frames(1)
+	e:core().mods_by_id["obsidian.api"].off = true
+	game.state.event_delegate:trigger("on_avatar_extract", "unit", "shuttle")
+	E.eq(count, 0)
+end)
+
+test("a_callback_runs_as_the_mod_that_asked", function()
+	local api, game, e = start()
+	local who
+	api.events.on("on_avatar_extract", function() who = rawget(_G, "obsidian").caller() end)
+	e:core().current = nil
+	e:frames(1)
+	game.state.event_delegate:trigger("on_avatar_extract", "unit", "shuttle")
+	E.eq(who, "obsidian.api")
+end)
+
+test("an_event_can_be_left_and_a_callback_can_leave_during_its_event", function()
+	local api, game, e = start()
+	local count = 0
+	local function once()
+		count = count + 1
+		api.events.off("on_stratagem_activated", once)
+	end
+	api.events.on("on_stratagem_activated", once)
+	e:frames(1)
+	game.state.event_delegate:trigger("on_stratagem_activated", "peer", {}, "pos", "unit")
+	game.state.event_delegate:trigger("on_stratagem_activated", "peer", {}, "pos", "unit")
+	E.eq(count, 1)
+end)
+
+test("an_event_the_game_doesnt_have_is_refused", function()
+	local api = start()
+	local ok, why = api.events.on("on_nothing", function() end)
+	E.eq(ok, false)
+	E.eq(why, "unknown_event")
+	E.eq(select(2, api.events.on("on_enemy_killed", "not a function")), "bad_type")
+end)
+
+test("damage_scales_by_who_takes_it_and_keeps_all_three_answers", function()
+	local api, game, e = start()
+	hooked(e)
+	local calc = rawget(_G, "HealthComponent").calculate_damage
+	E.eq(api.combat.scale({ players = 0.5, enemies = 2 }), true)
+	local damage, zone, kills = calc(game.me, 10)
+	E.eq(damage, 5)
+	E.eq(zone, 1)
+	E.eq(kills, false)
+	E.eq((calc(game.enemies[1], 10)), 20)
+	E.eq((calc(game.convoy, 10)), 10, "not a player, not an enemy")
+	no_tampering(game)
+end)
+
+test("a_scaled_hit_says_truly_whether_it_kills", function()
+	local api, game, e = start()
+	hooked(e)
+	local calc = rawget(_G, "HealthComponent").calculate_damage
+	api.combat.scale({ enemies = 3 })
+	E.eq(select(3, calc(game.enemies[1], 20)), true, "60 is past 30 hitpoints and 10 constitution")
+	E.eq(select(3, calc(game.enemies[1], 5)), false)
+end)
+
+test("a_huge_scale_stops_just_past_dead", function()
+	local api, game, e = start()
+	hooked(e)
+	api.combat.scale({ enemies = 100 })
+	E.eq((rawget(_G, "HealthComponent").calculate_damage(game.enemies[1], 20000)), 20000, "the game's own answer stands")
+	E.eq((rawget(_G, "HealthComponent").calculate_damage(game.enemies[1], 100)), 100 * 1 < 41 and 41 or 100)
+	E.eq((rawget(_G, "HealthComponent").calculate_damage(game.enemies[1], 5)), 41, "hitpoints 30, constitution 10 below zero")
+end)
+
+test("shields_scale_too", function()
+	local api, game, e = start()
+	hooked(e)
+	local calc = rawget(_G, "ShieldComponent").calculate_damage
+	api.combat.scale({ enemies = 2 })
+	local damage, broken = calc(game.enemies[1], 15)
+	E.eq(damage, 30)
+	E.eq(broken, true)
+end)
+
+test("a_scale_of_one_or_false_clears_a_side_and_bad_numbers_change_nothing", function()
+	local api, game, e = start()
+	hooked(e)
+	api.combat.scale({ players = 2, enemies = 2 })
+	E.eq(api.combat.scale({ players = 1 }), true)
+	E.eq(api.effects.is_on("damage_to_players"), false)
+	E.eq(api.effects.get("damage_to_enemies"), 2, "left out, left alone")
+	E.eq(api.combat.scale({ enemies = false }), true)
+	E.eq(api.effects.is_on("damage_to_enemies"), false)
+	for _, bad in ipairs({ -1, 101, 0 / 0, "x" }) do
+		local ok, why = api.combat.scale({ players = bad })
+		E.eq(ok, false)
+		E.eq(why, "out_of_range")
+	end
+end)
+
+test("no_damage_at_all_is_a_scale_too", function()
+	local api, game, e = start()
+	hooked(e)
+	api.combat.scale({ players = 0 })
+	E.eq((rawget(_G, "HealthComponent").calculate_damage(game.me, 10)), 0)
+end)
+
+test("the_session_gate_takes_the_scale_off", function()
+	local lobby = { my_id = "me", members = { "me" }, data = {} }
+	local api, game, e = start({ lobby = lobby })
+	hooked(e)
+	api.combat.scale({ enemies = 2 })
+	lobby.members = { "me", "stranger" }
+	e:frames(31)
+	E.eq((rawget(_G, "HealthComponent").calculate_damage(game.enemies[1], 10)), 10)
+end)
+
+local function drive(game, vehicle)
+	game.me.master.character.current_seat_unit = vehicle or game.mech
+end
+
+test("vehicle_speed_uses_the_movers_multiplier_never_the_guarded_speed", function()
+	local api, game, e = start()
+	drive(game)
+	api.effects.set("vehicle_speed", 2)
+	e:frames(1)
+	E.eq(game.mech.master.mover.velocity_scale, 2)
+	api.effects.set("vehicle_speed", 3)
+	E.eq(game.mech.master.mover.velocity_scale, 3, "a new value at once")
+	api.effects.set("vehicle_speed", false)
+	E.eq(game.mech.master.mover.velocity_scale, nil)
+	no_tampering(game)
+end)
+
+test("vehicle_effects_let_go_of_a_vehicle_the_player_leaves", function()
+	local api, game, e = start()
+	drive(game)
+	api.effects.set("vehicle_speed", 2)
+	api.effects.set("vehicle_god", true)
+	e:frames(1)
+	E.eq(G.command(game, "health", "set_invincible").data, true)
+	game.commands = {}
+	game.me.master.character.current_seat_unit = nil
+	e:frames(1)
+	E.eq(game.mech.master.mover.velocity_scale, nil)
+	E.eq(G.command(game, "health", "set_invincible").data, false)
+	game.commands = {}
+	drive(game, game.apc)
+	e:frames(1)
+	E.eq(game.apc.master.mover.velocity_scale, 2, "the next vehicle gets it")
+	E.eq(G.command(game, "health", "set_invincible").unit, game.apc)
+end)
+
+test("vehicle_effects_wait_until_the_vehicle_is_this_players", function()
+	local api, game, e = start()
+	local mover = game.mech.master.mover
+	game.mech.master.vehicle = nil
+	game.mech.master.mover = nil
+	game.mech.master.health = nil
+	drive(game)
+	api.effects.set("vehicle_god", true)
+	api.effects.set("vehicle_speed", 2)
+	e:frames(2)
+	E.eq(#game.commands, 0, "a passenger, or a vehicle still migrating")
+	E.eq(mover.velocity_scale, nil)
+end)
+
+test("a_walker_turns_quicker_with_a_smaller_blend_and_wheels_with_more_degrees", function()
+	local api, game, e = start()
+	drive(game)
+	api.effects.set("vehicle_turn", 2)
+	e:frames(1)
+	E.eq(game.mech.master.vehicle.rotation_speed, 0.25)
+	game.mech.master.vehicle.rotation_speed = 1
+	e:frames(1)
+	E.eq(game.mech.master.vehicle.rotation_speed, 1, "a state that stands still stays still")
+	game.mech.master.vehicle.rotation_speed = 0.5
+	drive(game, game.apc)
+	e:frames(1)
+	E.eq(game.apc.master.vehicle.rotation_speed, 110)
+	api.effects.set("vehicle_turn", false)
+	E.eq(game.apc.master.vehicle.rotation_speed, 55)
+end)
+
+test("vehicle_armor_reaches_both_copies_and_the_settings_bring_it_back", function()
+	local api, game, e = start()
+	drive(game, game.apc)
+	api.effects.set("vehicle_armor", 5000)
+	e:frames(1)
+	E.eq(G.command(game, "health", "armor").data.armor_max, 5000)
+	E.eq(game.slave_commands[1].data.armor_min, 5000, "the damage sums read the slave")
+	game.commands, game.slave_commands = {}, {}
+	api.effects.set("vehicle_armor", false)
+	E.eq(G.command(game, "health", "armor").data.armor_min, 20)
+	E.eq(game.slave_commands[1].data.armor_max, 2000)
+	no_tampering(game)
+end)
+
+test("rockets_stay_full_by_the_games_own_refill", function()
+	local api, game, e = start()
+	drive(game)
+	api.effects.set("vehicle_rockets", true)
+	e:frames(1)
+	E.eq(G.command(game, "exosuit_inventory", "set_full_ammo").unit, game.mech)
+	game.commands = {}
+	game.in_setter = true
+	game.mech.master.exosuit_inventory.num_grenades = 8
+	game.in_setter = false
+	e:frames(1)
+	E.eq(G.command(game, "exosuit_inventory", "set_full_ammo"), nil, "already full")
+	no_tampering(game)
+end)
+
+test("a_vehicle_refill_reaches_guns_that_are_units_of_their_own", function()
+	local api, game = start()
+	drive(game)
+	E.eq(api.gear.refill_vehicle(), true)
+	local reached = false
+	for _, c in ipairs(game.commands) do
+		if c.unit == game.arm and c.command == "set_ammo" then reached = true end
+	end
+	E.eq(reached, true, "the arms of the second exosuit")
+end)
+
+test("the_vehicle_under_the_player_is_known_and_driving_needs_it_to_be_theirs", function()
+	local api, game = start()
+	E.eq(api.vehicles.current(), nil)
+	E.eq(api.vehicles.driving(), false)
+	drive(game)
+	E.eq(api.vehicles.current(), game.mech)
+	E.eq(api.vehicles.driving(), true)
+	game.mech.master.vehicle = nil
+	E.eq(api.vehicles.driving(), false, "still migrating, or a passenger")
+end)
+
+test("stratagems_can_be_listed_by_subtype_and_waves_by_faction", function()
+	local api = start()
+	E.eq(#api.catalog.by_subtype("turret"), 2)
+	E.eq(api.catalog.by_subtype("mine")[1].unit_path, "gameobjects/minedrop_01")
+	E.eq(#api.catalog.by_subtype("support"), 1, "the paid pack stays out")
+	E.eq(#api.catalog.waves("bugs"), 2)
+	E.eq(#api.catalog.waves(nil), 0, "a client has no mission faction")
+end)
+
+test("a_failed_timed_drop_doesnt_try_again_every_frame", function()
+	local api, game, e = start()
+	local tries = 0
+	rawget(_G, "SpatialSpawnUtlity").generate_points_in_donut = function()
+		tries = tries + 1
+		error("no point found")
+	end
+	api.mission.mutator("orbital_support")
+	for _ = 1, 1300 do e:frames(1) end
+	E.eq(tries, 1, "one try in 20 s")
+end)
+
+test("the_vehicle_list_leaves_out_the_mannable_turret", function()
+	local api = start()
+	local list = api.catalog.vehicles()
+	E.eq(#list, 1)
+	E.eq(list[1].name, "stratagem_exosuit")
+end)
+
+test("vehicles_and_strikes_have_their_editor_families", function()
+	local api, game = start()
+	local families = table.concat(api.catalog.families_of(game.mech_settings), " ")
+	E.has(families, "vehicle")
+	E.has(families, "toughness")
+	local lsm = rawget(_G, "LuaSettingsManager")
+	E.has(table.concat(api.catalog.families_of(lsm:get_settings_by_unit_path("gameobjects/airstrike_01")), " "), "airstrike")
+	E.has(table.concat(api.catalog.families_of(lsm:get_settings_by_unit_path("gameobjects/minedrop_01")), " "), "mine")
+	E.has(table.concat(api.catalog.families_of(game.pack), " "), "backpack")
+	E.lacks(table.concat(api.catalog.families_of(lsm:get_settings_by_unit_path("gameobjects/sentry")), " "), "firearm", "one damage row")
+end)
+
+test("the_edits_of_the_new_families_reach_their_tables", function()
+	local api, game = start()
+	E.eq(api.edits.set_unit("gameobjects/mech", "vehicle_info.move_speed", 8, { min = 0.5, max = 30 }), true)
+	E.eq(game.mech_settings.vehicle_info.move_speed, 8)
+	E.eq(select(2, api.edits.set_unit("gameobjects/mech", "vehicle_info.wanted_move_speed", 8, { new = true })), "protected")
+end)
+
+test("a_backpack_comes_from_the_catalog_with_its_own_uses", function()
+	local api, game = start()
+	E.eq(api.gear.give_backpack("equipment/pack"), true)
+	local c = G.command(game, "inventory", "set_backpack")
+	E.eq(c.data.backpack_path, "equipment/pack")
+	E.eq(c.data.num_uses, 60)
+	E.eq(c.data.upgrade_value, 0)
+	game.commands = {}
+	E.eq(api.gear.give_backpack("equipment/pack", 1), true)
+	E.eq(G.command(game, "inventory", "set_backpack").data.num_uses, 90, "the upgrade's own number")
+end)
+
+test("a_path_outside_the_catalog_never_reaches_set_backpack", function()
+	local api, game = start()
+	local ok, why = api.gear.give_backpack("equipment/rifle")
+	E.eq(ok, false, "the game would read pickup_info outside any pcall")
+	E.eq(why, "not_available")
+	E.eq(select(2, api.gear.give_backpack("equipment/pack_dlc")), "not_available", "paid")
+	E.eq(select(2, api.gear.give_backpack("equipment/pack", 99)), "out_of_range")
+	E.eq(#game.commands, 0)
+end)
+
+test("the_backpack_list_has_each_pack_once_and_no_paid_ones", function()
+	local api = start()
+	local list = api.catalog.backpacks()
+	E.eq(#list, 1, "two in one crate")
+	E.eq(list[1].name, "pickup_jumppack")
+	E.eq(list[1].stratagem, "stratagem_jumppack")
+end)
+
+test("a_perk_can_be_taken_away", function()
+	local api, game = start()
+	E.eq(api.gear.remove_perk(), true)
+	E.eq(game.me.master.inventory.perk, 0)
+	E.eq(game.perk_calls[1], "cardio remove_master")
+	E.eq(game.me.master.inventory.dirty, true)
+end)
+
+test("the_highest_upgrade_of_a_unit_stays_in_the_games_range", function()
+	local api = start()
+	E.eq(api.catalog.max_upgrade("equipment/rifle"), 1, "one bit")
+	E.eq(api.catalog.max_upgrade("gameobjects/mech"), 0)
+	E.eq(api.catalog.max_upgrade("equipment/nothing"), 0)
+end)
+
+test("a_called_stratagem_is_a_real_flare_at_the_players_level", function()
+	local api, game = start()
+	game.me.master.inventory.item_upgrades.stratagem_resupply = 2
+	local pos = api.world.cursor()
+	E.eq(api.stratagems.call("stratagem_resupply", pos, 15), true)
+	E.eq(game.spawned[1], "gameobjects/flare_01")
+	E.eq(game.spawn_pos, pos)
+	E.eq(game.spawn_setup.has_been_thrown, true)
+	E.eq(game.spawn_setup.stratagem_id, 1)
+	E.eq(game.spawn_setup.extra_activation_time, 15)
+	E.eq(game.spawn_setup.owner_unit, game.me)
+	E.eq(game.spawn_setup.upgrade_value, 2)
+	local direction = G.command(game, "stratagem", "set_thrown_direction")
+	E.eq(direction.unit, game.flare)
+	E.eq(type(direction.data), "table", "a vector in a command has to be boxed")
+	E.eq(game.pods, nil, "the flare calls the pod, not this")
+	no_tampering(game)
+end)
+
+test("reinforce_works_through_a_flare", function()
+	local api, game = start()
+	E.eq(api.stratagems.call("stratagem_reinforce", api.world.cursor()), true)
+	E.eq(game.spawn_setup.stratagem_id, 4)
+end)
+
+test("a_call_is_checked", function()
+	local api, game = start()
+	E.eq(select(2, api.stratagems.call("stratagem_dlc", api.world.cursor())), "not_available")
+	E.eq(select(2, api.stratagems.call("stratagem_resupply", nil)), "no_position")
+	for _, bad in ipairs({ -1, 601, 0 / 0, "soon" }) do
+		E.eq(select(2, api.stratagems.call("stratagem_resupply", api.world.cursor(), bad)), "out_of_range")
+	end
+	E.eq(#game.spawned, 0)
+end)
+
+test("a_call_and_a_spawn_need_a_mission", function()
+	local api, game, e, ui = start()
+	local pos = api.world.cursor()
+	ui.state = "menu"
+	E.eq(select(2, api.stratagems.call("stratagem_resupply", pos)), "not_in_mission", "the ship has a spawner too")
+	E.eq(select(2, api.enemies.spawn_entity("gameobjects/supplycrate_ammunition", pos)), "not_in_mission")
+	E.eq(#game.spawned, 0)
+end)
+
+test("a_crate_and_its_pickups_spawn_by_path_and_the_lists_leave_paid_ones_out", function()
+	local api, game = start()
+	local crates, pickups = {}, {}
+	for _, item in ipairs(api.catalog.crates()) do crates[item.unit_path] = true end
+	for _, item in ipairs(api.catalog.pickups()) do pickups[item.unit_path] = true end
+	E.eq(crates["gameobjects/crate_pack"], true)
+	E.eq(pickups["equipment/pack_pickup"], true)
+	E.eq(crates["gameobjects/crate_pack_dlc"], nil, "paid")
+	E.eq(pickups["equipment/pack_dlc_pickup"], nil, "paid")
+	E.eq(api.enemies.spawn_entity("gameobjects/crate_pack", api.world.cursor()), true)
+	E.eq(game.spawned[1], "gameobjects/crate_pack")
+end)
+
+test("jammers_answer_no_only_while_the_effect_is_on", function()
+	local api, game, e = start()
+	hooked(e)
+	local area = rawget(_G, "StratagemsDisabledAreaComponent")
+	E.eq(area.is_unit_inside_any_area(game.me, "manager"), true)
+	api.effects.set("ignore_jammers", true)
+	E.eq(area.is_unit_inside_any_area(game.me, "manager"), false)
+	api.effects.set("ignore_jammers", false)
+	E.eq(area.is_unit_inside_any_area(game.me, "manager"), true)
+end)
+
+test("a_status_travels_on_a_hit_of_no_power_from_any_peer", function()
+	local api, game = start()
+	local other = game.enemies[2]
+	E.eq(api.enemies.apply_status(other, "flashbang_stun"), true)
+	local c = game.commands[1]
+	E.eq(c.unit, other, "a unit this peer doesn't own: add_status would fail on it")
+	E.eq(c.interface, "damageable")
+	E.eq(c.command, "do_damage")
+	E.eq(c.data.power, 0)
+	E.eq(c.data.hit_status_effects[1], "flashbang_stun")
+	E.eq(c.data.owner_unit, game.me)
+end)
+
+test("a_status_is_checked", function()
+	local api, game = start()
+	E.eq(select(2, api.enemies.apply_status(game.enemies[1], "no_such_status")), "unknown_status")
+	E.eq(select(2, api.enemies.apply_status(game.me, "flashbang_stun")), "no_enemy")
+	game.enemies[1].slave.health.is_dead = true
+	E.eq(select(2, api.enemies.apply_status(game.enemies[1], "flashbang_stun")), "no_enemy")
+	E.eq(#game.commands, 0)
+end)
+
+test("a_stun_reaches_only_the_enemies_in_range", function()
+	local api, game = start()
+	E.eq(api.enemies.stun_near(20), true)
+	E.eq(#game.commands, 1)
+	E.eq(game.commands[1].unit, game.enemies[1])
+end)
+
+test("one_enemy_can_be_read_found_and_killed", function()
+	local api, game = start()
+	local near, distance = api.enemies.nearest()
+	E.eq(near, game.enemies[1])
+	E.eq(distance > 0 and distance < 3, true)
+	E.eq((api.enemies.nearest({ x = 99, y = 0, z = 0 })), game.enemies[2])
+	local info = api.enemies.info(near)
+	E.eq(info.key, "bug_scout")
+	E.eq(info.faction, "bugs")
+	E.eq(info.hitpoints, 30)
+	E.eq(info.owned, true)
+	E.eq(api.enemies.info(game.me), nil)
+	E.eq(api.enemies.kill(near), true)
+	E.eq(G.command(game, "health", "set_hitpoints").data.owner_unit, game.me, "the player gets the kill")
+	E.eq(select(2, api.enemies.kill(game.me)), "no_enemy")
+end)
+
+test("pressure_sets_the_managers_and_gives_their_numbers_back", function()
+	local api, game = start()
+	local em, pm = game.state.encounter_manager, game.state.patrol_manager
+	E.eq(api.enemies.set_pressure({ cap = 24, difficulty = 15, patrols = 20, interval = 2 }), true)
+	E.eq(em.max_num_enemies, 24)
+	E.eq(em.mission_difficulty, 15)
+	E.eq(pm.max_num_patrols, 20)
+	E.eq(pm.patrol_spawn_interval, 2)
+	E.eq(api.enemies.set_pressure({ difficulty = false, patrols = false, interval = false }), true)
+	E.eq(em.mission_difficulty, 5)
+	E.eq(pm.max_num_patrols, 6)
+	E.eq(pm.patrol_spawn_interval, 8)
+	E.eq(em.max_num_enemies, 24, "left out, left alone")
+end)
+
+test("pressure_is_the_hosts_and_a_bad_number_changes_nothing", function()
+	local api, game = start({ host = false })
+	E.eq(select(2, api.enemies.set_pressure({ cap = 24 })), "host_only")
+	local api2 = api
+	rawget(_G, "NetworkGlobal").lobby.is_host = function() return true end
+	E.eq(select(2, api2.enemies.set_pressure({ cap = 33 })), "out_of_range", "32 at most until a live run says more")
+	E.eq(select(2, api2.enemies.set_pressure({ difficulty = 5, interval = 0 / 0 })), "out_of_range")
+	E.eq(game.state.encounter_manager.mission_difficulty, 5)
+	E.eq(api2.effects.is_on("enemy_difficulty"), false)
+end)
+
+test("pressure_goes_away_with_the_session_and_comes_back", function()
+	local lobby = { my_id = "me", members = { "me" }, data = {} }
+	local api, game, e = start({ lobby = lobby })
+	api.enemies.set_pressure({ difficulty = 15 })
+	e:frames(2)
+	lobby.members = { "me", "stranger" }
+	e:frames(31)
+	E.eq(game.state.encounter_manager.mission_difficulty, 5)
+	lobby.members = { "me" }
+	e:frames(32)
+	E.eq(game.state.encounter_manager.mission_difficulty, 15)
+end)
+
+test("a_named_wave_spawns_each_of_its_groups", function()
+	local api, game = start()
+	E.eq(table.concat(api.enemies.waves(), ","), "bug_wave_scouts,bug_wave_strange")
+	E.eq(api.enemies.force_wave("bug_wave_scouts", api.world.cursor()), true)
+	E.eq(table.concat(game.spawned, ","), "2,2")
+	E.eq(game.group_cost, 2)
+end)
+
+test("a_wave_needs_its_units_loaded_and_the_host", function()
+	local api, game = start()
+	E.eq(select(2, api.enemies.force_wave("bug_wave_strange")), "not_loaded")
+	E.eq(select(2, api.enemies.force_wave("bug_wave_none")), "unknown_wave")
+	E.eq(#game.spawned, 0)
+	local api2 = start({ host = false })
+	E.eq(select(2, api2.enemies.force_wave("bug_wave_scouts")), "host_only")
+end)
+
+test("the_objective_list_has_state_and_progress", function()
+	local api = start()
+	local list = api.mission.objectives()
+	E.eq(#list, 2)
+	E.eq(list[1].name, "objective_a")
+	E.eq(list[1].state, "pending")
+	E.eq(list[1].done, 1)
+	E.eq(list[1].total, 3)
+	E.eq(list[1].position.x, 9)
+	E.eq(list[2].total, nil)
+end)
+
+test("the_objective_list_is_empty_off_a_mission", function()
+	local api, game, e, ui = start()
+	ui.state = "menu"
+	E.eq(#api.mission.objectives(), 0)
+end)
+
+test("protected_objectives_cant_die_and_go_back_to_what_the_game_wants", function()
+	local api, game, e = start()
+	api.effects.set("protect_objectives", true)
+	local units = {}
+	for _, c in ipairs(game.commands) do
+		if c.command == "set_invincible" then units[c.unit] = c.data end
+	end
+	E.eq(units[game.convoy], true)
+	E.eq(units[game.escorted], true)
+	game.commands = {}
+	game.convoy.master.health.invincible = false
+	for _ = 1, 70 do e:frames(1) end
+	E.eq(G.command(game, "health", "set_invincible").unit, game.convoy, "the game turns it back off as a convoy starts")
+	game.commands = {}
+	game.masters.npc_escort[game.escorted].state.in_goal = true
+	api.effects.set("protect_objectives", false)
+	units = {}
+	for _, c in ipairs(game.commands) do units[c.unit] = c.data end
+	E.eq(units[game.convoy], false, "a running convoy is mortal")
+	E.eq(units[game.escorted], true, "one who got there stays safe")
+end)
+
+test("a_mutator_waits_for_the_level_to_be_built", function()
+	local api, game, e = start()
+	local record = game.state.players[1].player_go
+	local avatar = record.avatar_unit
+	record.avatar_unit = nil
+	E.eq(api.mission.mutator("super_boots"), true)
+	e:frames(1)
+	E.eq(game.state.generated_level.provinggrounds_params, nil, "level generation reads the field")
+	record.avatar_unit = avatar
+	e:frames(1)
+	E.eq(game.state.generated_level.provinggrounds_params.sub_modifier, "super_boots")
+	api.mission.mutator(nil)
+	E.eq(game.state.generated_level.provinggrounds_params, nil)
+	E.eq(api.effects.is_on("mutator"), false)
+end)
+
+test("a_real_proving_ground_keeps_its_own_modifier", function()
+	local api, game, e = start()
+	local own = { sub_modifier = "marksman", sub_challenge = "x" }
+	game.state.generated_level.provinggrounds_params = own
+	api.mission.mutator("super_boots")
+	e:frames(1)
+	E.eq(game.state.generated_level.provinggrounds_params, own)
+	E.eq(own.sub_modifier, "marksman")
+	api.mission.mutator(nil)
+	E.eq(game.state.generated_level.provinggrounds_params, own)
+end)
+
+test("changing_mutator_drops_the_old_one", function()
+	local api, game, e = start()
+	api.mission.mutator("super_boots")
+	e:frames(1)
+	api.mission.mutator("orbital_support")
+	e:frames(1)
+	E.eq(game.state.generated_level.provinggrounds_params, nil, "a timer, not a field")
+end)
+
+test("the_timed_mutators_drop_real_flares_on_their_interval", function()
+	local api, game, e = start()
+	api.mission.mutator("orbital_bombardments")
+	for _ = 1, 900 do e:frames(1) end
+	E.eq(#game.spawned, 0, "not yet at 14 s")
+	for _ = 1, 40 do e:frames(1) end
+	E.eq(game.spawned[1], "gameobjects/flare_01")
+	E.eq(game.spawn_setup.owner_unit, nil, "nobody's, as in the proving grounds")
+	E.eq(game.spawn_setup.stratagem_id, 9, "the strike")
+	E.eq(game.spawn_setup.extra_activation_time, 3, "a warning")
+end)
+
+test("a_mutator_the_study_left_out_is_refused", function()
+	local api = start()
+	E.eq(select(2, api.mission.mutator("emp")), "unknown_mutator")
+	E.eq(select(2, api.mission.mutator("marksman")), "unknown_mutator")
+end)
+
+test("a_hint_shows_the_mods_words_through_the_games_own_formatter", function()
+	local api, game = start({ hints = false })
+	E.eq(api.ui.hint("Hold the line: 100%", 3), true)
+	E.eq(game.hint.text, "Hold the line: 100%", "with hints turned off, and a % doesn't break the swap")
+	E.eq(game.hint.seconds, 3)
+end)
+
+test("a_hint_name_shows_the_game_text", function()
+	local api, game = start()
+	E.eq(api.ui.hint("hint_alarm"), true)
+	E.eq(game.hint.text, "text of hint_alarm")
+	E.eq(game.hint.seconds, 7)
+end)
+
+test("a_hint_is_checked", function()
+	local api, game, e, ui = start()
+	E.eq(select(2, api.ui.hint("")), "bad_type")
+	E.eq(select(2, api.ui.hint(5)), "bad_type")
+	E.eq(select(2, api.ui.hint("words", 0)), "out_of_range")
+	E.eq(select(2, api.ui.hint("words", "long")), "out_of_range", "the game compares it with a number in its update")
+	game.state.hint_manager = nil
+	E.eq(select(2, api.ui.hint("words")), "not_in_mission")
+end)
+
+test("a_ping_lands_in_the_maps_units_and_can_be_cleared", function()
+	local api, game = start()
+	local center = rawget(_G, "Vector3")(96, 96, 0)
+	E.eq(api.ui.ping(center), true)
+	local ping = game.record.player_go.map_ping
+	E.eq(math.abs(ping[1]) < 0.001 and math.abs(ping[2]) < 0.001, true, "the middle of the level is the middle of the map")
+	api.ui.ping(rawget(_G, "Vector3")(196, 96, 0))
+	ping = game.record.player_go.map_ping
+	local expected = 100 * math.cos(math.rad(45)) * 350 / (10 * 48) * 2
+	E.eq(math.abs(ping[1] - expected) < 0.001, true, "turned 45 degrees and scaled to the map")
+	api.ui.ping(nil)
+	E.eq(game.record.player_go.map_ping[1], -1000)
+end)
+
+test("a_ping_stays_in_the_fields_range", function()
+	local api, game = start()
+	api.ui.ping(rawget(_G, "Vector3")(1000000, 96, 0))
+	E.eq(game.record.player_go.map_ping[1] < 1000, true)
+end)
+
+test("a_ping_needs_a_mission", function()
+	local api, game, e, ui = start()
+	ui.state = "menu"
+	E.eq(select(2, api.ui.ping(rawget(_G, "Vector3")(1, 1, 0))), "not_in_mission")
+end)
+
+test("the_player_list_reads_names_ping_and_host", function()
+	local api, game = start()
+	local other = { avatar_unit = game.enemies[2], name = "Friend" }
+	function other:owned() return false end
+	function other:owner() return "friend" end
+	function other:exists() return true end
+	function other:get(k) return self[k] end
+	function other:has(k) return self[k] ~= nil end
+	game.state.players[2] = { player_go = other, pad_number = 1 }
+	rawget(_G, "NetworkGlobal").lobby.members = function() return { "me", "friend", "lost" } end
+	local list = api.lobby.players()
+	E.eq(#list, 3)
+	E.eq(list[1].me, true)
+	E.eq(list[1].host, true)
+	E.eq(list[1].name, "Tester")
+	E.eq(list[2].name, "Friend")
+	E.eq(list[2].ping, 42)
+	E.eq(list[2].host, false)
+	E.eq(list[3].name, nil, "no mission record yet")
+	E.eq(list[3].ping, nil, "the engine has no answer")
+end)
+
+test("the_player_list_works_with_no_lobby", function()
+	local api = start()
+	rawget(_G, "NetworkGlobal").lobby = nil
+	local list = api.lobby.players()
+	E.eq(#list, 1)
+	E.eq(list[1].host, true)
+end)
+
+test("every_new_effect_has_a_way_off", function()
+	local api = start()
+	for _, id in ipairs({ "damage_to_players", "damage_to_enemies", "vehicle_speed", "vehicle_turn", "vehicle_armor", "vehicle_god", "vehicle_rockets",
+		"ignore_jammers", "enemy_cap", "enemy_difficulty", "patrol_count", "patrol_interval", "protect_objectives", "mutator", "time_of_day" }) do
+		E.eq(type(api.effects.defs[id].remove), "function", id)
+	end
+end)
+
+test("nothing_new_writes_a_protected_key", function()
+	local api, game, e = start()
+	hooked(e)
+	drive(game)
+	for _, id in ipairs({ "vehicle_speed", "vehicle_turn", "vehicle_armor", "vehicle_god", "vehicle_rockets", "enemy_cap", "protect_objectives" }) do
+		api.effects.set(id, 2)
+	end
+	for _ = 1, 70 do e:frames(1) end
+	api.gear.give_perk("perk_lasersight")
+	api.stratagems.call("stratagem_resupply", api.world.cursor())
+	api.enemies.stun_near(200)
+	api.effects.clear()
+	e:frames(1)
+	no_tampering(game)
 end)
 
 return T

@@ -46,9 +46,16 @@ api.edits.set_table("Resupply", s, "cooldown_time", 30)
 - Tables stay the same tables, because live units hold references to them.
 - A weapon has a copy of its settings for each upgrade, and an edit reaches them all.
 - `api.edits.list()`, `revert(id)` and `revert_all()` show and undo changes.
+- `opts.also` in `set_table` lists more paths that take the same value, as one change.
 - When the lobby stops being cleared, every edit is undone. When it clears again, they return.
 
-Fields a player can edit, with ranges and when each takes effect, are in `api.catalog.fields(family)`. Some numbers apply at once and some at the next spawn. `api.gear.refresh()` pushes the cached ones into weapons in play.
+A stratagem's upgrade levels can set a field for themselves, so a change to the base stops at those levels. `api.stratagems.edit` changes every level at once, with the ranges of the field:
+
+```lua
+api.stratagems.edit("stratagem_railcannon_strike", "cooldown_time", 30)
+```
+
+Fields a player can edit, with ranges and when each takes effect, are in `api.catalog.fields(family)`. `api.catalog.families_of(settings)` says which families a settings table has. Some numbers apply at once and some at the next spawn. `api.gear.refresh()` pushes the cached ones into weapons in play.
 
 ## Effects {#effects}
 
@@ -71,22 +78,135 @@ api.effects.define({
 })
 ```
 
-`ctx` has `state`, `name`, `record` and `unit`. All of them can be nil.
+`ctx` has `state`, `name`, `record` and `unit`. All of them can be nil. Give every effect a `remove`, so it can come off when the lobby stops being cleared.
+
+## Events {#events}
+
+`api.events.on(name, fn)` calls your function when the game says something happened, so you don't have to look every frame.
+
+```lua
+local kills = 0
+
+api.events.on("on_enemy_killed", function(unit, attacker, owner)
+  kills = kills + 1
+  if kills == 50 then api.ui.hint("Fifty down") end
+end)
+```
+
+| Event | Your function gets | When |
+|---|---|---|
+| `on_enemy_killed` | `unit`, `attacker`, `owner`, `damage_type` | This player got a kill. `damage_type` is there only when this game worked out the hit |
+| `on_enemy_spawned` | `unit`, `enemy_name` | An enemy appeared, on every player's game |
+| `on_player_death` | `unit` | A player died, on every player's game |
+| `on_objective_completed` | nothing | An objective was finished |
+| `on_stratagem_activated` | `peer`, `stratagem`, `position`, `unit` | A stratagem's countdown ended, on every player's game |
+| `on_avatar_extract` | `unit`, `shuttle` | This player boarded the shuttle |
+
+- A function that fails counts against your mod, and the others still run.
+- Nothing arrives while the lobby isn't cleared.
+- `position` lasts one frame. Copy `x`, `y` and `z` to keep it.
+- `api.events.off(name, fn)` stops one.
 
 ## What's in the API {#contents}
 
 | Table | For |
 |---|---|
 | `api.game` | The current state, the local player, `is_host()`, and safe writes |
-| `api.catalog` | Weapons, stratagems, perks, enemies and groups by name, without paid items the player doesn't own |
+| `api.catalog` | Weapons, stratagems, perks, enemies and groups by name, without paid items the player doesn't own. Also `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` and `max_upgrade(path)` |
 | `api.player` | `heal`, `respawn`, `teleport`, `set_cosmetic`, and more |
-| `api.gear` | `refill`, `give_weapon`, `give_perk`, `refresh` |
-| `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop` |
-| `api.enemies` | `spawn`, `spawn_group`, `kill_all`, `list` |
-| `api.mission` | `finish_objectives`, `win`, `abort`, `practice` |
+| `api.gear` | `refill`, `give_weapon(slot, path, upgrade)`, `give_backpack(path, upgrade)`, `give_perk`, `remove_perk`, `refresh` |
+| `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop`, `call(name, pos, delay)`, `edit(name, field, value)` |
+| `api.enemies` | `spawn`, `spawn_group`, `spawn_entity(path, pos)`, `kill_all`, `kill(unit)`, `list`, `info(unit)`, `nearest(pos)`, `apply_status(unit, template)`, `stun_near(radius)`, `set_pressure(t)`, `waves()`, `force_wave(name, pos)` |
+| `api.mission` | `finish_objectives`, `objectives()`, `mutator(name)`, `win`, `abort`, `practice` |
+| `api.vehicles` | `current()`, `driving()`, `repair()`, `refill()` |
+| `api.combat` | `scale{ players, enemies }` |
+| `api.events` | `on(name, fn)`, `off(name, fn)` |
+| `api.ui` | `hint(text, seconds)`, `ping(pos)` |
+| `api.lobby` | `players()` |
 | `api.world` | `cursor`, `ahead`, `explode` |
 | `api.progress` | `set_samples`, `unlock_items`, `upgrade_all` |
 | `api.console` | `run(line)`, `commands()` |
+
+## Gear {#gear}
+
+`upgrade` in `give_weapon` and `give_backpack` runs from 0 to 15. Leave it out for what the player owns for that item. `api.catalog.max_upgrade(path)` gives the highest one.
+
+`give_backpack` takes only paths from `api.catalog.backpacks()`, because the game reads settings other paths don't have, where nothing can catch the error. The old pack drops to the ground, as the old weapon does.
+
+`give_perk` changes perks the way the game's console does. Laser sight answers `"alone_only"` with other players in the lobby, because their games would run it with no setup.
+
+## Stratagems {#stratagems}
+
+`api.stratagems.call` puts down a real flare, as the game does for its own timed drops. It has the sound and the countdown, patrols hear it, and it works for Reinforce. It spends no cooldown or use, and it's called at the level the player owns.
+
+```lua
+api.stratagems.call("stratagem_resupply", api.world.cursor(), 15)   -- 15 s on top of its own call-in
+```
+
+`api.stratagems.drop` is the quick one: no flare and no wait, and no Reinforce.
+
+The effect `ignore_jammers` lets stratagems work inside no-stratagem zones.
+
+## Enemies {#enemies}
+
+```lua
+local bug, metres = api.enemies.nearest()
+if bug then api.enemies.apply_status(bug, "flashbang_stun") end
+
+-- Bigger fights on the same mission. false gives a number back to the game.
+api.enemies.set_pressure({ cap = 24, difficulty = 15, patrols = 20, interval = 4 })
+api.enemies.set_pressure({ difficulty = false })
+```
+
+- `apply_status` works on any enemy from any player's game. Status names are in `api.catalog.status_templates()`.
+- `info(unit)` gives `key`, `name`, `faction`, `boss`, `hitpoints`, `max_hitpoints` and `owned`.
+- `set_pressure` is the host's. `cap` runs up to 32 and lifts both limits waves stop at. Corpses count.
+- `difficulty` is what each encounter can spend. The seed, the waves on offer and the objectives stay the same.
+- `force_wave` spawns a wave from `api.enemies.waves()` all at once, ignoring its delays.
+- `spawn_entity` spawns a crate or pickup. Take paths from `api.catalog.crates()` and `pickups()`, which leave out paid items.
+
+## Missions {#missions}
+
+`api.mission.objectives()` lists `name`, `text`, `type`, `state`, `group`, `done`, `total` and `position`. `state` is `pending`, `complete` or `failed`.
+
+The effect `protect_objectives` keeps convoys and escorted people alive. It reaches what this player's game runs, so use it on the host.
+
+`api.mission.mutator(name)` turns on one of the game's proving ground modifiers in any mission, and `nil` turns it off. There's one at a time, and a real proving ground keeps its own.
+
+| Name | What it does |
+|---|---|
+| `super_boots` | 40% faster on foot |
+| `what_goes_around` | Damage to a teammate comes back to the shooter |
+| `orbital_support` | Support stratagems land near a player every 20 s |
+| `orbital_bombardments` | Strikes land near a player every 15 s, plus their call-in |
+
+## Vehicles {#vehicles}
+
+These effects reach the vehicle the player is driving, and let go of it when they get out. A passenger's game can't change it.
+
+| Effect | Value |
+|---|---|
+| `vehicle_speed` | A multiplier |
+| `vehicle_turn` | A multiplier |
+| `vehicle_armor` | Armor at every angle |
+| `vehicle_god` | `true`: no damage |
+| `vehicle_rockets` | `true`: exosuit rockets never run out |
+
+The fields of the `vehicle` family change a vehicle for good. Top speed takes effect when the driver gets out and back in.
+
+## Damage {#damage}
+
+```lua
+api.combat.scale({ players = 0.5, enemies = 2 })
+```
+
+A multiplier from 0 to 100, after armor, so armor that stops a shot still stops it. 1 or `false` turns a side off. The game passes no attacker to its sums, so a scale goes by who takes the hit. Each player's game works out its own hits, so everyone in a lobby should use the same numbers.
+
+## Messages {#messages}
+
+`api.ui.hint(text, seconds)` shows the game's own hint box, even with hints turned off. `text` is your words, or a hint name such as `"hint_alarm"`. `api.ui.ping(pos)` puts this player's mark on the map at a position, and `api.ui.ping(nil)` takes it away. Every player sees it.
+
+`api.lobby.players()` lists `peer`, `name`, `ping` in milliseconds, `host` and `me`. It only reads. A teammate has a name during a mission.
 
 ## Rules worth knowing {#rules}
 
@@ -96,5 +216,5 @@ api.effects.define({
 - `api.game.command(unit, component, command, data)` queues a command on a unit this player owns, from a list of known ones. Queuing an unknown command straight into the game stops it with an error no script can catch.
 - A timer that the game runs while above zero, such as a hellpod's `drop_time`, never finishes at 0. Use 0.01.
 - Spawning a unit whose package isn't loaded stops the game. `api.enemies.available(enemy)` checks.
-- `api.console.run` refuses commands that reach the shared backend, wipe saves or unlock paid content.
+- `api.console.run` refuses commands that reach the shared backend, wipe saves or unlock paid content. `spawn_enemy` runs only when nobody else is in the lobby, because it loads a package on this player's game alone.
 - Only change XP if you've read why the trainer doesn't: the total goes up with the next ordinary results, after any purge.

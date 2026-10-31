@@ -38,6 +38,16 @@ test("a_hook_that_fails_after_the_game_ran_doesnt_run_it_twice", function()
 	E.eq(spawned, 1, "spawned once")
 end)
 
+test("a_game_function_that_throws_inside_a_hook_runs_once", function()
+	local calls = 0
+	rawset(_G, "Target", { spawn = function() calls = calls + 1; error("the game's own error") end })
+	engine(nil, { mods = { E.mod("c", { scope = "client" }) } }, {
+		["obsidian/mods/c/main"] = "obsidian.hook(Target, 'spawn', function(original, self) return original(self) end)",
+	})
+	E.eq(pcall(rawget(_G, "Target").spawn, rawget(_G, "Target")), true, "the hook takes the error")
+	E.eq(calls, 1)
+end)
+
 test("a_hook_that_fails_before_the_game_ran_still_runs_it", function()
 	local spawned = 0
 	rawset(_G, "Target", { spawn = function() spawned = spawned + 1; return "unit" end })

@@ -3,28 +3,19 @@ local U = obsidian.module("pages/ui")
 local api, t = U.api, U.t
 local stratagems, catalog, world = api.stratagems, api.catalog, api.world
 
-local function list(run)
-	return function(page)
-		for _, s in ipairs(catalog.stratagems()) do
-			page:action(catalog.text(s.name), function() return run(s) end)
-		end
-	end
-end
-
-local function result(ok, why)
-	if ok then return t("done") end
-	return U.why(why)
-end
+local list, result = U.stratagem_list, U.result
 
 return function(page)
 	U.effect(page, "no_cooldown", "no_cooldown")
 	U.effect(page, "free_stratagems", "free_stratagems")
 	U.effect(page, "instant_call_in", "instant_call_in")
 	U.effect(page, "fast_pods", "fast_pods")
+	U.effect(page, "ignore_jammers", "ignore_jammers")
 	U.action(page, "reset_cooldowns", stratagems.reset_cooldowns)
 	U.action(page, "refill_uses", stratagems.refill_uses)
 
 	page:header(t("call_down"))
+	U.call_rows(page)
 	page:page(t("drop_cursor"), list(function(s) return result(stratagems.drop(s.name, world.cursor())) end), { help = U.help("drop_cursor") })
 	page:page(t("give_stratagem"), list(function(s) return result(stratagems.give(s.name)) end), { help = U.help("give_stratagem") })
 

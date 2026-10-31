@@ -1,7 +1,7 @@
 -- Enemies: stopping them, getting rid of them, bringing more.
 local U = obsidian.module("pages/ui")
 local api, t = U.api, U.t
-local enemies, catalog, edits = api.enemies, api.catalog, api.edits
+local enemies, catalog = api.enemies, api.catalog
 
 local amount, where = 1, "ahead"
 
@@ -29,7 +29,15 @@ end
 
 local function group_list(page)
 	for _, key in ipairs(catalog.enemy_groups()) do
-		page:action(key, U.act(enemies.spawn_group, key), { enabled = U.host_only })
+		page:action(catalog.text(key), U.act(enemies.spawn_group, key), { enabled = U.host_only })
+	end
+end
+
+local function wave_list(page)
+	local names = enemies.waves()
+	if #names == 0 then page:label(t("no_waves")) end
+	for _, name in ipairs(names) do
+		page:action(catalog.text(name), U.act(enemies.force_wave, name), { enabled = U.host_only })
 	end
 end
 
@@ -44,11 +52,14 @@ return function(page)
 	U.effect(page, "freeze", "freeze")
 	U.effect(page, "blind", "blind")
 	U.effect(page, "host_owns_enemies", "host_owns_enemies")
-	page:number(t("max_enemies"), {
-		min = 1, max = 64, step = 1, help = U.help("max_enemies"), enabled = U.host_only,
-		get = function() return enemies.max_enemies() or 0 end,
-		set = function(v) edits.set_table(t("max_enemies"), api.game.global("GameSettings"), "MAX_NUM_ALLOWED_ENEMIES", v, { min = 1, max = 64 }) end,
-	})
+	U.action(page, "stun_near", enemies.stun_near, 20)
+	U.effect_number(page, "damage_to_enemies", "damage_to_enemies", { off = 1, min = 0, max = 10, step = 0.25, format = "x%.2f" })
+
+	page:header(t("pressure"))
+	U.effect_number(page, "max_enemies", "enemy_cap", { off = 16, min = 1, max = enemies.MAX_CAP, step = 1, enabled = U.host_only })
+	U.effect_number(page, "enemy_difficulty", "enemy_difficulty", { off = 0, min = 0, max = 15, step = 1, enabled = U.host_only })
+	U.effect_number(page, "patrol_count", "patrol_count", { off = 0, min = 0, max = 60, step = 2, enabled = U.host_only })
+	U.effect_number(page, "patrol_interval", "patrol_interval", { off = 0, min = 0, max = 120, step = 1, enabled = U.host_only })
 
 	page:header(t("remove"))
 	U.action(page, "kill_all", enemies.kill_all)
@@ -60,6 +71,7 @@ return function(page)
 		page:page(t("spawn_faction", t(f.key)), spawn_list(f.id))
 	end
 	page:page(t("spawn_group"), group_list)
+	page:page(t("spawn_wave"), wave_list, { help = U.help("spawn_wave") })
 	U.action(page, "call_encounter", enemies.call_encounter)
 	U.action(page, "add_patrol", enemies.add_patrol)
 end

@@ -38,12 +38,14 @@ O menu trava o personagem enquanto está aberto, e fecha sozinho quando o jogo m
 ## O que tem nele {#whats-in-it}
 
 - **Jogador:** modo deus, corrida infinita, velocidade, teleporte, reaparecer, e capacetes, armaduras e capas que você tem.
-- **Armas:** munição infinita, recarga instantânea, reabastecimento, e qualquer arma ou vantagem que você tem.
-- **Estratagemas:** sem tempo de recarga, usos ilimitados, chamada instantânea e qualquer estratagema no cursor.
-- **Inimigos:** parar o surgimento, congelar ou cegar, matar e criar mais.
-- **Missão:** concluir objetivos, extração rápida, pular esperas, amostras de pesquisa e missões de treino de qualquer tipo a partir da nave.
+- **Armas:** munição infinita, recarga instantânea, reabastecimento, e qualquer arma, mochila ou vantagem que você tem, com as melhorias que escolher.
+- **Estratagemas:** sem tempo de recarga, usos ilimitados, chamada instantânea, ignorar zonas sem estratagemas, qualquer estratagema no cursor, e sinalizadores reais, inclusive Reforço.
+- **Veículos:** velocidade, giro, armadura, sem dano e foguetes de exotraje infinitos no veículo que você dirige, mais reparo e reabastecimento.
+- **Criar:** munição, caixas de suprimentos e itens no chão na hora, e sinalizadores no cursor.
+- **Inimigos:** parar o surgimento, congelar, cegar ou atordoar, matar, criar mais e ajustar a pressão de encontros e patrulhas.
+- **Missão:** a lista de objetivos, concluir objetivos, proteger comboios e escoltas, extração rápida, pular esperas, modificadores do campo de provas em qualquer missão, quem está no lobby, amostras de pesquisa e missões de treino de qualquer tipo a partir da nave.
 - **Mundo:** velocidade do jogo, câmera, HUD, neblina, hora do dia e gravidade.
-- **Editor:** os números de cada arma, estratagema, inimigo e efeito de status.
+- **Editor:** os números de cada arma, granada, mochila, estratagema, sentinela, mina, ataque, veículo, inimigo e efeito de status.
 - **Progresso:** amostras e desbloqueios.
 - **Console:** os comandos dos próprios desenvolvedores.
 - **Alterações:** o que está ligado, e o caminho de volta.
@@ -52,7 +54,7 @@ Ações que só o host pode fazer avisam quando você as escolhe.
 
 ## O que ele não faz {#what-it-wont-do}
 
-- **Não muda seu XP nem sua patente.** Seu XP total vai junto com os resultados da próxima missão normal, mesmo depois de limpar, então um número editado chegaria aos placares compartilhados.
+- **Não tem controle de XP nem de patente.** Seu XP total vai junto com os resultados da próxima missão normal, mesmo depois de limpar, então um número editado chegaria aos placares compartilhados. Mas missões reais continuam pagando XP. Terminar uma com **Vencer agora**, **Extração rápida** ou **Concluir todos os objetivos** soma o XP de sempre ao seu save, e a próxima missão limpa envia esse total. Missões de treino não pagam nada.
 - **Não libera DLC pago.** As listas mostram o que você tem, e o resto continua como o jogo vende.
 - **Não mexe na guerra compartilhada.** Comandos que informam a Guerra Galáctica são recusados, e os resultados continuam bloqueados ([A Guerra Galáctica](wiki:galactic-war)).
 
@@ -63,13 +65,15 @@ Ações que só o host pode fazer avisam quando você as escolhe.
 
 O trainer é um mod de sessão, então todos no lobby precisam usar os mesmos mods ou permitir mods de sessão ([Jogar online](wiki:multiplayer)). Se entrar alguém que não permite, cada mudança é desfeita e o menu para até a pessoa sair. Depois suas mudanças voltam.
 
-Os números do Editor são simulados no jogo de cada jogador, então funcionam melhor quando todos usam os mesmos.
+Os números do Editor e as duas linhas de dano são simulados no jogo de cada jogador, então funcionam melhor quando todos usam os mesmos.
+
+Duas coisas exigem que você esteja sozinho no lobby: dar a si mesmo a mira laser, porque o jogo dos outros a rodaria sem preparo, e o `spawn_enemy` do console, porque ele carrega um pacote só no seu jogo.
 
 > [!NOTE]
 > Conquistas da Steam ficam retidas enquanto o Obsidian API está ligado, então nada que você faz com o trainer ganha uma.
 
 ## Manter mudanças {#keeping-changes}
 
-As mudanças duram até fechar o jogo. Em **Alterações**, **Manter estas edições na próxima vez** salva suas edições de armas e inimigos, e elas voltam a cada início enquanto a opção **Manter edições salvas** do mod estiver ligada.
+As mudanças duram até fechar o jogo. Em **Alterações**, **Manter estas edições na próxima vez** salva suas edições do Editor, e elas voltam a cada início enquanto a opção **Manter edições salvas** do mod estiver ligada.
 
 Desbloqueios e amostras vão para o seu save real. O Obsidian faz backup dos seus saves antes de cada aplicação, inclusive os da Steam Cloud.

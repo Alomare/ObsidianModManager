@@ -53,17 +53,21 @@ function M.sidearms() return loadout("sidearm_weapon") end
 function M.stratagems() return loadout("stratagems") end
 function M.perks() return loadout("perks") end
 
--- Support weapons are stratagems whose crate holds the weapon: { name, unit_path }.
+local function has_subtype(s, wanted)
+	for _, sub in ipairs(s.stratagem_subtypes or {}) do
+		if sub == wanted then return true end
+	end
+	return false
+end
+
+-- Support weapons are stratagems whose crate holds the weapon: { name, unit_path }. All of them carry
+-- the subtype weapon; support_weapon leaves out the mortar, recoilless, LAW and missile launcher.
 function M.support_weapons()
 	local lsm = game.global("LuaSettingsManager")
 	local out = {}
 	if not lsm then return out end
 	for _, s in ipairs(M.stratagems()) do
-		local is_support = false
-		for _, sub in ipairs(s.stratagem_subtypes or {}) do
-			if sub == "support_weapon" then is_support = true end
-		end
-		local crate = is_support and s.unit and lsm:get_settings_by_unit_path(s.unit)
+		local crate = has_subtype(s, "weapon") and s.unit and lsm:get_settings_by_unit_path(s.unit)
 		local content = crate and crate.supply_crate_info and crate.supply_crate_info.content
 		local pickup = content and content[1] and content[1].unit_path
 		local path = pickup and lsm:get_settings_path_by_unit_path(pickup)
@@ -72,9 +76,112 @@ function M.support_weapons()
 	return out
 end
 
+-- What a stratagem's crate holds, pickup by pickup: fn(pickup settings, unit path).
+local function each_crate_item(s, fn)
+	local lsm = game.global("LuaSettingsManager")
+	local crate = lsm and s.unit and lsm:get_settings_by_unit_path(s.unit)
+	local info = crate and crate.supply_crate_info
+	for _, item in ipairs(info and info.content or {}) do
+		local settings = item.unit_path and lsm:get_settings_by_unit_path(item.unit_path)
+		if settings then fn(settings, item.unit_path) end
+	end
+end
+
+-- Every pack in a crate of a stratagem this player can use: { name, unit_path, stratagem }. The path
+-- is the settings' own backpack_path, the only kind the game's set_backpack can read safely.
+function M.backpacks()
+	local out, seen = {}, {}
+	for _, s in ipairs(M.stratagems()) do
+		each_crate_item(s, function(settings)
+			local pickup = settings.pickup_info
+			local path = pickup and pickup.backpack_path
+			if path and not seen[path] then
+				seen[path] = true
+				out[#out + 1] = { name = pickup.item_name, unit_path = path, stratagem = s.name }
+			end
+		end)
+	end
+	return out
+end
+
+function M.backpack(path)
+	for _, item in ipairs(M.backpacks()) do
+		if item.unit_path == path then return item end
+	end
+	return nil
+end
+
+-- Crates a stratagem drops: { name, unit_path }.
+function M.crates()
+	local out = {}
+	for _, s in ipairs(M.stratagems()) do
+		local is_crate = false
+		each_crate_item(s, function() is_crate = true end)
+		if is_crate then out[#out + 1] = { name = s.name, unit_path = s.unit } end
+	end
+	return out
+end
+
+-- Everything crates hold, as pickups that can lie on the ground: { name, unit_path }.
+function M.pickups()
+	local out, seen = {}, {}
+	for _, s in ipairs(M.stratagems()) do
+		each_crate_item(s, function(settings, path)
+			local pickup = settings.pickup_info
+			if pickup and pickup.item_name and not seen[path] then
+				seen[path] = true
+				out[#out + 1] = { name = pickup.item_name, unit_path = path }
+			end
+		end)
+	end
+	return out
+end
+
+-- Stratagems of a subtype, by what they send down: { name, unit_path }.
+function M.by_subtype(subtype)
+	local out = {}
+	for _, s in ipairs(M.stratagems()) do
+		if s.unit and has_subtype(s, subtype) then out[#out + 1] = { name = s.name, unit_path = s.unit } end
+	end
+	return out
+end
+
+-- The seven vehicles. The mannable turret has a vehicle's settings too, but it doesn't go anywhere.
+function M.vehicles()
+	local lsm = game.global("LuaSettingsManager")
+	local out = {}
+	if not lsm then return out end
+	for _, s in ipairs(M.stratagems()) do
+		local settings = s.unit and lsm:get_settings_by_unit_path(s.unit)
+		local info = settings and settings.vehicle_info
+		if info and info.vehicle_type ~= "mannable_turret" then out[#out + 1] = { name = s.name, unit_path = s.unit } end
+	end
+	return out
+end
+
+-- The highest upgrade value a unit takes. Bitmask upgrades add up, and the game's limit is 15.
+function M.max_upgrade(unit_path)
+	local lsm = game.global("LuaSettingsManager")
+	local settings = lsm and lsm:get_settings_by_unit_path(unit_path)
+	local info = settings and settings.upgrade_info
+	if not info then return 0 end
+	if info.type == "bitmask" then return math.min(2 ^ #info - 1, 15) end
+	return math.min(#info, 15)
+end
+
 function M.stratagem(name)
 	for _, s in ipairs(M.stratagems()) do
 		if s.name == name then return s end
+	end
+	return nil
+end
+
+-- The stratagem or weapon a unit path belongs to, by the name the game keeps upgrades under.
+function M.item_name(unit_path)
+	for _, list in ipairs({ M.primaries(), M.sidearms(), M.support_weapons() }) do
+		for _, item in ipairs(list) do
+			if item.unit_path == unit_path then return item.name end
+		end
 	end
 	return nil
 end
@@ -120,6 +227,12 @@ function M.enemy_groups()
 	return out
 end
 
+-- The encounter waves of a faction, as the game lists them: { name, cost, events }.
+function M.waves(faction)
+	local settings = game.global("EncounterSettings")
+	return settings and settings[faction] or {}
+end
+
 -- Editable fields of a family, as listed in data.lua.
 function M.fields(family)
 	local out = {}
@@ -133,7 +246,7 @@ end
 function M.families_of(settings)
 	local out = {}
 	local w = settings.weapon_info
-	if w then
+	if w and not settings.turret_info and not settings.strafingrun_info then
 		if w.heat_increase then out[#out + 1] = "beam"
 		elseif w.rounds_per_second then out[#out + 1] = "flame"
 		elseif w.min_power then out[#out + 1] = "arc"
@@ -144,6 +257,16 @@ function M.families_of(settings)
 	if settings.throwable_info then out[#out + 1] = "grenade" end
 	if settings.melee_info then out[#out + 1] = "melee" end
 	if settings.turret_info then out[#out + 1] = "turret" end
+	if settings.minedrop_info or settings.mine_info then out[#out + 1] = "mine" end
+	if settings.airstrike_info then out[#out + 1] = "airstrike" end
+	if settings.strafingrun_info then out[#out + 1] = "strafing" end
+	if settings.artillery_info then out[#out + 1] = "artillery" end
+	if settings.homing_info then out[#out + 1] = "orbital" end
+	if settings.backpack_info then out[#out + 1] = "backpack" end
+	if settings.vehicle_info then
+		out[#out + 1] = "vehicle"
+		out[#out + 1] = "toughness"
+	end
 	if settings.enemy_info then out[#out + 1] = "enemy" end
 	return out
 end

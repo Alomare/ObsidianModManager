@@ -21,12 +21,14 @@ for component, list in pairs({
 	shield = "set_shieldpoints set_shield_activated set_shield_info reset_shield_info",
 	character = "infinite_stamina move_speed_sprint_max do_knockdown drop_carry exit_interact_objective set_throw_range_multiplier",
 	mover = "position position_teleport move_speed acceleration deceleration ignore_slow keep_inside_screen destroy enable",
-	inventory = "ammo_pickup set_grenades set_grenade_path set_stratagem_info broadcast_stratagem_cooldown set_stratagem_cooldown_multiplier receive_stratagem set_weapon set_perk set_item_upgrades",
+	inventory = "ammo_pickup set_grenades set_grenade_path set_stratagem_info broadcast_stratagem_cooldown set_stratagem_cooldown_multiplier receive_stratagem set_weapon set_perk set_item_upgrades set_backpack",
 	customization = "set_customization communication_event",
 	enemy_target = "enable disable",
 	enemy = "remove_from_group",
 	research_sample_pickup = "interact",
 	show_on_map = "show",
+	stratagem = "set_thrown_direction",
+	exosuit_inventory = "set_full_ammo",
 }) do
 	KNOWN[component] = {}
 	for word in list:gmatch("%S+") do KNOWN[component][word] = true end
@@ -44,7 +46,7 @@ local function guarded(game, real)
 end
 
 local function unit(game, parts)
-	local u = { alive = true, master = {}, slave = {}, owned = parts.owned ~= false, pos = parts.pos or { x = 0, y = 0, z = 0 } }
+	local u = { alive = true, master = {}, slave = {}, owned = parts.owned ~= false, pos = parts.pos or { x = 0, y = 0, z = 0 }, path = parts.path }
 	for name, state in pairs(parts.components or {}) do
 		u.master[name] = guarded(game, state)
 		u.slave[name] = guarded(game, state)
@@ -110,7 +112,7 @@ function G.start(ids, opts)
 		local_rotation = function() return "rotation" end,
 		mover = function(u) return u.master.mover ~= nil end,
 		mover_fits_at = function() return true end,
-		get_data = function() return nil end,
+		get_data = function(u, key) return key == "unit_path" and u.path or nil end,
 	})
 	local v3 = setmetatable({
 		normalize = function(v) return v end,
@@ -118,7 +120,11 @@ function G.start(ids, opts)
 		forward = function() return { x = 0, y = 1, z = 0 } end,
 	}, { __call = function(_, x, y, z) return setmetatable({ x = x, y = y, z = z }, G.vector) end })
 	rawset(_G, "Vector3", v3)
-	rawset(_G, "Quaternion", { forward = function() return v3(0, 1, 0) end, identity = function() return "identity" end })
+	-- A turn about z, enough for the map sums.
+	rawset(_G, "Quaternion", setmetatable({ forward = function() return v3(0, 1, 0) end, identity = function() return "identity" end,
+		rotate = function(angle, v) return v3(v.x * math.cos(angle) - v.y * math.sin(angle), v.x * math.sin(angle) + v.y * math.cos(angle), v.z) end,
+	}, { __call = function(_, axis, angle) return axis.z < 0 and -angle or angle end }))
+	rawset(_G, "Vector2Aux", { unbox = function(t) return t end })
 	rawset(_G, "Vector3Aux", {
 		box = function(t, v) t.x, t.y, t.z = v.x, v.y, v.z return t end,
 		unbox = function(t) return v3(t.x, t.y, t.z) end,
@@ -129,13 +135,17 @@ function G.start(ids, opts)
 		set_gravity = function(_, g) game.gravity = g end,
 	})
 	rawset(_G, "Timpani", { set_bus_volume = function(bus, v) game.bus = { bus, v } end })
-	rawset(_G, "Network", { peer_id = function() return "me" end })
+	rawset(_G, "Network", { peer_id = function() return "me" end, ping = function(peer)
+		if peer == "lost" then error("no connection") end
+		return 0.042
+	end })
 	rawset(_G, "NetworkGlobal", rawget(_G, "NetworkGlobal") or { lobby = { is_host = function() return opts.host ~= false end,
 		members = function() return { "me" } end, member_data = function() end, set_member_data = function() end, my_id = "me" } })
 	local lobby = rawget(_G, "NetworkGlobal").lobby
 	lobby.is_host = function() return opts.host ~= false end
+	lobby.lobby_host = function() return opts.host ~= false and "me" or "friend" end
 
-	local dlc_items = opts.dlc or { weapon_dlc = true, stratagem_dlc = true, cus_helmet_dlc = true }
+	local dlc_items = opts.dlc or { weapon_dlc = true, stratagem_dlc = true, cus_helmet_dlc = true, stratagem_pack_dlc = true }
 	rawset(_G, "DlcSettings", {
 		is_item_dlc = function(name) return dlc_items[name] == true end,
 		can_use = function() return false end,
@@ -167,18 +177,50 @@ function G.start(ids, opts)
 	rawset(_G, "LoadoutSettings", {
 		primary_weapon = { { name = "weapon_rifle", unit_path = "equipment/rifle" }, { name = "weapon_dlc", unit_path = "equipment/dlc" } },
 		sidearm_weapon = { { name = "weapon_pistol", unit_path = "equipment/pistol" } },
-		perks = { { name = "perk_cardio" } },
+		perks = { { name = "perk_cardio" }, { name = "perk_lasersight" } },
 		stratagems = {
-			{ id = 1, name = "stratagem_resupply", cooldown_time = 120, activation_time = 5, stratagem_subtypes = {} },
-			{ id = 2, name = "stratagem_machinegun", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "support_weapon" }, unit = "gameobjects/crate" },
+			{ id = 1, name = "stratagem_resupply", cooldown_time = 120, activation_time = 5, stratagem_subtypes = {},
+				upgrades = { { cost = 1, cooldown_time = 90 }, { cost = 2 }, { cost = 3, cooldown_time = 60 } } },
+			{ id = 2, name = "stratagem_machinegun", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "support_weapon", "weapon" }, unit = "gameobjects/crate" },
 			{ id = 3, name = "stratagem_dlc", cooldown_time = 0, activation_time = 3 },
 			{ id = 4, name = "stratagem_reinforce", cooldown_time = 0, activation_time = 3 },
+			{ id = 5, name = "stratagem_mortar", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "weapon", "anti_tank" }, unit = "gameobjects/crate_mortar" },
+			{ id = 6, name = "stratagem_jumppack", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "support" }, unit = "gameobjects/crate_pack" },
+			{ id = 7, name = "stratagem_exosuit", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "vehicle" }, unit = "gameobjects/mech" },
+			{ id = 8, name = "stratagem_mannable_turret", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "turret" }, unit = "gameobjects/mannable" },
+			{ id = 9, name = "stratagem_airstrike", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "strike" }, unit = "gameobjects/airstrike_01" },
+			{ id = 10, name = "stratagem_turret", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "turret" }, unit = "gameobjects/sentry" },
+			{ id = 11, name = "stratagem_minedrop", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "mine" }, unit = "gameobjects/minedrop_01" },
+			{ id = 12, name = "stratagem_pack_dlc", cooldown_time = 0, activation_time = 3, stratagem_subtypes = { "support" }, unit = "gameobjects/crate_pack_dlc" },
 		},
 		find_stratagem = function() return "from the arrows" end,
 		upgrade_all = function(t) t.all = 7 end,
+		get_upgraded_settings = function(u) return u.settings end,
 	})
-	rawset(_G, "StatusTemplateSettings", { heavy_burn = { power = 5, duration = 3 } })
-	rawset(_G, "EnemyGroupSettings", { bug_scout_x2 = { units = { { unit_path = "characters/bug_scout/bug_scout", amount = 2 } } } })
+	game.perk_calls = {}
+	local function perk_call(name) return function() game.perk_calls[#game.perk_calls + 1] = name end end
+	rawset(_G, "PerkSettings", {
+		perk_cardio = { setup_master = perk_call("cardio setup_master"), remove_master = perk_call("cardio remove_master") },
+		perk_lasersight = { setup_master = perk_call("laser setup_master"), setup_slave = perk_call("laser setup_slave"), remove_slave = perk_call("laser remove_slave") },
+	})
+	rawset(_G, "StatusTemplateSettings", { heavy_burn = { power = 5, duration = 3 }, flashbang_stun = { duration = 3, status_name = "stun" }, flashbang_slow = { amount = 0.5, duration = 3, status_name = "slow" } })
+	rawset(_G, "EnemyGroupSettings", { bug_scout_x2 = { units = { { unit_path = "characters/bug_scout/bug_scout", amount = 2 } } },
+		cyborg_x1 = { units = { { unit_path = "characters/cyborg_soldier/cyborg_soldier", amount = 1 } } } })
+	rawset(_G, "EncounterSettings", { bugs = {
+		{ name = "bug_wave_scouts", cost = 2, events = { { delay = 0, groups = { { delay = 0, group = "bug_scout_x2" } } }, { delay = 3, groups = { { delay = 0, group = "bug_scout_x2" } } } } },
+		{ name = "bug_wave_strange", cost = 4, events = { { delay = 0, groups = { { delay = 0, group = "cyborg_x1" } } } } },
+	} })
+	rawset(_G, "HintSettings", { hint_alarm = { audio = "ui_select", duration = 7, icon = "icon_hint", text = "hint_alarm" } })
+	rawset(_G, "SpatialSpawnUtlity", { generate_points_in_donut = function(at) return { at } end })
+	-- The game's damage sums, called as functions on the victim, with the formula's shape.
+	rawset(_G, "HealthComponent", { calculate_damage = function(u, power)
+		local state = u.slave.health
+		return power, 1, state.hitpoints - power <= state.constitution
+	end })
+	rawset(_G, "ShieldComponent", { calculate_damage = function(u, power)
+		return power, u.slave.shield.shieldpoints - power <= 0
+	end })
+	rawset(_G, "StratagemsDisabledAreaComponent", { is_unit_inside_any_area = function() return true end })
 
 	-- Settings files: one weapon with an upgrade clone, the way the game builds them.
 	local rifle = { weapon_info = { power = 75, firerate = 650, magazine_capacity = 30, magazines = 6, magazines_max = 12, reload_duration = 2.5, reload_duration_fast = 1.25,
@@ -188,14 +230,43 @@ function G.start(ids, opts)
 		attributes = {} }, melee_info = { power = 50, radius = 1, center_distance = 1, duration = 0.5 },
 		upgrade_info = { type = "bitmask", { weapon_info = { magazine_capacity = 45 } } } }
 	game.rifle, game.rifle_upgraded = rifle, rifle_upgraded
-	local helldiver = { character_info = { move_speed_jog = 4, move_speed_sprint_max = 7, sprint_stamina = 5 }, health_info = { health = 100, armor_max = 35 } }
+	local helldiver = { character_info = { move_speed_jog = 4, move_speed_sprint_max = 7, sprint_stamina = 5, dive_duration = 0.8, get_up_presses_needed = 30 }, health_info = { health = 100, armor_max = 35 } }
 	local scout = { enemy_info = { movement_speed = 4, threat_calculation = function() return 1 end, aggro_range = 80 }, health_info = { health = 30, armor_min = 15, armor_max = 25 } }
 	local crate = { supply_crate_info = { content = { { unit_path = "equipment/mg_pickup" } } } }
+	local mortar_crate = { supply_crate_info = { content = { { unit_path = "equipment/mortar_pickup" } } } }
+	local pack = { backpack_info = { num_uses = 60, num_uses_max = 60 }, pickup_info = { backpack_path = "equipment/pack", item_name = "pickup_jumppack", pickup_path = "equipment/pack_pickup" } }
+	local pack_better = { backpack_info = { num_uses = 90, num_uses_max = 90 }, pickup_info = pack.pickup_info }
+	game.pack = pack
+	local pack_crate = { supply_crate_info = { content = { { unit_path = "equipment/pack_pickup" }, { unit_path = "equipment/pack_pickup" } } } }
+	local dlc_pack = { backpack_info = { num_uses = 1 }, pickup_info = { backpack_path = "equipment/pack_dlc", item_name = "pickup_dlc" } }
+	local dlc_crate = { supply_crate_info = { content = { { unit_path = "equipment/pack_dlc_pickup" } } } }
+	local mech = { vehicle_info = { vehicle_type = "exosuit", move_speed = 4, turn_speed = 0.5, acceleration = 9, deceleration = 9 }, health_info = { health = 1000, armor_min = 0, armor_max = 1000 },
+		weapon_info = { power = 75, magazine_capacity = 1000, magazines = 0, magazines_max = 0, reload_duration = 2.5, reload_duration_fast = 1.25 }, melee_info = { power = 350, radius = 1.25, center_distance = 2.25, duration = 0.8 } }
+	game.mech_settings = mech
+	local mannable = { vehicle_info = { vehicle_type = "mannable_turret", move_speed = 0, turn_speed = 0.6 }, health_info = { health = 1000 } }
+	local sentry = { turret_info = { rounds = 100, check_for_enemies_radius = 20, turn_speed_target = 0.1 }, weapon_info = { power = 50 }, ttl_info = { time_until_dead = 60 }, health_info = { health = 100 } }
+	local airstrike = { airstrike_info = { num_bombs = 5, bomb_area_length = 20, time_until_bombs = 2 }, explosive_info = { center_power = 500, blast_power = 100, center_radius = 2, blast_radius = 5, force = 10 } }
+	local minedrop = { minedrop_info = { num_mines = 10 } }
+	local mine = { mine_info = { time_until_armed = 1 } }
+	local grenade = { explosive_info = { time_until_explosion = 3, center_power = 300, blast_power = 100, center_radius = 2, blast_radius = 5, force = 10 }, throwable_info = { throw_distance_max = 20 } }
 	local by_settings = {
 		["equipment/rifle"] = rifle, ["characters/helldiver_private_01/helldiver_private_01"] = helldiver,
 		["characters/bug_scout/bug_scout"] = scout, ["gameobjects/crate"] = crate, ["equipment/mg"] = { weapon_info = { power = 40, magazine_capacity = 100, magazines = 3, magazines_max = 6, reload_duration = 5, reload_duration_fast = 4 } },
+		["gameobjects/crate_mortar"] = mortar_crate, ["equipment/mortar"] = { weapon_info = { power = 300, magazine_capacity = 6, magazines = 2, magazines_max = 3, reload_duration = 3, reload_duration_fast = 2 } },
+		["gameobjects/crate_pack"] = pack_crate, ["equipment/pack"] = pack, ["gameobjects/crate_pack_dlc"] = dlc_crate, ["equipment/pack_dlc"] = dlc_pack,
+		["gameobjects/mech"] = mech, ["gameobjects/mannable"] = mannable, ["gameobjects/sentry"] = sentry, ["gameobjects/airstrike_01"] = airstrike,
+		["gameobjects/minedrop_01"] = minedrop, ["gameobjects/mine_01"] = mine, ["gameobjects/mine_stun"] = mine,
+		["equipment/equipment_grenade_01"] = grenade, ["equipment/equipment_grenade_incendiary"] = grenade, ["equipment/equipment_grenade_stun"] = grenade, ["equipment/equipment_grenade_smoke"] = grenade,
 	}
 	local unit_to_settings = { ["equipment/rifle"] = "equipment/rifle", ["equipment/mg_pickup"] = "equipment/mg", ["gameobjects/crate"] = "gameobjects/crate",
+		["gameobjects/crate_mortar"] = "gameobjects/crate_mortar", ["equipment/mortar_pickup"] = "equipment/mortar",
+		["gameobjects/crate_pack"] = "gameobjects/crate_pack", ["equipment/pack_pickup"] = "equipment/pack", ["equipment/pack"] = "equipment/pack",
+		["gameobjects/crate_pack_dlc"] = "gameobjects/crate_pack_dlc", ["equipment/pack_dlc_pickup"] = "equipment/pack_dlc",
+		["gameobjects/mech"] = "gameobjects/mech", ["gameobjects/mannable"] = "gameobjects/mannable", ["gameobjects/sentry"] = "gameobjects/sentry",
+		["gameobjects/airstrike_01"] = "gameobjects/airstrike_01", ["gameobjects/minedrop_01"] = "gameobjects/minedrop_01",
+		["gameobjects/mine_01"] = "gameobjects/mine_01", ["gameobjects/mine_stun"] = "gameobjects/mine_stun",
+		["equipment/equipment_grenade_01"] = "equipment/equipment_grenade_01", ["equipment/equipment_grenade_incendiary"] = "equipment/equipment_grenade_incendiary",
+		["equipment/equipment_grenade_stun"] = "equipment/equipment_grenade_stun", ["equipment/equipment_grenade_smoke"] = "equipment/equipment_grenade_smoke",
 		["characters/helldiver_private_01/helldiver_private_01"] = "characters/helldiver_private_01/helldiver_private_01", ["characters/bug_scout/bug_scout"] = "characters/bug_scout/bug_scout" }
 	rawset(_G, "LuaSettingsManager", {
 		unit_path_to_modified_settings = { ["equipment/rifle"] = { [1] = rifle_upgraded } },
@@ -203,6 +274,10 @@ function G.start(ids, opts)
 		get_settings_by_unit_path = function(_, p) return by_settings[unit_to_settings[p]] end,
 		get_settings_path_by_unit_path = function(_, p) return unit_to_settings[p] end,
 		get_settings_by_unit = function() return helldiver end,
+		get_modified_settings = function(self, path, value)
+			if path == "equipment/pack" and value == 1 then return pack_better end
+			return self:get_settings_by_unit_path(path)
+		end,
 		unit_path_to_settings_path_iterator = function() return pairs(unit_to_settings) end,
 		all_settings_iterator = function() return pairs(by_settings) end,
 	})
@@ -222,21 +297,41 @@ function G.start(ids, opts)
 	-- The mission.
 	local inventory = { stratagems = {
 		guarded(game, { id = 1, cooldown_timer = 30, uses_left = 1, loadout_info = { num_uses = 4 } }),
-	}, num_grenades = 1 }
+	}, num_grenades = 1, perk = 1, perk_context = {}, item_upgrades = { weapon_rifle = 5, stratagem_machinegun = 2 } }
 	local weapon = unit(game, { components = { firearm = { rounds = 3, num_mags = 2, is_reloading = true, reload_time = 2 } } })
 	inventory.current_weapon, inventory.primary_weapon = weapon, weapon
 	local me = unit(game, { pos = { x = 1, y = 1, z = 0 }, components = {
-		health = { hitpoints = 100, is_downed = false, is_dead = false, hitpoints_real = 100 }, status = {}, shield = {},
+		health = { hitpoints = 100, constitution = 0, is_downed = false, is_dead = false, hitpoints_real = 100 }, status = {}, shield = { shieldpoints = 50 },
 		character = { sprint_stamina = 0, input = {} }, mover = { position = { x = 1, y = 1, z = 0 } },
 		inventory = inventory, customization = {}, enemy_target = {},
 	} })
 	game.me = me
 	game.weapon = weapon
 	local function enemy(owned, x)
-		return unit(game, { owned = owned, pos = { x = x, y = 0, z = 0 }, components = { enemy = {}, health = { is_dead = false, constitution = -10 } } })
+		return unit(game, { owned = owned, pos = { x = x, y = 0, z = 0 }, path = "characters/bug_scout/bug_scout", components = { enemy = {},
+			health = { is_dead = false, constitution = -10, hitpoints = 30, max_hitpoints = 30 }, shield = { shieldpoints = 20 } } })
 	end
 	game.enemies = { enemy(true, 3), enemy(false, 100) }
 
+	-- An exosuit with a gun that's a unit of its own, and a seat the avatar isn't in yet.
+	local arm = unit(game, { components = { firearm = {} } })
+	game.arm = arm
+	game.mech = unit(game, { components = {
+		vehicle = { vehicle_info = mech.vehicle_info, rotation_speed = 0.5 }, mover = {},
+		health = { hitpoints = 1000, constitution = 500, invincible = false, armor_min = 0, armor_max = 1000 },
+		seat = { seat_weapon_units = { arm } }, exosuit_inventory = { num_grenades = 3 },
+	} })
+	game.mech.settings = mech
+	game.apc = unit(game, { components = {
+		vehicle = { vehicle_info = { vehicle_type = "apc", move_speed = 5, turn_speed = 55 }, rotation_speed = 55 }, mover = {},
+		health = { hitpoints = 1000, constitution = 500 }, seat = { seat_weapon_units = {} },
+	} })
+	game.apc.settings = { health_info = { armor_min = 20, armor_max = 2000 } }
+
+	game.convoy = unit(game, { components = { health = { invincible = false, hitpoints = 500, constitution = 0 } } })
+	game.escorted = unit(game, { components = { health = { invincible = false, hitpoints = 100, constitution = 0 } } })
+
+	game.slave_commands = {}
 	local comps = { health = component(game, "health"), status = component(game, "status"), inventory = component(game, "inventory"),
 		firearm = component(game, "firearm"), stratagem = component(game, "stratagem"), launcher = component(game, "launcher"),
 		flameweapon = component(game, "flameweapon"), beamweapon = component(game, "beamweapon"), throwable_weapon = component(game, "throwable_weapon") }
@@ -257,7 +352,9 @@ function G.start(ids, opts)
 	end
 	game.components = comps
 
-	local masters = { enemy = {}, objective_destroy_object = { { state = {} } }, objective_interact_object = { { state = {} } } }
+	local masters = { enemy = {}, objective_destroy_object = { { state = {} } }, objective_interact_object = { { state = {} } },
+		objective_convoy = { [game.convoy] = { state = { mission_state = "pending", enabled = false } } },
+		npc_escort = { [game.escorted] = { state = { in_goal = false } } } }
 	local slaves = { enemy = {}, objective_extract_lz = {} }
 	for _, u in ipairs(game.enemies) do
 		slaves.enemy[u] = { state = u.slave.health }
@@ -283,10 +380,19 @@ function G.start(ids, opts)
 		queue_command_master_interface = function(u, i, cmd, data)
 			game.commands[#game.commands + 1] = { unit = u, interface = i, command = cmd, data = data }
 		end,
+		-- From any peer: the game sends it on to the owner.
+		queue_command_interface = function(u, i, cmd, data)
+			game.commands[#game.commands + 1] = { unit = u, interface = i, command = cmd, data = data }
+		end,
+		queue_command_slave = function(u, c, cmd, data)
+			assert(u.slave[c], "no such component on the unit")
+			game.slave_commands[#game.slave_commands + 1] = { unit = u, component = c, command = cmd, data = data }
+		end,
 	})
 
-	local player_go = { avatar_unit = me, research_samples = 0 }
+	local player_go = { avatar_unit = me, research_samples = 0, name = "Tester", map_ping = { -1000, -1000 } }
 	function player_go:owned() return true end
+	function player_go:owner() return "me" end
 	function player_go:exists() return true end
 	function player_go:get(k) return self[k] end
 	function player_go:set(k, v) self[k] = v end
@@ -294,31 +400,49 @@ function G.start(ids, opts)
 	local record = { player_go = player_go, pad_number = 0, extra_lives = 1 }
 	game.record = record
 	local mission_manager = { get_objectives = function()
-		return { { name = "objective_a", state = "pending", position = { { x = 9, y = 9, z = 0 } } },
+		return { { name = "objective_a", type = "objective_interact_object", group = 1, state = "pending", params = { 1, 3 }, position = { { x = 9, y = 9, z = 0 } } },
 			{ name = "mission_objective_extract", state = "pending", position = { { x = 7, y = 7, z = 0 } } } }
 	end, set_mission_completed = function() game.completed = true end, set_extraction_done = function() game.extraction_done = true end }
 	local state = {
-		players = { record }, mission_manager = mission_manager, mission_seed = 12345,
+		players = { record }, mission_manager = mission_manager, mission_seed = 12345, event_delegate = G.delegate(),
 		respawn_position = { x = 2, y = 2, z = 0 },
 		entity_manager = { get_master_entities = function(_, n) return masters[n] or {} end, get_slave_entities = function(_, n) return slaves[n] or {} end },
 		network_router = { transmit_to = function(_, ...) game.rpc[#game.rpc + 1] = { ... } end },
 		encounter_manager = {
+			max_num_enemies = 8, mission_difficulty = 5, mission_enemy = "bugs",
 			spawn_enemy = function(_, path) game.spawned[#game.spawned + 1] = path end,
-			spawn_group = function(_, _, g) game.spawned[#game.spawned + 1] = g.units[1].amount end,
+			spawn_group = function(_, _, g, _, cost) game.spawned[#game.spawned + 1] = g.units[1].amount game.group_cost = cost end,
 			set_disabled = function(_, v) game.encounters_off = v end,
 			start_encounter = function() game.alarm = true end,
 		},
-		patrol_manager = { set_disabled = function(_, v) game.patrols_off = v end, add_patrol_on_spawner = function() game.patrol = true end },
-		entity_spawner = { spawn_entity = function(_, p) game.spawned[#game.spawned + 1] = p end, despawn_entity = function() end },
+		patrol_manager = { max_num_patrols = 6, patrol_spawn_interval = 8, set_disabled = function(_, v) game.patrols_off = v end, add_patrol_on_spawner = function() game.patrol = true end },
+		entity_spawner = { spawn_entity = function(_, p, pos, rotation, _, setup)
+			game.spawned[#game.spawned + 1] = p
+			game.spawn_setup, game.spawn_pos = setup, pos
+			-- The flare has its stratagem component the moment it exists, as in the game.
+			if p == "gameobjects/flare_01" then
+				local flare = unit(game, { components = { stratagem = {} } })
+				game.flare = flare
+				return flare
+			end
+		end, despawn_entity = function() end },
 		component_manager = { component_name_to_index = { navmesh_mover = 1, enemy = 2 }, active_components = { 1, 2 },
 			pause_component = function(_, n) game.paused_component = n end, resume_component = function() end },
 		explosion_manager = { do_explosion = function() game.boom = true end },
 		viewport = { set_shading_environment_variable = function(_, n) game.shading = n end, remove_shading_environment_variable = function() end,
-			set_shading_environment_settings = function() end, get_camera = function() return "camera" end,
+			set_shading_environment_settings = function(_, name) game.shading_setting = name end, get_camera = function() return "camera" end,
 			screen_to_world = function() return rawget(_G, "Vector3")(1, 1, -1) end },
-		world_proxy = { get_physics_world = function() return "physics" end },
+		world_proxy = { get_physics_world = function() return "physics" end, get_world = function() return "world" end },
 		hud = {},
-		generated_level = { get_closest_position_on_level = function() return rawget(_G, "Vector3")(0, 0, 0) end },
+		hint_manager = { hints_on = opts.hints ~= false, add_hint = function(self, name, override, params, _, seconds)
+			if not (self.hints_on or override) then return end
+			local hint = rawget(_G, "HintSettings")[name]
+			local text = "text of " .. hint.text
+			-- As LocalizationManager.string_format goes through its pairs.
+			if params then text = string.gsub(text, params[1], params[2]) end
+			game.hint = { text = text, seconds = seconds or hint.duration }
+		end },
+		generated_level = { shading_environment_setting = "dusk", width = 8, height = 8, map_size = { x = 10, y = 10 }, get_closest_position_on_level = function() return rawget(_G, "Vector3")(0, 0, 0) end },
 		set_extra_lives = function(_, _, n) game.lives = n end,
 		do_abort_mission = function() game.aborted = true end,
 		spawn_research_samples_on_all_markers = function() game.samples = true end,
@@ -332,6 +456,24 @@ function G.start(ids, opts)
 		modulate_seed = function(...) game.seed_parts = { ... } return 777 end })
 
 	return e, game, ui
+end
+
+-- The event delegate: no pcall, and registering twice is an assert.
+function G.delegate()
+	local d = { events = {} }
+	function d:register(listener, ...)
+		for i = 1, select("#", ...) do
+			local name = select(i, ...)
+			assert(listener[name], "Callback object does not implement function")
+			self.events[name] = self.events[name] or {}
+			assert(not self.events[name][listener], "Callback object is already registered")
+			self.events[name][listener] = true
+		end
+	end
+	function d:trigger(name, ...)
+		for listener in pairs(self.events[name] or {}) do listener[name](listener, ...) end
+	end
+	return d
 end
 
 G.vector = {

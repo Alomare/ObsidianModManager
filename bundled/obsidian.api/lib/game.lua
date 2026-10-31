@@ -23,10 +23,11 @@ local COMMANDS = {
 	shield = set("set_shieldpoints set_shield_activated set_shield_info reset_shield_info"),
 	character = set("infinite_stamina move_speed_sprint_max do_knockdown drop_carry exit_interact_objective set_throw_range_multiplier"),
 	mover = set("position position_teleport move_speed acceleration deceleration ignore_slow keep_inside_screen destroy enable"),
-	inventory = set("ammo_pickup set_grenades set_grenade_path set_stratagem_info broadcast_stratagem_cooldown set_stratagem_cooldown_multiplier receive_stratagem set_weapon set_perk set_item_upgrades"),
+	inventory = set("ammo_pickup set_grenades set_grenade_path set_stratagem_info broadcast_stratagem_cooldown set_stratagem_cooldown_multiplier receive_stratagem set_weapon set_perk set_item_upgrades set_backpack"),
 	customization = set("set_customization enable_heavy_armor disable_heavy_armor set_visible communication_event"),
 	enemy_target = set("enable disable"),
 	exosuit_inventory = set("set_full_ammo"),
+	stratagem = set("set_thrown_direction"),
 	objective_defend_object = set("interact"),
 	research_sample_pickup = set("interact"),
 	show_on_map = set("show"),
@@ -55,10 +56,22 @@ end
 
 -- Host of the lobby, or alone with no lobby at all.
 function M.is_host()
-	local network = global("NetworkGlobal")
-	local lobby = type(network) == "table" and network.lobby
+	local lobby = M.lobby()
 	if not lobby then return true end
 	return lobby:is_host() == true
+end
+
+function M.lobby()
+	local network = global("NetworkGlobal")
+	return type(network) == "table" and network.lobby or nil
+end
+
+-- Nobody else in the lobby. With no way to tell, it answers no: the callers are the risky actions.
+function M.alone()
+	local lobby = M.lobby()
+	if not lobby then return true end
+	local ok, members = pcall(lobby.members, lobby)
+	return ok and type(members) == "table" and #members <= 1
 end
 
 -- The local player's record. players[1] is the first player in the lobby, not this one.

@@ -128,12 +128,14 @@ You need Windows 10 or 11, and HELLDIVERS installed through Steam.
 4. Turn on the mods you want. When two change the same thing, the later one in the list wins.
 5. Press **Play**. Obsidian deploys your changes, then starts the game through Steam.
 
-To go back to vanilla, close the game and press **Purge**. Your library and profiles stay as they are.
+To go back to vanilla, close the game and press **Purge**. Your library and profiles stay as they are. Do this before you uninstall Obsidian too, as the patches stay in the game folder until something removes them.
 
 | Download | What it is |
 |---|---|
 | The `x64-setup.exe` file | The installer. It checks for new versions at startup and installs them when you say so. **Updates** in Settings changes that. |
 | `ObsidianModManager-<version>-portable.zip` | The portable copy, with your library in a `data` folder beside the app. Unzip it anywhere and start `Obsidian.exe`. New versions are downloaded by hand. |
+
+Nexus Mods has the installer too. Each file there waits for manual approval, so it may be an older version. That's fine: install it, and Obsidian offers the newest version when it starts.
 
 The window needs the Microsoft Edge WebView2 Runtime. The installer adds it when it's missing. For the portable copy, Windows 11 has it, nearly every Windows 10 PC has it too, and the rest can get [Microsoft's free download](https://developer.microsoft.com/microsoft-edge/webview2/).
 
@@ -151,7 +153,7 @@ Ask on the [Discord](https://dsc.gg/hd1modding) how to do something, or show wha
 
 ### Reporting a Bug
 
-Open an [issue](https://github.com/Alomare/ObsidianModManager/issues/new) with the version, what you did and what happened. If it happened in the game, attach `loader.log` from `%APPDATA%\Arrowhead\Helldivers\ObsidianModManager\logs`.
+Open an [issue](https://github.com/Alomare/ObsidianModManager/issues/new) with what you did and what happened. **Copy report** in Settings, under Data, gives you the versions, the mods that were on and the end of the game's log, without your Windows account name.
 
 ### Suggesting an Idea
 

@@ -1,7 +1,7 @@
 {
   "obsidian": 1,
   "id": "obsidian.api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": {
     "en": "Obsidian API",
     "pt-BR": "Obsidian API",
@@ -35,6 +35,11 @@
     "lib/stratagems.lua",
     "lib/enemies.lua",
     "lib/mission.lua",
-    "lib/progress.lua"
+    "lib/progress.lua",
+    "lib/events.lua",
+    "lib/combat.lua",
+    "lib/vehicles.lua",
+    "lib/lobby.lua",
+    "lib/ui.lua"
   ]
 }

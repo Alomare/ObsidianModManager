@@ -8,8 +8,9 @@ local M = {}
 
 local PREFIX = "edit."
 
+-- A unit edit is kept by its settings path; a stratagem or status edit by what the runtime calls it.
 local function encode(e)
-	return table.concat({ e.settings_path, e.path, type(e.value), tostring(e.value) }, "|")
+	return table.concat({ e.settings_path or e.keep, e.path, type(e.value), tostring(e.value) }, "|")
 end
 
 local function decode(text)
@@ -29,7 +30,7 @@ function M.save()
 	end
 	local n = 0
 	for _, e in ipairs(edits.list()) do
-		if e.settings_path then
+		if e.settings_path or e.keep then
 			n = n + 1
 			obsidian.storage.set(PREFIX .. n, encode(e))
 		end
@@ -43,13 +44,24 @@ local function data_ready()
 	return lsm and next(lsm.unit_path_to_modified_settings or {}) ~= nil
 end
 
+local function restore(where, path, value)
+	local kind, name = string.match(where, "^(%a+):(.+)$")
+	if kind == "stratagem" then return api.stratagems.edit(name, path, value) end
+	if kind == "status" then
+		local target = game.global("StatusTemplateSettings")[name]
+		if not target then return false, "no_target" end
+		return edits.set_table(name, target, path, value, { keep = where })
+	end
+	return edits.set_unit(where, path, value, { target = where })
+end
+
 function M.load_saved()
 	if not data_ready() then return false end
 	for key, text in pairs(obsidian.storage.all()) do
 		if string.sub(key, 1, #PREFIX) == PREFIX then
-			local settings_path, path, value = decode(text)
-			if settings_path then
-				local ok, why = edits.set_unit(settings_path, path, value, { target = settings_path })
+			local where, path, value = decode(text)
+			if where then
+				local ok, why = restore(where, path, value)
 				if not ok then obsidian.log("saved edit not applied (" .. tostring(why) .. "): " .. path) end
 			end
 		end
@@ -61,7 +73,7 @@ M.build = function(page)
 	page:header(t("changes_on"))
 	local active = effects.active()
 	if #active == 0 then page:label(t("changes_none")) end
-	for _, id in ipairs(active) do page:label(id) end
+	for _, id in ipairs(active) do page:label(t(id)) end
 	if #active > 0 then
 		page:action(t("changes_effects_off"), function()
 			effects.clear()

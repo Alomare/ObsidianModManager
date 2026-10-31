@@ -91,7 +91,7 @@ test("the_menu_opens_on_every_page_with_the_key", function()
 	local menu = rawget(_G, "obsidian").menu
 	E.eq(menu.is_open(), true, "F6 opens it")
 	ui.frame()
-	for _, name in ipairs({ "Player", "Weapons", "Stratagems", "Enemies", "Mission", "World", "Editor", "Progress", "Console", "Changes" }) do
+	for _, name in ipairs({ "Player", "Weapons", "Stratagems", "Vehicles", "Spawn", "Enemies", "Mission", "World", "Editor", "Progress", "Console", "Changes" }) do
 		E.eq(ui.shown(name), true, name)
 	end
 	ui.tap("f6")
@@ -106,7 +106,7 @@ test("every_page_opens_and_every_row_has_real_text", function()
 	E.eq(#seen > 150, true, "rows reached: " .. #seen)
 	for _, row in ipairs(seen) do
 		local label = row:match("([^/]+)$"):gsub("^%s+", "")
-		E.eq(raw_key(label) and label:match("^[a-z]+_x?%d") == nil and not label:find("heavy_burn", 1, true) and not label:find("bug_scout", 1, true), false, "a text key shown as is: " .. row)
+		E.eq(raw_key(label), false, "a text key shown as is: " .. row)
 	end
 	assert_clean(e, game, ui)
 end)
@@ -175,6 +175,84 @@ test("saved_edits_come_back_at_the_next_launch", function()
 	core.current = nil
 end)
 
+test("kept_stratagem_and_status_edits_come_back_too", function()
+	local e, game = start()
+	local api = rawget(_G, "obsidian").import("obsidian.api")
+	local core = e:core()
+	core.current = core.mods_by_id["obsidian.trainer"]
+	local s = api.catalog.stratagem("stratagem_resupply")
+	E.eq(api.stratagems.edit("stratagem_resupply", "cooldown_time", 30), true)
+	local burn = rawget(_G, "StatusTemplateSettings").heavy_burn
+	E.eq(api.edits.set_table("heavy_burn", burn, "duration", 9, { keep = "status:heavy_burn" }), true)
+	local changes = e.loaded["obsidian/mods/obsidian.trainer/pages/changes"]
+	E.eq(changes.save(), 2)
+	api.edits.revert_all()
+	E.eq(s.cooldown_time, 120)
+	E.eq(burn.duration, 3)
+	E.eq(changes.load_saved(), true)
+	E.eq(s.cooldown_time, 30)
+	E.eq(s.upgrades[3].cooldown_time, 30, "through the runtime, so at every level")
+	E.eq(burn.duration, 9)
+	core.current = nil
+end)
+
+test("the_changes_page_shows_names_not_effect_ids", function()
+	local e, game, ui, M = start()
+	local api = rawget(_G, "obsidian").import("obsidian.api")
+	api.effects.set("vehicle_god", true)
+	rawget(_G, "obsidian").menu.open()
+	local changes = e.loaded["obsidian/mods/obsidian.trainer/pages/changes"]
+	local labels = {}
+	local page = { header = function() end, label = function(_, text) labels[#labels + 1] = text end, action = function() end }
+	e:core().current = e:core().mods_by_id["obsidian.trainer"]
+	changes.build(page)
+	E.has(table.concat(labels, ","), "Vehicle can't be damaged")
+	E.lacks(table.concat(labels, ","), "vehicle_god")
+end)
+
+test("the_new_pages_list_what_the_runtime_offers", function()
+	local e, game, ui, M = start()
+	rawget(_G, "obsidian").menu.open()
+	local seen = {}
+	walk(M, ui, seen, false, "root")
+	local all = table.concat(seen, "\n")
+	for _, row in ipairs({ "root/Vehicles / Speed", "root/Spawn / Supply crates", "root/Spawn/Pickups / Jumppack", "root/Weapons/Backpack / Jumppack",
+		"root/Stratagems / Ignore no-stratagem zones", "root/Enemies / Spawn a wave", "root/Enemies/Spawn a wave / Wave scouts",
+		"root/Mission / Protect convoys and escorts", "root/Mission / Proving grounds modifier", "root/Mission / Players here",
+		"root/Editor/Vehicles/Exosuit / Top speed", "root/Editor/Strikes/Airstrike / Bombs", "root/Editor/Mines/Minedrop / Mines per drop",
+		"root/Editor/Mines/Explosive mine / Arming delay", "root/Editor/Sentries/Turret / Detection radius", "root/Editor/Grenades/Frag / Fuse time",
+		"root/Editor/Backpacks/Jumppack / Most uses", "root/Editor/Helldiver / Dive time", "root/Editor/Status effects/Slow / Slow amount" }) do
+		E.has(all, row)
+	end
+end)
+
+test("every_new_row_changes_what_it_says", function()
+	local e, game, ui, M = start()
+	local api = rawget(_G, "obsidian").import("obsidian.api")
+	e:core().current = e:core().mods_by_id["obsidian.trainer"]
+	local function page_of(name) return e.loaded["obsidian/mods/obsidian.trainer/pages/" .. name] end
+	local rows = {}
+	local page = {}
+	function page:header() end
+	function page:label() end
+	function page:action(label, fn) rows[label] = fn end
+	function page:page(label, build) rows[label] = build end
+	function page:number(label, opts) rows[label] = opts end
+	function page:toggle(label, opts) rows[label] = opts end
+	function page:choice(label, opts) rows[label] = opts end
+	page_of("mission")(page)
+	rows["Proving grounds modifier"].set("super_boots")
+	E.eq(api.effects.get("mutator"), "super_boots")
+	E.eq(rows["Proving grounds modifier"].choices[2].label, "Super boots", "the game's name, or a readable form of it")
+	rows["Proving grounds modifier"].set(false)
+	page_of("enemies")(page)
+	rows["Encounter difficulty"].set(15)
+	E.eq(api.effects.get("enemy_difficulty"), 15)
+	rows["Encounter difficulty"].set(0)
+	E.eq(api.effects.is_on("enemy_difficulty"), false)
+	E.eq(rows["Enemy limit"].max, 32)
+end)
+
 test("saved_edits_wait_for_the_games_data", function()
 	local e, game = start()
 	local changes = e.loaded["obsidian/mods/obsidian.trainer/pages/changes"]
@@ -209,7 +287,7 @@ end)
 test("every_text_a_page_asks_for_exists", function()
 	local en = keys_of("en")
 	local files = { "main.lua" }
-	for _, p in ipairs({ "ui", "player", "weapons", "stratagems", "enemies", "mission", "world", "editor", "progress", "console", "changes" }) do
+	for _, p in ipairs({ "ui", "player", "weapons", "stratagems", "vehicles", "spawn", "enemies", "mission", "world", "editor", "progress", "console", "changes" }) do
 		files[#files + 1] = "pages/" .. p .. ".lua"
 	end
 	local checked = 0
@@ -229,7 +307,7 @@ end)
 
 test("every_reason_the_runtime_gives_has_a_text", function()
 	local en = keys_of("en")
-	for _, name in ipairs({ "game", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress" }) do
+	for _, name in ipairs({ "game", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress", "events", "combat", "vehicles", "lobby", "ui" }) do
 		local src = assert(E.read("bundled/obsidian.api/lib/" .. name .. ".lua"))
 		for reason in src:gmatch('return false, "([%w_]+)"') do
 			E.eq(en["why_" .. reason] ~= nil, true, name .. " can answer " .. reason)

@@ -38,7 +38,11 @@ local function install(h)
 		local did, got = ran, results
 		ran, results = outer_ran, outer_results
 		if r[1] then return B.unpack(r, 2, r.n) end
-		if did then return B.unpack(got, 1, got.n) end
+		-- With no results the game's function threw, and running it again would only do that twice.
+		if did then
+			if got then return B.unpack(got, 1, got.n) end
+			return
+		end
 		return original(...)
 	end
 	local where = B.type(h.target) == "string" and h.target or "table"

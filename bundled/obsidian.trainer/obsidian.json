@@ -1,7 +1,7 @@
 {
   "obsidian": 1,
   "id": "obsidian.trainer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": {
     "en": "Obsidian Trainer",
     "pt-BR": "Obsidian Trainer",
@@ -27,6 +27,8 @@
     "pages/player.lua",
     "pages/weapons.lua",
     "pages/stratagems.lua",
+    "pages/vehicles.lua",
+    "pages/spawn.lua",
     "pages/enemies.lua",
     "pages/mission.lua",
     "pages/world.lua",
