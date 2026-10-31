@@ -92,7 +92,8 @@ export function changelog(remote: Release[], current: string, local: { version: 
     return c > 0 ? "new" : c === 0 ? "installed" : "older";
   };
   const all = new Map<string, ChangelogEntry>();
-  for (const r of local) all.set(r.version, { version: r.version, date: null, notes: r.notes.trim(), url: null, when: when(r.version) });
+  // Notes for a version past this one are a draft for the next release.
+  for (const r of local) if (when(r.version) !== "new") all.set(r.version, { version: r.version, date: null, notes: r.notes.trim(), url: null, when: when(r.version) });
   for (const r of remote) {
     all.set(r.version, { version: r.version, date: r.date, url: r.url, notes: r.notes.trim() || all.get(r.version)?.notes || "", when: when(r.version) });
   }

@@ -62,6 +62,11 @@ describe("the changelog", () => {
     expect(changelog(remote, "1.0.2", local)[1].notes).toBe("Shipped");
   });
 
+  it("leaves out notes for a version that isn't released yet", async () => {
+    const { changelog } = await load();
+    expect(changelog([], "1.0.1", [{ version: "1.1.0", notes: "Draft" }, ...local]).map((e) => e.version)).toEqual(["1.0.1"]);
+  });
+
   it("reads without GitHub, and has the versions this build shipped with", async () => {
     const { changelog } = await load();
     expect(changelog([], "1.0.1").map((e) => e.version)).toContain("1.0.1");
