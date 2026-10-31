@@ -33,7 +33,7 @@ Import the new version the same way. A mod with the same id replaces the one in 
 
 A mod can name its GitHub repository. When one does, a button with two arrows appears on its row in the [Mods](app:mods) tab, between the switch and the name, and asks GitHub for a new version of that mod. The same button on a folder asks about every mod in that folder, and the one at the top of the list asks about them all. A mod that has a new version shows an **Update to** button beside its name. Click that, then deploy.
 
-Obsidian asks GitHub when it starts and when you click, and it only offers a higher version of the same mod. Nothing installs until you choose to: use the tag on a mod, or **Update all** when several are waiting.
+Obsidian asks GitHub when it starts and when you click, and it only offers a higher version of the same mod. Nothing installs until you choose to. A mod with a new version shows its version number in a yellow box with an arrow. Click it to see the new version and a link to the mod's changelog, then confirm. **Update all** installs every waiting update at once.
 
 ## Removing
 

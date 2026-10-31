@@ -24,7 +24,7 @@ A library is code other mods build on, such as Obsidian API. It takes the scope 
 
 ## In the app
 
-Every row of the mod list has a diamond for the scope, green for client, orange for session and half of each for a library. Hover over it for the name. The details of each mod say it too.
+Every row of the mod list has a diamond for the scope, green for client, orange for session and blue for a library. Hover over it for the name. The details of each mod say it too.
 
 ## Who decides the scope
 

@@ -5,7 +5,7 @@
 // mods in a conflict and opens the conflicts; a right click opens the menu. The column beside the
 // switches asks GitHub for updates to one mod, a folder or the whole list, as the checkboxes do.
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type MutableRefObject, type PointerEvent } from "react";
-import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, UpdateIcon, WarnIcon } from "../Icons";
+import { CheckIcon, ChevronIcon, LockIcon, UnlockIcon, UpArrowIcon, UpdateIcon, WarnIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { Thumb } from "../Thumb";
 import { offered } from "./modUpdates";
@@ -111,7 +111,6 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
         <div className="who">
           <div className="nm">
             {name}
-            {update && <button className="tag update-tag" data-tip={t("app.mods.updateHint")} {...stop} onClick={() => h.current.update(id)}>{t("app.mods.updateTo", update)}</button>}
           </div>
         </div>
       </div>
@@ -121,7 +120,11 @@ const ModLine = memo(function ModLine({ id, folder, color, name, description, ve
           <WarnIcon />
         </button>
       ) : <span />}
-      <span className="ver">{version ?? t("app.mods.imported")}</span>
+      {update ? (
+        <button className="ver ver-up" data-tip-title={t("app.mods.updateTo", update)} data-tip={t("app.mods.updateHint")} {...stop} onClick={() => h.current.update(id)}>
+          <span>{version ?? t("app.mods.imported")}</span><UpArrowIcon />
+        </button>
+      ) : <span className="ver">{version ?? t("app.mods.imported")}</span>}
       <span className={`scope ${scope}`} role="img" aria-label={t(`app.scope.${scope}Mod`)} data-tip-title={t(`app.scope.${scope}Mod`)} data-tip={t(`app.scope.${scope}Hint`)}><i /></span>
     </div>
   );

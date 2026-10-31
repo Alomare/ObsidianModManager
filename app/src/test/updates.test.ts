@@ -45,6 +45,17 @@ describe("the notes of an update", () => {
   });
 });
 
+describe("the link to a mod's changelog", () => {
+  it("is the releases page of a GitHub repository, and nothing elsewhere", async () => {
+    const { changelogUrl } = await import("../mods/modUpdates");
+    expect(changelogUrl("https://github.com/me/mod")).toBe("https://github.com/me/mod/releases");
+    expect(changelogUrl("https://github.com/me/mod.git")).toBe("https://github.com/me/mod/releases");
+    expect(changelogUrl("https://github.com/me/mod/tree/main")).toBe("https://github.com/me/mod/releases");
+    expect(changelogUrl("https://nexusmods.com/x")).toBeNull();
+    expect(changelogUrl(null)).toBeNull();
+  });
+});
+
 describe("the changelog", () => {
   const remote = [
     { version: "1.0.10", date: "2026-11-02T00:00:00Z", notes: "Ten", url: "u10" },

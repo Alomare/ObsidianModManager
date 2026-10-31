@@ -24,7 +24,7 @@ Uma biblioteca é código usado por outros mods, como o Obsidian API. Ela assume
 
 ## No aplicativo {#in-the-app}
 
-Cada linha da lista de mods tem um losango para o escopo: verde para cliente, laranja para sessão e metade de cada para biblioteca. Passe o mouse por cima para ver o nome. Os detalhes de cada mod também mostram o escopo.
+Cada linha da lista de mods tem um losango para o escopo: verde para cliente, laranja para sessão e azul para biblioteca. Passe o mouse por cima para ver o nome. Os detalhes de cada mod também mostram o escopo.
 
 ## Quem decide o escopo {#who-decides-the-scope}
 

@@ -10,7 +10,7 @@
   --bar: rgba(0, 0, 0, 0.32);
   --tx: #ecebe7; --mu: #b4b5b2; --ln: rgba(255, 255, 255, 0.1); --row: rgba(255, 255, 255, 0.05);
   --gold: #f0b429; --goldtx: #f0b429; --on: #1b1b1b;
-  --warn: #ff9b5e; --client: #2fb889; --session: #e8891c; --go: #2fb889;
+  --warn: #ff9b5e; --client: #2fb889; --session: #e8891c; --library: #4a90d9; --go: #2fb889;
   /* A step below the panels, for content set into them. */
   --well: rgba(0, 0, 0, 0.17);
   --scale: 1; --text: 1;
@@ -132,13 +132,16 @@ button.bare:hover { color: var(--tx); }
 .sub { font-size: 0.8rem; color: var(--mu); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub.warn, .warn { color: var(--warn); }
 .tag { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.1rem 0.45rem; background: var(--gold); color: var(--on); font-weight: 660; margin-left: 0.5rem; vertical-align: 0.1rem; }
-.update-tag { border: 0; cursor: pointer; font-family: inherit; }
-.update-tag:hover { filter: brightness(1.12); }
+.ver-up { display: flex; align-items: center; justify-content: center; gap: 0.2rem; max-width: 100%; padding: 0.12rem 0.3rem; border: 0; cursor: pointer; color: var(--on); background: var(--gold); }
+.ver-up:hover { filter: brightness(1.12); }
+.ver-up span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ver-up svg { flex: none; width: 0.8rem; height: 0.8rem; }
+.link-row { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.3rem; }
 .scope { justify-self: center; display: flex; padding: 0.35rem; }
 .th-scope { justify-self: center; }
 .scope i { width: 0.6rem; height: 0.6rem; transform: rotate(45deg); display: inline-block; background: var(--client); }
 .scope.session i { background: var(--session); }
-.scope.library i { background: linear-gradient(45deg, var(--client) 50%, var(--session) 50%); }
+.scope.library i { background: var(--library); }
 /* The update check beside the switches: one mod, a folder, or the whole list in the header */
 .bare.up-ck { padding: 0.1rem; justify-self: center; }
 .up-ck svg { width: 1rem; height: 1rem; }
@@ -278,14 +281,16 @@ button.link:hover { filter: brightness(1.2); }
 
 /* Drawer (spec 4.2) */
 .drawer { width: var(--drawer-w, 25rem); flex: 0 1 auto; min-width: 13rem; display: flex; flex-direction: column; min-height: 0; background: linear-gradient(160deg, var(--p1), var(--p2)); border-top: 4px solid var(--gold); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); animation: drawer-in 180ms ease-out; }
-.drawer.client, .drawer.library { border-top-color: var(--client); }
+.drawer.client { border-top-color: var(--client); }
+.drawer.library { border-top-color: var(--library); }
 .drawer.session, .drawer.conflicts { border-top-color: var(--session); }
 .drawer.idle { border-top-color: var(--ln); justify-content: center; padding: 1.5rem; text-align: center; }
 @keyframes drawer-in { from { opacity: 0; transform: translateX(0.75rem); } }
 .dh { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.6rem 0.8rem 0.5rem; border-bottom: 1px solid var(--ln); }
 .dh-text { flex: 1; min-width: 0; }
-.dh-end { flex: none; display: flex; flex-direction: column; gap: 0.2rem; }
-.bare.dh-remove:hover { color: var(--warn); }
+.dh-end { flex: none; align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.bare.dh-remove { padding: 0.3rem; color: #fff; background: var(--danger); }
+.bare.dh-remove:hover { color: #fff; background: var(--danger-hi); }
 .dh h2 { margin: 0; font-family: "Saira Variable", sans-serif; font-size: 1.15rem; font-weight: 660; overflow-wrap: anywhere; }
 .dh .meta { font-size: 0.8rem; color: var(--mu); margin-top: 0.25rem; }
 .dtabs { display: flex; padding: 0 0.3rem; border-bottom: 1px solid var(--ln); }

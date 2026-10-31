@@ -24,6 +24,12 @@ const set = (patch: Partial<ModUpdates>) => {
 export const offered = (found: ModUpdates["found"], mod: { id: string; version: string | null }): string | null =>
   found[mod.id] && found[mod.id] !== mod.version ? found[mod.id] : null;
 
+/** Where a mod's changelog is, when it comes from a GitHub repository. */
+export function changelogUrl(source: string | null): string | null {
+  const repo = source?.trim().match(/^https:\/\/github\.com\/[^/\s]+\/[^/\s]+/)?.[0];
+  return repo ? `${repo.replace(/\.git$/, "")}/releases` : null;
+}
+
 /** The notice for a finished check; `what` names the mod or folder when it wasn't the whole list. */
 export function checkMessage(count: number, what?: string): string {
   if (count === 0) return what ? t("app.modUpdates.noneFor", what) : t("app.modUpdates.none");

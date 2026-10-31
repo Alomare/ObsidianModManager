@@ -47,6 +47,7 @@ export const DeployIcon = () => <Icon width="24" height="24" strokeWidth="1.9"><
 export const PlayIcon = () => <Icon fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z" /></Icon>;
 export const WarnIcon = () => <Icon><path d="M12 3l10 18H2zM12 10v5M12 17.5v.5" /></Icon>;
 export const SearchIcon = () => <Icon><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></Icon>;
+export const UpArrowIcon = () => <Icon strokeWidth="3"><path d="M12 20V5M6 11l6-6 6 6" /></Icon>;
 export const ArrowIcon = () => <Icon><path d="M4 12h15M13 6l6 6-6 6" /></Icon>;
 /** Two sheets, one over the other. */
 export const CopyIcon = () => <Icon><rect x="8.5" y="8.5" width="12" height="12" /><path d="M15.5 8.5v-5h-12v12h5" /></Icon>;

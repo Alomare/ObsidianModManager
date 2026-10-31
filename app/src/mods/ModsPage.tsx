@@ -3,15 +3,16 @@
 // click opens the same actions for one mod or folder. The line between the table and the drawer
 // drags to resize them.
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
-import { CloseIcon, FolderAddIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, SwitchOffIcon, SwitchOnIcon, TrashIcon, UnlockIcon } from "../Icons";
+import { CloseIcon, ExternalIcon, FolderAddIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, SwitchOffIcon, SwitchOnIcon, TrashIcon, UnlockIcon } from "../Icons";
 import { language, pick, t } from "../i18n";
 import { useNav } from "../nav";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
-import type { Snapshot } from "../types";
+import type { ModRow, Snapshot } from "../types";
 import { winners } from "./conflicts";
 import { CrashBanner } from "./CrashBanner";
 import { Problems } from "./Problems";
@@ -20,7 +21,7 @@ import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
 import { changes, flatten, moveMods, nudge, pinned, toEnd, toTree, type Node } from "./layout";
 import { ModTable, type MenuTarget } from "./ModTable";
-import { checkModUpdates, offered, updateMod, updateMods, useModUpdates } from "./modUpdates";
+import { changelogUrl, checkModUpdates, offered, updateMod, updateMods, useModUpdates } from "./modUpdates";
 import { filterMods } from "./rows";
 
 /** A mod, or the conflicts with those of one mod first. */
@@ -31,6 +32,7 @@ type Ask =
   | { kind: "editFolder"; id: string }
   | { kind: "deleteFolder"; id: string }
   | { kind: "remove"; ids: string[] }
+  | { kind: "update"; id: string }
   | null;
 
 const DRAWER_KEY = "obsidian.drawerWidth";
@@ -116,7 +118,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
     const update = one ? offered(modUpdates.found, one) : null;
     return [
       ...(one ? [{ label: t("app.menu.details"), run: () => setView({ kind: "mod", id: one.id }) } as MenuItem] : []),
-      ...(one && update ? [{ label: t("app.mods.updateTo", update), run: () => updateMod(one.id, pick(one.name, one.id)) } as MenuItem] : []),
+      ...(one && update ? [{ label: t("app.mods.updateTo", update), run: () => setAsk({ kind: "update", id: one.id }) } as MenuItem] : []),
       ...(one ? ["sep" as const] : []),
       { label: t("app.menu.enable"), disabled: allOn, run: () => run("set_enabled", { ids, on: true }) },
       { label: t("app.menu.disable"), disabled: allOff, run: () => run("set_enabled", { ids, on: false }) },
@@ -230,7 +232,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
             onCollapse={(id, collapsed) => run("edit_folder", { id, collapsed })}
             onLock={(id, locked) => run("edit_folder", { id, locked })}
             onMenu={(x, y, target) => setMenu({ x, y, target })}
-            updates={modUpdates.found} onUpdate={(id) => updateMod(id, names.get(id) ?? id)}
+            updates={modUpdates.found} onUpdate={(id) => setAsk({ kind: "update", id })}
             checking={modUpdates.checking} onCheckUpdates={(ids, what) => checkModUpdates(ids, names, { what })} />
           {rows.length === 0 && searching && <p className="empty">{t("app.mods.noMatch")}</p>}
           {snap.mods.length === 0 && (
@@ -284,6 +286,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         <DeleteFolder name={askFolder.name} color={askFolder.color} count={membersOf(askFolder.id).length} onCancel={() => setAsk(null)}
           onDelete={(removeMods) => { run("delete_folder", { id: askFolder.id, removeMods }); setAsk(null); }} />
       )}
+      {ask?.kind === "update" && byId.get(ask.id) && <UpdateConfirm mod={byId.get(ask.id)!} to={offered(modUpdates.found, byId.get(ask.id)!) ?? ""} onDone={() => setAsk(null)} />}
       {ask?.kind === "remove" && (
         <Confirm title={ask.ids.length === 1 ? t("app.drawer.removeTitle", names.get(ask.ids[0]) ?? ask.ids[0]) : t("app.mods.removeNTitle", ask.ids.length)}
           text={t("app.drawer.removeText")} confirm={t("app.drawer.remove")} onCancel={() => setAsk(null)}
@@ -293,3 +296,13 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   );
 }
 
+function UpdateConfirm({ mod, to, onDone }: { mod: ModRow; to: string; onDone: () => void }) {
+  const name = pick(mod.name, mod.id);
+  const changelog = changelogUrl(mod.source);
+  return (
+    <Confirm title={t("app.mods.updateTitle", name)} text={t("app.mods.updateText", to, mod.version ?? t("app.mods.imported"))} confirm={t("app.mods.updateConfirm")} tone="go"
+      onCancel={onDone} onConfirm={() => { onDone(); updateMod(mod.id, name); }}>
+      {changelog && <button className="link link-row" onClick={() => openUrl(changelog).catch(() => {})}>{t("app.mods.updateChangelog")} <ExternalIcon /></button>}
+    </Confirm>
+  );
+}
