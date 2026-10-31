@@ -1403,6 +1403,30 @@ test("a_hint_shows_the_mods_words_through_the_games_own_formatter", function()
 	E.eq(game.hint.seconds, 3)
 end)
 
+test("a_menu_opens_by_name_for_the_main_player", function()
+	local api, game = start()
+	local shown = {}
+	game.state.screens = { armory = {}, loadout = {} }
+	game.state.active_screens = {}
+	function game.state.show_menu(_, name, params) shown = { name = name, params = params } game.state.active_screens[1] = name end
+	local popped = 0
+	function game.state.pop_menu() popped = popped + 1 end
+	E.eq(api.ui.open("armory"), true)
+	E.eq(shown.name, "armory")
+	E.eq(shown.params.user_pad_number ~= nil, true, "a menu reads who opened it")
+	E.eq(select(2, api.ui.open("nothing")), "unknown")
+	E.eq(select(2, api.ui.open("loadout", { seed = "x" })), "bad_type")
+	E.eq(api.ui.open("loadout", { seed = 51000003 }), true)
+	E.eq(game.state.mission_seed, 51000003, "the briefing and Loadout read it from the state")
+	E.eq(table.concat(api.ui.menus(), " "), "armory loadout")
+	E.eq(api.ui.close(), true)
+	E.eq(popped, 1)
+	game.state.active_screens = {}
+	E.eq(select(2, api.ui.close()), "out_of_range")
+	game.state.screens, game.state.show_menu, game.state.pop_menu, game.state.active_screens = nil, nil, nil, nil
+	E.eq(select(2, api.ui.open("armory")), "not_on_ship")
+end)
+
 test("a_hint_name_shows_the_game_text", function()
 	local api, game = start()
 	E.eq(api.ui.hint("hint_alarm"), true)

@@ -133,7 +133,7 @@ end)
 | `api.vehicles` | `current()`, `driving()`, `repair()`, `refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`, `off(name, fn)` |
-| `api.ui` | `hint(text, seconds)`, `ping(pos)` |
+| `api.ui` | `hint(text, seconds)`, `ping(pos)`, `open(name, opts)`, `close()`, `menus()` |
 | `api.lobby` | `players()` |
 | `api.world` | `cursor`, `ahead`, `explode`, `camera`, `shading(name, kind, value)`, `flash(seconds)` |
 | `api.audio` | `bus(name, db)`, `play(event, pos)`, `stinger(name)` |
@@ -292,6 +292,8 @@ Both write the real save, on the ship, with its menus closed, and answer `"close
 ## Messages {#messages}
 
 `api.ui.hint(text, seconds)` shows the game's own hint box, even with hints turned off. `text` is your words, or a hint name such as `"hint_alarm"`. `api.ui.ping(pos)` puts this player's mark on the map at a position, and `api.ui.ping(nil)` takes it away. Every player sees it.
+
+`api.ui.open(name, opts)` opens a menu of the ship by name, as a terminal does, and `api.ui.close()` closes the top one. `api.ui.menus()` lists the names. `opts.seed` gives Loadout and the briefing a mission, and `opts.pad` opens it for a pad other than the main player's.
 
 `api.lobby.players()` lists `peer`, `name`, `ping` in milliseconds, `host` and `me`. It only reads. A teammate has a name during a mission.
 

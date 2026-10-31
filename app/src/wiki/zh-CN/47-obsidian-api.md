@@ -133,7 +133,7 @@ end)
 | `api.vehicles` | `current()`、`driving()`、`repair()`、`refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`、`off(name, fn)` |
-| `api.ui` | `hint(text, seconds)`、`ping(pos)` |
+| `api.ui` | `hint(text, seconds)`、`ping(pos)`、`open(name, opts)`、`close()`、`menus()` |
 | `api.lobby` | `players()` |
 | `api.world` | `cursor`、`ahead`、`explode`、`camera`、`shading(name, kind, value)`、`flash(seconds)` |
 | `api.audio` | `bus(name, db)`、`play(event, pos)`、`stinger(name)` |
@@ -292,6 +292,8 @@ api.progress.set_upgrade("weapon_railgun", 3)
 ## 消息 {#messages}
 
 `api.ui.hint(text, seconds)` 显示游戏自己的提示框，即使提示已关闭。`text` 是你的文字，或提示名称，例如 `"hint_alarm"`。`api.ui.ping(pos)` 在地图上的某个位置放下本玩家的标记，`api.ui.ping(nil)` 将其移除。所有玩家都能看到。
+
+`api.ui.open(name, opts)` 按名称打开飞船上的菜单，效果与终端相同；`api.ui.close()` 关闭最上层的菜单。`api.ui.menus()` 列出所有名称。`opts.seed` 为配装和简报界面指定任务，`opts.pad` 为主玩家以外的手柄打开菜单。
 
 `api.lobby.players()` 列出 `peer`、`name`、以毫秒为单位的 `ping`、`host` 和 `me`。它只读取数据。队友只有在任务中才有名字。
 

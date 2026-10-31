@@ -133,7 +133,7 @@ end)
 | `api.vehicles` | `current()`, `driving()`, `repair()`, `refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`, `off(name, fn)` |
-| `api.ui` | `hint(text, seconds)`, `ping(pos)` |
+| `api.ui` | `hint(text, seconds)`, `ping(pos)`, `open(name, opts)`, `close()`, `menus()` |
 | `api.lobby` | `players()` |
 | `api.world` | `cursor`, `ahead`, `explode`, `camera`, `shading(name, kind, value)`, `flash(seconds)` |
 | `api.audio` | `bus(name, db)`, `play(event, pos)`, `stinger(name)` |
@@ -292,6 +292,8 @@ Os dois escrevem no save real, na nave, com os menus fechados, e respondem `"clo
 ## Mensagens {#messages}
 
 `api.ui.hint(text, seconds)` mostra a caixa de dicas do próprio jogo, mesmo com as dicas desligadas. `text` são as suas palavras ou o nome de uma dica, como `"hint_alarm"`. `api.ui.ping(pos)` coloca a marca deste jogador no mapa em uma posição, e `api.ui.ping(nil)` tira. Todos os jogadores veem.
+
+`api.ui.open(name, opts)` abre um menu da nave pelo nome, como um terminal faz, e `api.ui.close()` fecha o de cima. `api.ui.menus()` lista os nomes. `opts.seed` dá uma missão ao Loadout e ao briefing, e `opts.pad` abre para um controle que não seja o do jogador principal.
 
 `api.lobby.players()` lista `peer`, `name`, `ping` em milissegundos, `host` e `me`. Só lê. Um colega tem nome durante uma missão.
 
