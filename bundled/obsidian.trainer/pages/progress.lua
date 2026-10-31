@@ -51,6 +51,7 @@ return function(page)
 		if not rank then return t("no_rank") end
 		return t("rank_info", api.catalog.text(rank.name or ""), tostring(xp))
 	end)
+	page:header(t("section_unlocks"))
 	page:number(t("samples_owned"), {
 		min = 0, max = progress.max_samples(), step = 10, help = U.help("samples_owned"),
 		get = function() return progress.samples() end,
@@ -61,6 +62,7 @@ return function(page)
 	})
 	U.action(page, "unlock_items", progress.unlock_items)
 	U.action(page, "upgrade_all", progress.upgrade_all)
+	page:header(t("section_gear"))
 	page:page(t("loadout_page"), loadout, { help = U.help("loadout_page") })
 	page:page(t("upgrades_page"), upgrades, { help = U.help("upgrades_page") })
 end

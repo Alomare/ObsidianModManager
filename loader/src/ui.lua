@@ -7,6 +7,7 @@
 -- pcall, so every call here has its shape proven in a run or shipped in a script, named beside it.
 -- What isn't proven yet stays behind CLEARED, and internal/testing/ui-probe2 is how it gets proven.
 local B = require("obsidian/loader/builtins")
+local glyphs = require("obsidian/loader/glyphs")
 local log = require("obsidian/loader/log")
 
 local upper, cos, sin, pi = string.upper, math.cos, math.sin, math.pi
@@ -26,8 +27,8 @@ local GRADIENT = "hud_icon_color_gradient_01"
 
 -- Sub-materials hash-checked in the resources (ui-input.md 1.1). FontSettings names the same ones.
 local FONTS = {
-	debug = { path = "foundation/fonts/debug_small", material = "debug_small", size = 16, gui = "shapes" },
-	debug_medium = { path = "foundation/fonts/debug_medium", material = "debug_medium", size = 32, gui = "shapes" },
+	debug = { path = "foundation/fonts/debug_small", material = "debug_small", size = 16 },
+	debug_medium = { path = "foundation/fonts/debug_medium", material = "debug_medium", size = 32 },
 	body = { path = "fonts/handel_small", material = "handel_small", size = 18, gui = "fonts" },
 	body_large = { path = "fonts/handel_normal", material = "handel_normal", size = 22, gui = "fonts" },
 	heading = { path = "fonts/insignia_headliner", material = "insignia_headliner", size = 42, gui = "fonts" },
@@ -35,14 +36,15 @@ local FONTS = {
 	chat = { path = "fonts/chat", material = "chat", size = 30, gui = "fonts" },
 }
 
--- One immediate gui per material file, on the brightness world: it's the only world that outlives a
--- state change, so a gui on it can't go stale. Each package never unloads once online
--- (abstract_base_state.lua:60); a gui listing a material that isn't loaded is assumed fatal, so it's
--- made only after is_package_online says so. menu/menu is left out: it unloads between states.
+-- Immediate guis on the brightness world: it's the only world that outlives a state change, so a gui on
+-- it can't go stale. Each package never unloads once online (abstract_base_state.lua:60); a gui listing
+-- a material that isn't loaded is assumed fatal, so it's made only after is_package_online says so.
+-- menu/menu is left out: it unloads between states. Shapes and text share a gui once the fonts are
+-- there, as layers aren't proven across guis. state_cutscene.lua:36 lists two materials the same way.
 local GUIS = {
-	shapes = { material = "foundation/gui/gui" },
-	fonts = { material = "fonts/fonts", package = "resource_packages/localization" },
-	icons = { material = "hud/hud", package = "resource_packages/common" },
+	shapes = { materials = { "foundation/gui/gui" } },
+	fonts = { materials = { "foundation/gui/gui", "fonts/fonts" }, package = "resource_packages/localization" },
+	icons = { materials = { "hud/hud" }, package = "resource_packages/common" },
 }
 
 -- Names the HUD draws in a mission, where its gui lists only hud/hud and fonts/fonts (hud.lua:83). A
@@ -581,10 +583,21 @@ local function gui_named(name)
 	local world = B.type(boot) == "table" and boot.brightness_world
 	if not world or (def.package and not online(def.package)) then return nil end
 	guard_shutdown()
-	-- Proven on 2026-10-30 with both first materials. hud/hud is held back by CLEARED.icons.
-	gui = global("World").create_screen_gui(world, "material", def.material, "immediate")
+	-- Proven on 2026-10-30 with each first material. hud/hud is held back by CLEARED.icons.
+	local args = {}
+	for _, material in B.ipairs(def.materials) do
+		args[#args + 1] = "material"
+		args[#args + 1] = material
+	end
+	args[#args + 1] = "immediate"
+	gui = global("World").create_screen_gui(world, B.unpack(args))
 	M.world, M.guis[name] = world, gui
 	return gui
+end
+
+-- Where shapes and the debug fonts go.
+local function canvas_gui()
+	return gui_named("fonts") or gui_named("shapes")
 end
 
 local HEX = {}
@@ -619,10 +632,11 @@ local function sync(kit)
 	end
 end
 
+-- The menu is the loader's own, and the fonts' gui is what it needs, so a system kit doesn't wait.
 local function ready(kit)
-	if not M.can_draw then return false end
+	if not (M.can_draw or kit.system) then return false end
 	sync(kit)
-	return gui_named("shapes") ~= nil
+	return canvas_gui() ~= nil
 end
 
 local Kit = {}
@@ -640,6 +654,13 @@ end
 function Kit:layer(n)
 	if B.type(n) == "number" then self.z = B.max(0, B.min(B.floor(n), MENU_LAYER - 1)) end
 	return self.z
+end
+
+-- A point in pixels, such as the mouse's, in this kit's units. The same origin as the gui: the mouse
+-- is read raw, and it shares the bottom left corner with what's drawn.
+function Kit:point(x, y)
+	sync(self)
+	return (x - self.ox) / self.scale, (y - self.oy) / self.scale
 end
 
 function Kit:opacity(a)
@@ -660,7 +681,7 @@ function Kit:rect(x, y, w, h, c)
 	local cx, cy, cw, ch = intersect(self.area, x, y, w, h)
 	if not cx then return end
 	local s = self.scale
-	global("Gui").rect(M.guis.shapes, global("Vector3")(self.ox + cx * s, self.oy + cy * s, self.z), global("Vector2")(cw * s, ch * s), color(self, c))
+	global("Gui").rect(canvas_gui(), global("Vector3")(self.ox + cx * s, self.oy + cy * s, self.z), global("Vector2")(cw * s, ch * s), color(self, c))
 end
 
 -- One pass of Sutherland-Hodgman over a flat list of points. There's no engine clip for triangles.
@@ -710,7 +731,7 @@ function Kit:poly(points, c)
 	end
 	local n, s, ox, oy, order = #pts / 2, self.scale, self.ox, self.oy, 1
 	if signed_area(pts) < 0 then order = -1 end
-	local gui, v3, triangle = M.guis.shapes, global("Vector3"), global("Gui").triangle
+	local gui, v3, triangle = canvas_gui(), global("Vector3"), global("Gui").triangle
 	local engine_color = color(self, c)
 	local function at(i)
 		if order < 0 then i = n - i + 1 end
@@ -767,6 +788,25 @@ function Kit:panel(p)
 	if p.line then self:outline(points, p.line, p.line_width) end
 end
 
+-- One of the icons drawn from shapes (obsidian.ui.glyphs lists them). x and y: its bottom left. false when
+-- there's no such name. They need no art, so they work in every state a kit does.
+function Kit:glyph(name, x, y, size, c)
+	local polys = glyphs[name]
+	if not polys then
+		log.limited("ui glyph " .. B.tostring(name), "ui: no glyph named " .. B.tostring(name))
+		return false
+	end
+	local s = size / 16
+	for _, poly in B.ipairs(polys) do
+		local points = {}
+		for i = 1, #poly, 2 do
+			points[i], points[i + 1] = x + poly[i] * s, y + poly[i + 1] * s
+		end
+		self:poly(points, c)
+	end
+	return true
+end
+
 -- Points up. With an icon, it's drawn in the middle, whole: cropping one to the shape needs textured
 -- triangles, which the probe hasn't settled.
 function Kit:hex(x, y, r, c, icon)
@@ -790,6 +830,26 @@ local function known_icon(name)
 		if rank.icon then ICONS[rank.icon] = true end
 	end
 	return ICONS[name] == true
+end
+
+-- Every name kit:glyph draws.
+function M.glyph_names()
+	local out = {}
+	for name in B.pairs(glyphs) do out[#out + 1] = name end
+	B.sort(out)
+	return out
+end
+
+-- The loader's own kit, in the game's design space, for the menu. It draws from the first frame in
+-- every state, over fades, and above any mod's kit.
+local SYSTEM = {}
+
+function M.system_canvas(id)
+	want()
+	M.frames[SYSTEM] = { w = DESIGN_W, h = DESIGN_H }
+	local kit = M.canvas(id, { owner = SYSTEM, over_fades = true })
+	kit.system = true
+	return kit
 end
 
 -- Every name kit:icon draws.
@@ -862,9 +922,10 @@ local function pick_font(name, s)
 		log.limited("ui font " .. B.tostring(name), "ui: no font named " .. B.tostring(name))
 		font = FONTS.debug
 	end
+	if not font.gui then return font, canvas_gui() end
 	local gui = gui_named(font.gui)
-	if not gui then return FONTS.debug, gui_named("shapes") end
-	if font.gui == "fonts" and font ~= FONTS.chat and not has_glyphs(gui, s, font) then font = FONTS.chat end
+	if not gui then return FONTS.debug, canvas_gui() end
+	if font ~= FONTS.chat and not has_glyphs(gui, s, font) then font = FONTS.chat end
 	return font, gui
 end
 
@@ -1215,6 +1276,7 @@ function M.api()
 		remap_hits = M.remap_hits,
 		prompt = M.prompt,
 		icons = M.icons,
+		glyphs = M.glyph_names,
 	}
 end
 

@@ -91,9 +91,9 @@ The id of the mod whose code is running, so a shared mod can record who asked fo
 
 ## In-game menu {#menu}
 
-### obsidian.menu.add(title, build)
+### obsidian.menu.add(title, build, opts)
 
-Adds a page to the top of the in-game menu. `title` is text, or a function that returns it. `build(page)` runs each time the page opens:
+Adds a page to the list down the left of the in-game menu. `title` is text, or a function that returns it. `build(page)` runs each time the page opens. `opts.icon` is one of `obsidian.ui.glyphs()`:
 
 ```lua
 obsidian.menu.add("My mod", function(page)
@@ -104,7 +104,7 @@ obsidian.menu.add("My mod", function(page)
   page:action("Do it", function() return "Done" end)
   page:input("Name", function(text) end)
   page:page("More", function(sub) sub:label("Deeper") end)
-end)
+end, { icon = "player" })
 ```
 
 Any row takes `help`, a text shown while it's selected, and `enabled`, a function that returns `false` and a reason. A string returned by an action shows as a toast. An action can call `page:refresh()` to build the page again. A failing row shows the error and doesn't count against your mod.
@@ -229,13 +229,17 @@ Coordinates are pixels from the bottom left, or your design space after `obsidia
 | `kit:outline(points, color, width)` | The edge of a shape, inside it |
 | `kit:panel{ x, y, w, h, cut, corners, fill, line, line_width }` | A panel with corners cut at 45 degrees. `corners` is any of `"tl tr br bl"`, by default `"tr bl"` |
 | `kit:hex(x, y, r, color, icon)` | A hexagon around a point, with an icon in it if you give one |
+| `kit:glyph(name, x, y, size, color)` | One of the icons drawn from shapes, from its bottom left corner. `obsidian.ui.glyphs()` lists the names |
 | `kit:text(text, x, y, opts)` | Text. `y` is the baseline and a line break starts a new line. `opts`: `font`, `size`, `tracking`, `align`, `color`, `leading` |
 | `kit:measure(text, opts)` | Width and height of a text, tracking included. Draws nothing |
+| `kit:point(x, y)` | A point in pixels, such as the mouse's, in this kit's coordinates |
 | `kit:icon(name, x, y, w, h, color, uv)` | One of the game's images. `uv` is `{ u0, v0, u1, v1 }`. `obsidian.ui.icons()` lists the names |
 | `kit:band(x, y, w, h, color)` | The game's player band: its gradient, tinted |
 | `kit:bar(x, y, w, h, value, color, back)` | A bar filled from 0 to 1, over `back` |
 | `kit:clip(x, y, w, h, fn)` | Runs `fn(kit)` with drawing kept inside the rectangle |
 | `kit:layer(n)`, `kit:opacity(a)` | The layer and strength of what comes next |
+
+Glyphs need no art, so they keep working where `kit:icon` doesn't. The in-game menu is built from these same calls, so anything it draws, a mod can draw too.
 
 Fonts: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"chat"`, `"debug"`, `"debug_medium"`. `"heading"` is Insignia, and `"chat"` is the one with Chinese, Japanese and Korean, which a text falls back to when its font lacks a letter. `"debug"` needs nothing loaded, and every other font falls back to it until the game has loaded them.
 

@@ -1,8 +1,8 @@
--- obsidian.menu and obsidian.toast: an overlay any mod can add pages to, and short messages.
--- Everything draws on one immediate gui on the brightness world: the world exists in every game
--- state, survives state changes and renders after everything else. The debug fonts live in the
--- foundation package, loaded before any mod runs, so text can never ask for a font that isn't
--- loaded, and they cover Latin-1. They are monospaced, so widths need no engine call.
+-- obsidian.menu and obsidian.toast: an overlay any mod can add pages to, and short messages. The window
+-- has the pages down the left and the open page on the right, in Obsidian's default theme. It draws
+-- through a kit of obsidian.ui, so all of it is something any mod can draw too, in the game's design
+-- space of 1280 by 720: it follows the screen and the player's ui_scale. The kit's world exists in
+-- every game state, survives state changes and renders after everything else.
 -- Gui, World and Color are read through _G each frame: the engine defines them, and the game's
 -- strict mode forbids touching undeclared globals by name from here.
 -- The mouse is read raw, as the keyboard is. Its cursor axis shares the gui's origin, the bottom left
@@ -10,27 +10,46 @@
 local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
 local storage = require("obsidian/loader/storage")
+local ui = require("obsidian/loader/ui")
 
 local IFACE = "obsidian_menu"
 local MATERIAL = "foundation/gui/gui"
-local LAYER_BACK, LAYER_MARK, LAYER_TEXT, LAYER_TOAST = 880, 884, 888, 896
+local LAYER_BACK, LAYER_MARK, LAYER_TOAST = 880, 884, 896
 local FIRST_REPEAT, NEXT_REPEAT = 0.4, 0.08
 local CLOSED_STATES = { logos = true, cutscene = true, transition = true }
 local MENU_CURSOR = "hud/cursors/menu"
-local MIN_COLUMNS, MIN_ROWS, WHEEL_ROWS, TRACK_W = 34, 4, 3, 6
+local WINDOW_FILE = "obsidian.window"
 local WINDOW_KEYS = { "x", "top", "w", "h" }
+local CUT_MARK = "..."
+
+-- In design units.
+local DEFAULT_W, DEFAULT_H, MIN_W, MIN_H = 760, 540, 500, 320
+local TITLE_H, NAV_W, NAV_ROW, PAGE_H, ROW_H, FOOT_H = 32, 158, 30, 36, 27, 62
+local PAD, INDENT, CUT, GRIP, TRACK_W, HELP_LINES = 14, 20, 9, 16, 5, 2
+local SWITCH_W, SWITCH_H, STEPPER_W, STEP_W, BUTTON_W, TOAST_H, FILTER_W = 36, 16, 88, 22, 28, 28, 190
+local WHEEL_ROWS, WIDTHS_KEPT = 3, 4096
 
 local NAV_KEYS = {
 	up = { "up", "w" }, down = { "down", "s" }, left = { "left", "a" }, right = { "right", "d" },
 	select = { "enter", "e" }, back = { "esc", "q" }, filter = { "tab" },
 }
 local REPEATS = { up = true, down = true, left = true, right = true }
+local ADJUSTABLE = { number = true, choice = true, toggle = true }
 
 -- Obsidian's default theme.
-local GOLD, WHITE, GREY, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 255, 155, 94 }, { 15, 17, 19 }
-local PANEL, HEADER, LINE = { 33, 35, 39 }, { 48, 51, 56 }, { 255, 255, 255 }
+local GOLD, WHITE, GREY, FAINT, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 140, 142, 140 }, { 255, 155, 94 }, { 15, 17, 19 }
+local PANEL, HEADER, WELL, FIELD = { 41, 44, 48, 250 }, { 54, 57, 62, 255 }, { 28, 30, 33, 200 }, { 21, 23, 25, 255 }
+local HOVER, SELECTED, FOCUS, DIVIDER = { 255, 255, 255, 13 }, { 255, 255, 255, 20 }, { 240, 180, 41, 40 }, { 255, 255, 255, 26 }
 
-local M = { is_open = false, roots = {}, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil, closing = false }
+-- The game's own type: Insignia for names, Handel Gothic for reading.
+local TITLE = { font = "heading", size = 17, tracking = 2 }
+local PAGE = { font = "heading", size = 17, tracking = 1 }
+local HEADING = { font = "heading", size = 13, tracking = 1.5 }
+local BODY = { font = "body", size = 15 }
+local SMALL = { font = "body", size = 13 }
+
+local M = { is_open = false, roots = {}, root = nil, nav = true, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, kit = nil, widths = {}, width_count = 0,
+	field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil, closing = false }
 
 local function global(name)
 	return B.rawget(B.G, name)
@@ -54,30 +73,13 @@ local function run(state, what, fn, ...)
 	return B.unpack(r)
 end
 
--- The top page belongs to no mod and lists only what's allowed, so it's never gated itself.
+-- With no page to list, the window shows one that belongs to no mod, and that's never gated.
 local function gated(state)
 	return state ~= nil and state.mod.scope ~= "client"
 end
 
 local function allowed(state)
 	return not gated(state) or M.session.cleared()
-end
-
--- Length and cut in characters, not bytes: text is UTF-8, and the font is monospaced.
-local function length(s)
-	local _, n = B.gsub(s, "[^\128-\191]", "")
-	return n
-end
-
-local function cut(s, n)
-	if length(s) <= n then return s end
-	local out, count = {}, 0
-	for ch in B.gmatch(s, "[%z\1-\127\192-\255][\128-\191]*") do
-		count = count + 1
-		if count >= n then break end
-		out[count] = ch
-	end
-	return B.concat(out) .. "~"
 end
 
 -- Text for a label that may be a function, so a mod can show live values.
@@ -182,13 +184,36 @@ local function push(title, the_build, state)
 	B.insert(M.stack, frame)
 end
 
-local function root_build(page)
+-- The pages down the left: a mod's page isn't listed while its scope keeps it away.
+local function listed_roots()
+	local out = {}
 	for _, root in B.ipairs(M.roots) do
-		if allowed(root.state) then
-			page:page(root.title, root.build, { owner = root.state })
-		end
+		if allowed(root.state) then B.insert(out, root) end
 	end
-	if #page.items == 0 then page:label(M.core.text("menu_empty")) end
+	return out
+end
+
+local function empty_page(page)
+	page:label(M.core.text("menu_empty"))
+end
+
+local function open_root(root)
+	M.root, M.stack = root, {}
+	if root then
+		push(text_of(root.state, root.title, "title"), root.build, root.state)
+	else
+		push(M.core.text("menu_title"), empty_page, nil)
+	end
+end
+
+local function step_root(direction)
+	local list = listed_roots()
+	if #list == 0 then return end
+	local at = 1
+	for i, root in B.ipairs(list) do
+		if root == M.root then at = i end
+	end
+	open_root(list[(at - 1 + direction) % #list + 1])
 end
 
 local function users()
@@ -274,7 +299,7 @@ end
 
 function M.close()
 	if not M.is_open then return end
-	M.is_open, M.closing = false, false
+	M.is_open, M.closing, M.nav = false, false, true
 	M.field, M.drag, M.hold, M.hits = nil, nil, nil, nil
 	M.mouse_x, M.mouse_y = nil, nil
 	M.stack = {}
@@ -301,10 +326,13 @@ function M.open()
 		M.cursor = nil
 		log.limited("menu cursor", "menu: could not show the cursor: " .. B.tostring(err))
 	end
-	M.is_open = true
+	M.is_open, M.nav = true, true
 	M.state_name = state_name()
-	M.stack = {}
-	push(M.core.text("menu_title"), root_build, nil)
+	local list, first = listed_roots(), nil
+	for _, root in B.ipairs(list) do
+		if root == M.root then first = root end
+	end
+	open_root(first or list[1])
 	return true
 end
 
@@ -508,7 +536,8 @@ local function read_field()
 	end
 end
 
--- close is how the top page leaves: a click passes its own, as the button is still down.
+-- From the top of a page the keys go to the list of pages, and a click, whose button is still down,
+-- closes the window through its own close.
 local function go_back(frame, close)
 	if frame.filter and frame.filter ~= "" then
 		frame.filter = nil
@@ -517,12 +546,33 @@ local function go_back(frame, close)
 		B.remove(M.stack)
 		local back = M.stack[#M.stack]
 		build(back)
+	elseif close then
+		close()
+	elseif not M.nav then
+		M.nav = true
 	else
-		(close or M.close)()
+		M.close()
+	end
+end
+
+-- With the keys on the list of pages, the page beside it follows.
+local function handle_nav(ev)
+	if ev.back then
+		M.close()
+	elseif ev.up then
+		step_root(-1)
+	elseif ev.down then
+		step_root(1)
+	elseif ev.filter then
+		M.nav = false
+		begin_filter(M.stack[#M.stack])
+	elseif ev.select or ev.right then
+		M.nav = false
 	end
 end
 
 local function handle(ev)
+	if M.nav then return handle_nav(ev) end
 	local frame = M.stack[#M.stack]
 	local list = rows(frame)
 	settle(frame, list)
@@ -535,6 +585,8 @@ local function handle(ev)
 		move(frame, list, 1)
 	elseif ev.filter then
 		begin_filter(frame)
+	elseif ev.left and #M.stack == 1 and not (it and ADJUSTABLE[it.kind]) then
+		M.nav = true
 	elseif it and selectable(it) then
 		if ev.select then
 			activate(frame, it)
@@ -546,31 +598,66 @@ local function handle(ev)
 	end
 end
 
--- A row's value as text and its color, or as the third result for a toggle, which draws a switch.
-local function value_text(frame, it)
-	if it.kind == "action" then return ">", GREY end
-	if it.kind == "input" then return "_", GREY end
-	if it.kind == "page" then return ">", GOLD end
+-- What a row shows on its right: a control's kind, and its value.
+local function control_of(frame, it)
+	if it.kind == "action" then return "run" end
+	if it.kind == "input" then return "input" end
+	if it.kind == "page" then return "open" end
 	if it.kind == "label" or it.kind == "header" then return nil end
 	local ok, value = run(frame.state, "get", it.get)
-	if not ok then return "?", RED end
-	if it.kind == "toggle" then return nil, nil, value and true or false end
+	if not ok then return "error" end
+	if it.kind == "toggle" then return "switch", value and true or false end
 	if it.kind == "number" then
-		if B.type(value) ~= "number" then return "-", GREY end
-		return "< " .. B.format(it.format or "%g", value) .. " >", WHITE
+		if B.type(value) ~= "number" then return "stepper", "-" end
+		return "stepper", B.format(it.format or "%g", value)
 	end
 	for _, c in B.ipairs(it.choices or {}) do
-		if c.id == value then return "< " .. B.tostring(c.label) .. " >", WHITE end
+		if c.id == value then return "stepper", B.tostring(c.label) end
 	end
-	return "< " .. B.tostring(value) .. " >", WHITE
+	return "stepper", B.tostring(value)
 end
 
-local function wrap(text, width)
+local function put(s, x, y, style, c, align)
+	style.color, style.align = c, align
+	M.kit:text(s, x, y, style)
+end
+
+-- The baseline that centers a line of text in a band.
+local function mid(y, h, style)
+	return y + (h - style.size * 0.7) / 2
+end
+
+local function width_of(s, style)
+	local key = style.font .. style.size .. "/" .. (style.tracking or 0) .. "\0" .. s
+	local w = M.widths[key]
+	if not w then
+		w = M.kit:measure(s, style)
+		if M.width_count >= WIDTHS_KEPT then M.widths, M.width_count = {}, 0 end
+		-- Nothing can be measured until the gui exists, and a width of 0 would stick.
+		if w > 0 then M.widths[key], M.width_count = w, M.width_count + 1 end
+	end
+	return w
+end
+
+-- Cut to a width, by measure: the game's fonts aren't monospaced. Their ~ is missing, so dots mark it.
+local function fit(s, width, style)
+	if width_of(s, style) <= width then return s end
+	local chars = {}
+	for ch in B.gmatch(s, "[%z\1-\127\192-\255][\128-\191]*") do chars[#chars + 1] = ch end
+	local low, high = 0, #chars
+	while low < high do
+		local at = B.floor((low + high + 1) / 2)
+		if width_of(B.concat(chars, "", 1, at) .. CUT_MARK, style) <= width then low = at else high = at - 1 end
+	end
+	return B.concat(chars, "", 1, low) .. CUT_MARK
+end
+
+local function wrap(text, width, style)
 	local lines, line = {}, ""
 	for word in B.gmatch(text, "%S+") do
 		if line == "" then
 			line = word
-		elseif length(line) + 1 + length(word) <= width then
+		elseif width_of(line .. " " .. word, style) <= width then
 			line = line .. " " .. word
 		else
 			B.insert(lines, line)
@@ -581,7 +668,306 @@ local function wrap(text, width)
 	return lines
 end
 
-local function font()
+local function inside(area, x, y)
+	return area ~= nil and x >= area.x and x < area.x + area.w and y >= area.y and y < area.y + area.h
+end
+
+-- What the screen shows, in the kit's units.
+local function visible()
+	local w, h = global("Application").resolution()
+	local left, bottom = M.kit:point(0, 0)
+	local right, top = M.kit:point(w, h)
+	return left, bottom, right, top
+end
+
+-- The window as the player left it, or near the top left corner on first use. Always on screen.
+local function place_window()
+	local left, bottom, right, top = visible()
+	local win = M.win
+	if not win then
+		local saved = storage.own(WINDOW_FILE)
+		win = { x = saved.get("x") or left + 40, top = saved.get("top") or top - 40, w = saved.get("w") or DEFAULT_W, h = saved.get("h") or DEFAULT_H }
+		M.win = win
+	end
+	win.w = B.max(MIN_W, B.min(win.w, right - left))
+	win.h = B.max(MIN_H, B.min(win.h, top - bottom))
+	win.x = B.max(left, B.min(win.x, right - win.w))
+	win.top = B.max(bottom + win.h, B.min(win.top, top))
+	return win
+end
+
+local function draw_title(win, mx, my)
+	local kit, hits = M.kit, M.hits
+	local x, top, w = win.x, win.top, win.w
+	local y = top - TITLE_H
+	kit.z = LAYER_BACK + 1
+	kit:panel({ x, y, w, TITLE_H, cut = CUT, corners = "tl", fill = HEADER })
+	kit.z = LAYER_MARK
+	kit:rect(x + CUT, top - 2, w - CUT, 2, GOLD)
+	kit:glyph("shield", x + 13, y + 7, 17, GOLD)
+	put(M.core.text("menu_title"), x + 38, mid(y, TITLE_H, TITLE), TITLE, WHITE)
+	hits.title = { x = x, y = y, w = w, h = TITLE_H }
+
+	local function button(area_x, area_w, glyph, label)
+		local area = { x = area_x, y = y, w = area_w, h = TITLE_H }
+		local over = inside(area, mx, my)
+		kit.z = LAYER_MARK
+		if over then kit:rect(area_x, y, area_w, TITLE_H - 2, HOVER) end
+		local c = over and GOLD or GREY
+		kit.z = LAYER_MARK + 1
+		kit:glyph(glyph, area_x + 11, y + (TITLE_H - 12) / 2, 12, c)
+		if label then put(label, area_x + 30, mid(y, TITLE_H, SMALL), SMALL, c) end
+		return area
+	end
+	hits.close = button(x + w - TITLE_H, TITLE_H, "close")
+	local frame = M.stack[#M.stack]
+	local filter = M.core.text("menu_filter")
+	if frame.filter and frame.filter ~= "" then filter = fit(filter .. ": " .. frame.filter, FILTER_W, SMALL) end
+	local filter_w = width_of(filter, SMALL) + 42
+	hits.filter = button(x + w - TITLE_H - filter_w, filter_w, "search", filter)
+end
+
+local function draw_nav(win, bottom, mx, my)
+	local kit, hits = M.kit, M.hits
+	local x, top = win.x, win.top - TITLE_H
+	kit.z = LAYER_BACK + 1
+	kit:rect(x, bottom, NAV_W, top - bottom, WELL)
+	local roots = listed_roots()
+	local row_h = B.min(NAV_ROW, B.floor((top - bottom - 8) / B.max(1, #roots)))
+	hits.nav = {}
+	for i, root in B.ipairs(roots) do
+		local y = top - 6 - i * row_h
+		local area = { x = x, y = y, w = NAV_W, h = row_h, root = root }
+		hits.nav[i] = area
+		local on = root == M.root
+		kit.z = LAYER_BACK + 2
+		if on then
+			kit:rect(x, y, NAV_W, row_h, M.nav and FOCUS or SELECTED)
+		elseif inside(area, mx, my) then
+			kit:rect(x, y, NAV_W, row_h, HOVER)
+		end
+		kit.z = LAYER_MARK
+		if on then kit:rect(x, y, 3, row_h, GOLD) end
+		kit:glyph(root.icon or "page", x + 14, y + (row_h - 15) / 2, 15, on and GOLD or GREY)
+		put(fit(text_of(root.state, root.title, "title"), NAV_W - 50, BODY), x + 39, mid(y, row_h, BODY), BODY, on and WHITE or GREY)
+	end
+end
+
+local function draw_switch(right, y, on)
+	local kit, inset = M.kit, 3
+	local knob = SWITCH_W / 2 - inset
+	kit.z = LAYER_MARK
+	kit:rect(right - SWITCH_W, y, SWITCH_W, SWITCH_H, on and GOLD or FIELD)
+	kit.z = LAYER_MARK + 1
+	kit:rect(on and right - inset - knob or right - SWITCH_W + inset, y + inset, knob, SWITCH_H - inset * 2, on and DARK or GREY)
+end
+
+local function draw_stepper(right, y, row, value, mx, my)
+	local kit = M.kit
+	local w = B.max(width_of(value, BODY) + STEP_W * 2 + 10, STEPPER_W)
+	local left = right - w
+	kit.z = LAYER_MARK
+	kit:panel({ left, y + 3, w, ROW_H - 6, cut = 4, corners = "br", fill = FIELD })
+	row.minus = { x = left, y = y, w = STEP_W, h = ROW_H }
+	row.plus = { x = right - STEP_W, y = y, w = STEP_W, h = ROW_H }
+	kit.z = LAYER_MARK + 1
+	kit:glyph("back", left + 5, y + (ROW_H - 11) / 2, 11, inside(row.minus, mx, my) and GOLD or GREY)
+	kit:glyph("forward", right - STEP_W + 5, y + (ROW_H - 11) / 2, 11, inside(row.plus, mx, my) and GOLD or GREY)
+	put(value, left + w / 2, mid(y, ROW_H, BODY), BODY, WHITE, "center")
+	return w
+end
+
+local function draw_button(right, y, over)
+	local kit = M.kit
+	kit.z = LAYER_MARK
+	kit:panel({ right - BUTTON_W, y + 4, BUTTON_W, ROW_H - 8, cut = 4, corners = "br", fill = over and GOLD or HEADER })
+	kit.z = LAYER_MARK + 1
+	kit:glyph("run", right - BUTTON_W + 9, y + (ROW_H - 10) / 2, 10, over and DARK or WHITE)
+	return BUTTON_W
+end
+
+-- Draws what a row shows on its right, and answers how wide that is.
+local function draw_control(frame, row, right, mx, my, lit)
+	local kit, y, it = M.kit, row.y, row.it
+	local control, value = control_of(frame, it)
+	if control == "switch" then
+		draw_switch(right, y + (ROW_H - SWITCH_H) / 2, value)
+		return SWITCH_W
+	elseif control == "stepper" then
+		return draw_stepper(right, y, row, value, mx, my)
+	elseif control == "run" then
+		return draw_button(right, y, lit)
+	elseif control == "open" or control == "input" then
+		kit.z = LAYER_MARK
+		kit:glyph(control == "open" and "forward" or "edit", right - 13, y + (ROW_H - 12) / 2, 12, lit and GOLD or GREY)
+		return 13
+	elseif control == "error" then
+		put("?", right - 8, mid(y, ROW_H, BODY), BODY, RED)
+		return 8
+	end
+	return 0
+end
+
+local function draw_scroll(frame, list, shown, right, top, mx, my)
+	if #list <= shown then return end
+	local kit, track_h = M.kit, shown * ROW_H
+	local track_x, track_y = right - TRACK_W - 4, top - track_h
+	local thumb = B.max(ROW_H, B.floor(track_h * shown / #list))
+	local span = #list - shown
+	local thumb_y = track_y + track_h - thumb - B.floor((track_h - thumb) * (frame.top - 1) / span)
+	M.hits.track = { x = track_x - 3, y = track_y, w = TRACK_W + 6, h = track_h, thumb = thumb, span = span }
+	local lit = inside(M.hits.track, mx, my) or (M.drag and M.drag.kind == "scroll")
+	kit.z = LAYER_BACK + 2
+	kit:rect(track_x, track_y, TRACK_W, track_h, HOVER)
+	kit.z = LAYER_MARK
+	kit:rect(track_x, thumb_y, TRACK_W, thumb, lit and GOLD or GREY)
+end
+
+local function draw_foot(frame, list, shown, left, right, bottom)
+	local kit, hits = M.kit, M.hits
+	local foot_y = bottom + FOOT_H
+	kit.z = LAYER_BACK + 2
+	kit:rect(left, foot_y, right - left, 1, DIVIDER)
+	local width = right - left - PAD * 2
+	local selected = list[frame.selected]
+	if selected and selected.help then
+		local lines = wrap(text_of(frame.state, selected.help, "help"), width, SMALL)
+		if #lines > HELP_LINES then lines[HELP_LINES] = fit(lines[HELP_LINES] .. " " .. lines[HELP_LINES + 1], width, SMALL) end
+		local y = foot_y - SMALL.size - 5
+		for i = 1, B.min(HELP_LINES, #lines) do
+			put(lines[i], left + PAD, y, SMALL, GREY)
+			y = y - SMALL.size - 1
+		end
+	end
+	if M.field then
+		put(fit(M.field.prompt .. ": " .. M.field.text .. "_", width - CUT, SMALL), left + PAD, bottom + 7, SMALL, GOLD)
+	else
+		local more = #list > shown and B.format(" (%d/%d)", frame.selected, #list) or ""
+		put(fit(M.core.text("menu_keys") .. more, width - CUT, SMALL), left + PAD, bottom + 7, SMALL, FAINT)
+	end
+
+	-- The grip that resizes the window, along the folded corner.
+	hits.grip = { x = right - GRIP, y = bottom, w = GRIP, h = GRIP }
+	local grip = (inside(hits.grip, M.mouse_x or -1, M.mouse_y or -1) or (M.drag and M.drag.kind == "size")) and GOLD or GREY
+	kit.z = LAYER_MARK
+	for row_at = 0, 2 do
+		for dot = row_at, 2 do
+			kit:rect(right - 6 - dot * 4, bottom + CUT - 3 + row_at * 4, 2, 2, grip)
+		end
+	end
+end
+
+local function draw_rows(frame, list, shown, left, right, top, mx, my)
+	local kit, hits = M.kit, M.hits
+	local row_right = right - PAD - TRACK_W
+	local y = top
+	for i = frame.top, B.min(#list, frame.top + shown - 1) do
+		y = y - ROW_H
+		local it = list[i]
+		local row = { x = left, y = y, w = right - left - TRACK_W - 8, h = ROW_H, it = it, index = i }
+		B.insert(hits.rows, row)
+		local active = i == frame.selected and selectable(it) and not M.nav
+		local over = inside(row, mx, my) and selectable(it)
+		kit.z = LAYER_BACK + 3
+		if active then
+			kit:rect(left, y, row.w, ROW_H, SELECTED)
+			kit.z = LAYER_MARK
+			kit:rect(left, y, 3, ROW_H, GOLD)
+		elseif over then
+			kit:rect(left, y, row.w, ROW_H, HOVER)
+		end
+		local label = text_of(it.owner or frame.state, it.label, "label")
+		if it.kind == "header" then
+			local text = fit(label, row.w - PAD * 2, HEADING)
+			put(text, left + PAD, y + 7, HEADING, GOLD)
+			kit.z = LAYER_BACK + 3
+			local after = left + PAD + width_of(text, HEADING) + 10
+			if after < row_right then kit:rect(after, y + 11, row_right - after, 1, DIVIDER) end
+		elseif it.kind == "label" then
+			put(fit(label, row.w - PAD * 2, BODY), left + PAD, mid(y, ROW_H, BODY), BODY, GREY)
+		else
+			local used = draw_control(frame, row, row_right, mx, my, active or over)
+			put(fit(label, row_right - used - 12 - (left + INDENT), BODY), left + INDENT, mid(y, ROW_H, BODY), BODY, WHITE)
+		end
+	end
+end
+
+local function draw_page(win, bottom, mx, my)
+	local kit, hits = M.kit, M.hits
+	local left, right, top = win.x + NAV_W, win.x + win.w, win.top - TITLE_H
+	local frame = M.stack[#M.stack]
+	local list = rows(frame)
+	settle(frame, list)
+
+	local head_y = top - PAGE_H
+	local title_x = left + PAD
+	if #M.stack > 1 then
+		local area = { x = left, y = head_y, w = PAGE_H, h = PAGE_H }
+		hits.back = area
+		local over = inside(area, mx, my)
+		kit.z = LAYER_BACK + 2
+		if over then kit:rect(left, head_y, PAGE_H, PAGE_H, HOVER) end
+		kit.z = LAYER_MARK
+		kit:glyph("back", left + 11, head_y + (PAGE_H - 13) / 2, 13, over and GOLD or GREY)
+		title_x = left + PAGE_H
+	end
+	local titles = {}
+	for i, f in B.ipairs(M.stack) do titles[i] = f.title end
+	put(fit(B.concat(titles, " / "), right - title_x - PAD, PAGE), title_x, mid(head_y, PAGE_H, PAGE), PAGE, WHITE)
+	kit.z = LAYER_BACK + 2
+	kit:rect(left, head_y, right - left, 1, DIVIDER)
+
+	local view = head_y - (bottom + FOOT_H) - 4
+	local shown = B.max(1, B.floor(view / ROW_H))
+	if frame.follow then
+		if frame.selected < frame.top then frame.top = frame.selected end
+		if frame.selected >= frame.top + shown then frame.top = frame.selected - shown + 1 end
+		frame.follow = false
+	end
+	frame.top = B.max(1, B.min(frame.top, #list - shown + 1))
+	draw_rows(frame, list, shown, left, right, head_y - 2, mx, my)
+	draw_scroll(frame, list, shown, right, head_y - 2, mx, my)
+	draw_foot(frame, list, shown, left, right, bottom)
+end
+
+local function draw_menu()
+	local kit = M.kit
+	local win = place_window()
+	local bottom = win.top - win.h
+	local mx, my = M.mouse_x or -1, M.mouse_y or -1
+	M.hits = { rows = {}, nav = {} }
+	kit.z = LAYER_BACK
+	kit:panel({ win.x, bottom, win.w, win.h, cut = CUT, corners = "tl br", fill = PANEL })
+	draw_title(win, mx, my)
+	draw_nav(win, bottom, mx, my)
+	draw_page(win, bottom, mx, my)
+end
+
+local function draw_toasts(dt)
+	for i = #M.toasts, 1, -1 do
+		local t = M.toasts[i]
+		t.left = t.left - dt
+		if t.left <= 0 then B.remove(M.toasts, i) end
+	end
+	local kit = M.kit
+	local left, bottom, right = visible()
+	local x, y = left + 16, bottom + 18
+	for _, t in B.ipairs(M.toasts) do
+		local s = fit(t.text, right - left - 80, BODY)
+		local w = width_of(s, BODY) + 26
+		kit:opacity(B.min(t.left * 2, 1))
+		kit.z = LAYER_TOAST
+		kit:panel({ x, y, w, TOAST_H, cut = 6, corners = "br", fill = PANEL })
+		kit.z = LAYER_TOAST + 1
+		kit:rect(x, y, 3, TOAST_H, GOLD)
+		put(s, x + 13, mid(y, TOAST_H, BODY), BODY, WHITE)
+		y = y + TOAST_H + 4
+	end
+	kit:opacity(1)
+end
+
+-- Overlays take pixels and the debug fonts, on a gui of their own.
+local function overlay_font()
 	local _, h = global("Application").resolution()
 	if h >= 1400 then return "foundation/fonts/debug_medium", 32, "debug_medium", 15, 36 end
 	return "foundation/fonts/debug_small", 16, "debug_small", 8, 20
@@ -592,179 +978,12 @@ local function rect(x, y, w, h, layer, c, alpha)
 end
 
 local function text(s, x, y, layer, c, alpha)
-	local path, size, material = font()
+	local path, size, material = overlay_font()
 	global("Gui").text(M.gui, s, path, size, material, global("Vector3")(x, y, layer), color(c, alpha))
 end
 
-local function inside(area, x, y)
-	return area ~= nil and x >= area.x and x < area.x + area.w and y >= area.y and y < area.y + area.h
-end
-
--- The window as the player left it, or near the top left corner on first use. Always on screen.
-local function place_window(sw, sh, min_h)
-	local _, _, _, advance = font()
-	local win = M.win
-	if not win then
-		local saved = storage.own("obsidian.menu")
-		win = { x = saved.get("x") or 40, top = saved.get("top") or sh - 60, w = saved.get("w") or 67 * advance, h = saved.get("h") or B.floor(sh * 0.72) }
-		M.win = win
-	end
-	win.w = B.max((MIN_COLUMNS + 3) * advance, B.min(win.w, sw))
-	win.h = B.max(min_h, B.min(win.h, sh))
-	win.x = B.max(0, B.min(win.x, sw - win.w))
-	win.top = B.max(win.h, B.min(win.top, sh))
-	return win
-end
-
-local function draw_switch(right, y, h, on)
-	local _, _, _, advance = font()
-	local w, inset = advance * 4, 3
-	local knob = B.floor(w / 2) - inset
-	rect(right - w, y, w, h, LAYER_MARK, on and GOLD or DARK, on and 255 or 170)
-	rect(on and right - inset - knob or right - w + inset, y + inset, knob, h - inset * 2, LAYER_MARK + 1, on and DARK or GREY)
-end
-
-local function draw_menu(sw, sh)
-	local _, _, _, advance, line = font()
-	local row_h, bar_h = line + 4, line + 10
-	local win = place_window(sw, sh, bar_h + line * 4 + 10 + MIN_ROWS * row_h)
-	local frame = M.stack[#M.stack]
-	local list = rows(frame)
-	settle(frame, list)
-	local x, top, w, h = win.x, win.top, win.w, win.h
-	local bottom, pad = top - h, advance
-	local columns = B.floor((w - pad * 2 - TRACK_W) / advance)
-	local help_room = columns >= 44 and 2 or 3
-	local foot_h = line * (help_room + 1) + 10
-	local shown = B.max(1, B.floor((h - bar_h - foot_h) / row_h))
-	if frame.follow then
-		if frame.selected < frame.top then frame.top = frame.selected end
-		if frame.selected >= frame.top + shown then frame.top = frame.selected - shown + 1 end
-		frame.follow = false
-	end
-	frame.top = B.max(1, B.min(frame.top, #list - shown + 1))
-	local mx, my = M.mouse_x or -1, M.mouse_y or -1
-	local hits = { rows = {} }
-	M.hits = hits
-
-	rect(x, bottom, w, h, LAYER_BACK, PANEL, 245)
-	local bar_y = top - bar_h
-	rect(x, bar_y, w, bar_h, LAYER_BACK + 1, HEADER)
-	rect(x, top - 2, w, 2, LAYER_MARK, GOLD)
-
-	-- The title bar: back, the path, the filter and close. The rest of it moves the window.
-	local bar_text = bar_y + B.floor((bar_h - line) / 2) + 4
-	local function button(area_x, area_w, label)
-		local area = { x = area_x, y = bar_y, w = area_w, h = bar_h }
-		local over = inside(area, mx, my)
-		if over then rect(area_x, bar_y, area_w, bar_h, LAYER_MARK, LINE, 20) end
-		text(label, area_x + B.floor((area_w - length(label) * advance) / 2), bar_text, LAYER_TEXT, over and GOLD or GREY)
-		return area
-	end
-	hits.title = { x = x, y = bar_y, w = w, h = bar_h }
-	hits.close = button(x + w - bar_h, bar_h, "x")
-	local filter = M.core.text("menu_filter")
-	if frame.filter and frame.filter ~= "" then filter = cut(filter .. ": " .. frame.filter, 22) end
-	local filter_w = (length(filter) + 2) * advance
-	hits.filter = button(x + w - bar_h - filter_w, filter_w, filter)
-	local title_x = x + pad
-	if #M.stack > 1 then
-		hits.back = button(x, bar_h, "<")
-		title_x = x + bar_h
-	end
-	local titles = {}
-	for i, f in B.ipairs(M.stack) do titles[i] = f.title end
-	local room = B.max(4, B.floor((x + w - bar_h - filter_w - title_x) / advance) - 1)
-	text(cut(B.concat(titles, " / "), room), title_x, bar_text, LAYER_TEXT, GOLD)
-
-	-- The rows.
-	local right = x + w - pad - TRACK_W
-	local y = bar_y
-	for i = frame.top, B.min(#list, frame.top + shown - 1) do
-		y = y - row_h
-		local it = list[i]
-		local row = { x = x, y = y, w = w - TRACK_W - 2, h = row_h, it = it, index = i }
-		B.insert(hits.rows, row)
-		if i == frame.selected and selectable(it) then
-			rect(x, y, row.w, row_h, LAYER_BACK + 2, LINE, 18)
-			rect(x, y, 3, row_h, LAYER_MARK, GOLD)
-		end
-		local baseline = y + B.floor((row_h - line) / 2) + 4
-		local value, value_color, switch = value_text(frame, it)
-		local label = text_of(it.owner or frame.state, it.label, "label")
-		local used = switch ~= nil and 6 or (value and length(value) + 2 or 0)
-		local c = it.kind == "header" and GOLD or (it.kind == "label" and GREY or WHITE)
-		text(cut(label, columns - used), x + pad, baseline, LAYER_TEXT, c)
-		if switch ~= nil then
-			draw_switch(right, y + 4, row_h - 8, switch)
-		elseif value then
-			local value_x = right - length(value) * advance
-			text(value, value_x, baseline, LAYER_TEXT, value_color)
-			if it.kind == "number" or it.kind == "choice" then
-				row.minus = { x = value_x - advance, y = y, w = advance * 3, h = row_h }
-				row.plus = { x = right - advance * 2, y = y, w = advance * 3, h = row_h }
-			end
-		end
-	end
-
-	-- The scroll bar, only when the rows don't fit.
-	if #list > shown then
-		local track_h = shown * row_h
-		local track_x, track_y = x + w - TRACK_W - 3, bar_y - track_h
-		local thumb = B.max(line, B.floor(track_h * shown / #list))
-		local span = #list - shown
-		local thumb_y = track_y + track_h - thumb - B.floor((track_h - thumb) * (frame.top - 1) / span)
-		hits.track = { x = track_x - 3, y = track_y, w = TRACK_W + 6, h = track_h, thumb = thumb, span = span }
-		local lit = inside(hits.track, mx, my) or (M.drag and M.drag.kind == "scroll")
-		rect(track_x, track_y, TRACK_W, track_h, LAYER_BACK + 2, LINE, 14)
-		rect(track_x, thumb_y, TRACK_W, thumb, LAYER_MARK, lit and GOLD or GREY)
-	end
-
-	-- The footer: help for the selected row, then the keys or the line being typed.
-	local foot_y = bottom + foot_h
-	rect(x, foot_y, w, 1, LAYER_BACK + 2, LINE, 26)
-	local selected = list[frame.selected]
-	if selected and selected.help then
-		local lines = wrap(text_of(frame.state, selected.help, "help"), columns)
-		if #lines > help_room then lines[help_room] = cut(lines[help_room], columns - 1) .. "~" end
-		local help_y = foot_y - line
-		for i = 1, B.min(help_room, #lines) do
-			text(lines[i], x + pad, help_y, LAYER_TEXT, GREY)
-			help_y = help_y - line
-		end
-	end
-	if M.field then
-		text(cut(M.field.prompt .. ": " .. M.field.text .. "_", columns - 2), x + pad, bottom + 8, LAYER_TEXT, GOLD)
-	else
-		local more = #list > shown and B.format(" (%d/%d)", frame.selected, #list) or ""
-		text(cut(M.core.text("menu_keys") .. more, columns - 2), x + pad, bottom + 8, LAYER_TEXT, GREY)
-	end
-
-	-- The grip that resizes the window: a corner of dots.
-	hits.grip = { x = x + w - line, y = bottom, w = line, h = line }
-	local grip = (inside(hits.grip, mx, my) or (M.drag and M.drag.kind == "size")) and GOLD or GREY
-	for row_at = 0, 2 do
-		for dot = 0, 2 - row_at do
-			rect(x + w - 5 - dot * 5, bottom + 3 + row_at * 5, 2, 2, LAYER_MARK, grip)
-		end
-	end
-end
-
-local function draw_toasts(w, h, dt)
-	for i = #M.toasts, 1, -1 do
-		local t = M.toasts[i]
-		t.left = t.left - dt
-		if t.left <= 0 then B.remove(M.toasts, i) end
-	end
-	local _, _, _, advance, line = font()
-	local y = 40
-	for _, t in B.ipairs(M.toasts) do
-		local alpha = B.min(t.left * 2, 1) * 255
-		local s = cut(t.text, B.floor((w - 60) / advance))
-		rect(15, y - 4, (length(s) + 1) * advance, line, LAYER_TOAST, PANEL, alpha * 0.9)
-		text(s, 19, y, LAYER_TOAST + 1, WHITE, alpha)
-		y = y + line
-	end
+local function ensure_kit()
+	M.kit = M.kit or ui.system_canvas("menu")
 end
 
 local function ensure_gui()
@@ -817,7 +1036,7 @@ end
 local function save_window()
 	local values = {}
 	for _, key in B.ipairs(WINDOW_KEYS) do values[key] = M.win[key] end
-	storage.own("obsidian.menu").put(values)
+	storage.own(WINDOW_FILE).put(values)
 end
 
 local function scroll_to(frame, y)
@@ -831,6 +1050,7 @@ end
 local function click_row(frame, row, x, y)
 	local it = row.it
 	if not selectable(it) then return end
+	M.nav = false
 	frame.selected = row.index
 	local direction = inside(row.minus, x, y) and -1 or (inside(row.plus, x, y) and 1 or nil)
 	if direction then
@@ -863,6 +1083,12 @@ local function press(frame, x, y)
 	elseif inside(hits.title, x, y) then
 		M.drag = { kind = "move", x = x - M.win.x, y = y - M.win.top }
 	else
+		for _, area in B.ipairs(hits.nav) do
+			if inside(area, x, y) then
+				M.nav = false
+				return open_root(area.root)
+			end
+		end
 		for _, row in B.ipairs(hits.rows) do
 			if inside(row, x, y) then return click_row(frame, row, x, y) end
 		end
@@ -885,6 +1111,7 @@ end
 local function mouse_input(dt)
 	local m = read_mouse()
 	if not m then return end
+	m.x, m.y = M.kit:point(m.x, m.y)
 	local moved = M.mouse_x ~= nil and (m.x ~= M.mouse_x or m.y ~= M.mouse_y)
 	M.mouse_x, M.mouse_y = m.x, m.y
 	if M.closing then
@@ -923,7 +1150,9 @@ local function mouse_input(dt)
 	-- Only a moving mouse selects, so a resting cursor doesn't fight the keys.
 	if moved then
 		for _, row in B.ipairs(M.hits.rows) do
-			if selectable(row.it) and inside(row, m.x, m.y) then frame.selected = row.index end
+			if selectable(row.it) and inside(row, m.x, m.y) then
+				frame.selected, M.nav = row.index, false
+			end
 		end
 	end
 	if m.right then
@@ -944,29 +1173,30 @@ function M.frame()
 	if not M.is_open and #M.toasts == 0 and #M.overlays == 0 then return end
 	local script = global("Script")
 	local vectors, quaternions, matrices = script.temp_count()
-	if ensure_gui() then
+	local dt = global("ENGINE_DT") or 0
+	if M.is_open or #M.toasts > 0 then ensure_kit() end
+	if M.is_open then
+		hold_focus()
+		if M.cursor then B.pcall(hold_cursor) end
+		if M.field then
+			read_field()
+		else
+			local ev = read_nav(dt)
+			handle(ev)
+		end
+		if M.is_open then mouse_input(dt) end
+	end
+	if M.is_open then
+		local frame = M.stack[#M.stack]
+		if gated(frame.state) and not M.session.cleared() then
+			M.close()
+		else
+			draw_menu()
+		end
+	end
+	if #M.toasts > 0 then draw_toasts(dt) end
+	if #M.overlays > 0 and ensure_gui() then
 		local w, h = global("Application").resolution()
-		local dt = global("ENGINE_DT") or 0
-		if M.is_open then
-			hold_focus()
-			if M.cursor then B.pcall(hold_cursor) end
-			if M.field then
-				read_field()
-			else
-				local ev = read_nav(dt)
-				handle(ev)
-			end
-			if M.is_open then mouse_input(dt) end
-		end
-		if M.is_open then
-			local frame = M.stack[#M.stack]
-			if gated(frame.state) and not M.session.cleared() then
-				M.close()
-			else
-				draw_menu(w, h)
-			end
-		end
-		draw_toasts(w, h, dt)
 		for _, o in B.ipairs(M.overlays) do
 			if allowed(o.state) then run(o.state, "overlay", o.fn, M.draw_api, w, h) end
 		end
@@ -987,11 +1217,11 @@ M.draw_api = {
 	text = function(s, x, y, c) text(B.tostring(s), x, y, LAYER_BACK - 2, c or WHITE) end,
 	rect = function(x, y, w, h, c, alpha) rect(x, y, w, h, LAYER_BACK - 4, c or DARK, alpha or 180) end,
 	char_width = function()
-		local _, _, _, advance = font()
+		local _, _, _, advance = overlay_font()
 		return advance
 	end,
 	line_height = function()
-		local _, _, _, _, line = font()
+		local _, _, _, _, line = overlay_font()
 		return line
 	end,
 }
@@ -1005,10 +1235,11 @@ end
 
 function M.api()
 	return {
-		-- A page in the top level of the menu. build(page) runs each time the page opens.
-		add = function(title, the_build)
+		-- A page in the list of pages. build(page) runs each time the page opens. opts: icon, one of
+		-- obsidian.ui.glyphs.
+		add = function(title, the_build, opts)
 			if B.type(the_build) == "function" then
-				B.insert(M.roots, { title = title, build = the_build, state = M.core.current })
+				B.insert(M.roots, { title = title, build = the_build, state = M.core.current, icon = opts and opts.icon })
 			end
 		end,
 		open = M.open,

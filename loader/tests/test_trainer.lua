@@ -38,6 +38,7 @@ local function walk(M, ui, seen, press, path)
 				if M.stack[#M.stack] ~= frame then
 					walk(M, ui, seen, press, path .. "/" .. tostring(label))
 					ui.tap("esc")
+					if M.stack[#M.stack] ~= frame then return end
 				end
 			elseif press then
 				ui.tap("enter")
@@ -51,6 +52,21 @@ local function walk(M, ui, seen, press, path)
 				if M.stack[#M.stack] ~= frame then return end
 			end
 		end
+	end
+end
+
+-- Every page down the left, reached with the keys.
+local function walk_all(M, ui, seen, press)
+	for i = 1, #M.roots do
+		if not M.is_open then M.open() end
+		while #M.stack > 1 do ui.tap("esc") end
+		M.nav = true
+		for _ = 1, #M.roots do
+			if M.root == M.roots[i] then break end
+			ui.tap("down")
+		end
+		ui.tap("enter")
+		walk(M, ui, seen, press, "root/" .. M.stack[1].title)
 	end
 end
 
@@ -102,7 +118,7 @@ test("every_page_opens_and_every_row_has_real_text", function()
 	local e, game, ui, M = start()
 	rawget(_G, "obsidian").menu.open()
 	local seen = {}
-	walk(M, ui, seen, false, "root")
+	walk_all(M, ui, seen, false)
 	E.eq(#seen > 150, true, "rows reached: " .. #seen)
 	for _, row in ipairs(seen) do
 		local label = row:match("([^/]+)$"):gsub("^%s+", "")
@@ -115,7 +131,7 @@ test("pressing_every_row_in_a_mission_breaks_nothing", function()
 	local e, game, ui, M = start()
 	record_toasts(M)
 	rawget(_G, "obsidian").menu.open()
-	walk(M, ui, {}, true, "root")
+	walk_all(M, ui, {}, true)
 	for _ = 1, 90 do e:frames(1) end
 	assert_clean(e, game, ui)
 	E.eq(rawget(_G, "obsidian").menu.is_open() ~= nil, true)
@@ -125,7 +141,7 @@ test("pressing_every_row_on_the_ship_breaks_nothing", function()
 	local e, game, ui, M = start({ state = "menu" })
 	record_toasts(M)
 	rawget(_G, "obsidian").menu.open()
-	walk(M, ui, {}, true, "root")
+	walk_all(M, ui, {}, true)
 	for _ = 1, 30 do e:frames(1) end
 	assert_clean(e, game, ui)
 end)
@@ -134,7 +150,7 @@ test("pressing_every_row_as_a_client_breaks_nothing", function()
 	local e, game, ui, M = start({ host = false })
 	record_toasts(M)
 	rawget(_G, "obsidian").menu.open()
-	walk(M, ui, {}, true, "root")
+	walk_all(M, ui, {}, true)
 	assert_clean(e, game, ui)
 	E.eq(game.completed, nil, "host actions stayed with the host")
 end)
@@ -142,7 +158,7 @@ end)
 test("the_mod_stays_on_through_all_of_it", function()
 	local e, game, ui, M = start()
 	rawget(_G, "obsidian").menu.open()
-	walk(M, ui, {}, true, "root")
+	walk_all(M, ui, {}, true)
 	E.eq(e:core().mods_by_id["obsidian.api"].off, false)
 	E.eq(e:core().mods_by_id["obsidian.trainer"].off, false)
 end)
@@ -214,7 +230,7 @@ test("the_new_pages_list_what_the_runtime_offers", function()
 	local e, game, ui, M = start()
 	rawget(_G, "obsidian").menu.open()
 	local seen = {}
-	walk(M, ui, seen, false, "root")
+	walk_all(M, ui, seen, false)
 	local all = table.concat(seen, "\n")
 	for _, row in ipairs({ "root/Vehicles / Speed", "root/Spawn / Supply crates", "root/Spawn/Pickups / Jumppack", "root/Weapons/Backpack / Jumppack",
 		"root/Stratagems / Ignore no-stratagem zones", "root/Enemies / Spawn a wave", "root/Enemies/Spawn a wave / Wave scouts",

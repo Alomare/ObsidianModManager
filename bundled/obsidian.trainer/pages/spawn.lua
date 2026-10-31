@@ -29,6 +29,7 @@ return function(page)
 		get = function() return where end,
 		set = function(v) where = v end,
 	})
+	page:header(t("section_supplies"))
 	page:action(t("spawn_ammo"), spawn(AMMO_BOX), { enabled = U.in_mission })
 	page:page(t("spawn_crates"), rows(catalog.crates), { help = U.help("spawn_crates") })
 	page:page(t("spawn_pickups"), rows(catalog.pickups))
