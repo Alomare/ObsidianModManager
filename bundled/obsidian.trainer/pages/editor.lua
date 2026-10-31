@@ -55,12 +55,13 @@ local function help_of(field)
 		local help = U.help(key)
 		return help and applies and (help .. " " .. applies) or help or applies
 	end
-	if not field.meaning then return nil end
+	if not field.meaning then return applies end
 	return applies and (field.meaning .. ". " .. applies) or field.meaning
 end
 
 -- One row per field the item really has. A boolean that's absent reads as off.
 local function unit_field(page, settings_path, field, name)
+	if field.type == "function" then return end
 	local value = edits.value(settings_path, field.path)
 	if value == nil and not field.opt then return end
 	if value == nil and field.type ~= "boolean" then return end
@@ -156,9 +157,8 @@ local function table_fields(family, target, write)
 	return function(page)
 		for _, field in ipairs(catalog.fields(family)) do
 			if edits.table_value(target, field.path) ~= nil or field.opt then
-				page:number(field.label, {
-					min = field.min, max = field.max, step = step_of(field),
-					help = field.meaning and (field.meaning .. ". " .. t("applies_" .. field.apply)) or nil,
+				page:number(label_of(field), {
+					min = field.min, max = field.max, step = step_of(field), help = help_of(field),
 					changed = function() return edits.table_changed(target, field.path) end,
 					reset = function() edits.revert_table(target, field.path) end,
 					get = function() return edits.table_value(target, field.path) or 0 end,

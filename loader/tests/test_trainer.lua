@@ -442,4 +442,35 @@ test("spawning_stops_short_of_a_packed_map", function()
 	E.eq(#game.spawned, before, "nothing more")
 end)
 
+local function read_file(path)
+	local file = assert(io.open(path, "rb"))
+	local text = file:read("*a")
+	file:close()
+	return text
+end
+
+-- What the Trainer shows is plain text: never "its", and no engine or code words.
+local function assert_plain(text, where)
+	E.eq(text:lower():find("%f[%a]its%f[%A]"), nil, "\"its\" in " .. where .. ": " .. text)
+	E.eq(text:find("[%a]_[%a]"), nil, "a code name in " .. where .. ": " .. text)
+	for _, word in ipairs({ "uint", "int16", "rpc", "==", "lerp", "cached", "metres", "centre", " serves as ", "leverage", "seamless" }) do
+		E.eq(text:lower():find(word, 1, true), nil, word .. " in " .. where .. ": " .. text)
+	end
+	E.eq(text:find("\226\128[\147\148]"), nil, "a long dash in " .. where .. ": " .. text)
+end
+
+test("the_texts_the_trainer_shows_keep_the_writing_rules", function()
+	for value in read_file("bundled/obsidian.trainer/locales/en.json"):gmatch(': "(.-)",?\n') do assert_plain(value, "en.json") end
+	local data = read_file("bundled/obsidian.api/lib/data.lua")
+	local notes = 0
+	for value in data:gmatch('meaning="([^"]*)"') do
+		notes = notes + 1
+		assert_plain(value, "a field note")
+	end
+	E.eq(notes > 50, true, "the notes were read")
+	for value in data:gmatch('label="([^"]*)"') do assert_plain(value, "a field label") end
+	assert_plain(read_file("bundled/obsidian.trainer/obsidian.json"):match('"en": "An in%-game menu.-"\n') or "", "the description")
+	assert_plain(read_file("app/src/wiki/20-trainer.md"):gsub("`[^`]*`", ""), "the wiki")
+end)
+
 return T

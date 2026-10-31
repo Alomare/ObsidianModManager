@@ -10,7 +10,7 @@
     "es": "Obsidian Trainer"
   },
   "description": {
-    "en": "An in-game menu to change almost anything: your character, weapons, stratagems, enemies, missions, the camera and the game's numbers. It turns on Obsidian API with it.",
+    "en": "An in-game menu for changing your character, weapons, stratagems, enemies, missions, the camera and game data. Obsidian API turns on with it.",
     "pt-BR": "Um menu dentro do jogo para mudar quase tudo: personagem, armas, estratagemas, inimigos, missões, câmera e os números do jogo. Liga o Obsidian API junto.",
     "zh-CN": "游戏内菜单，几乎可以修改一切：角色、武器、战略配备、敌人、任务、镜头和游戏数值。启用时会同时启用 Obsidian API。",
     "fr": "Un menu en jeu pour changer presque tout : personnage, armes, stratagèmes, ennemis, missions, caméra et chiffres du jeu. Active aussi Obsidian API.",
@@ -66,7 +66,7 @@
         "es": "Conservar ediciones guardadas"
       },
       "description": {
-        "en": "Apply the edits you chose to keep each time the game starts. Your own stat changes aren't in the mod-set hash, so play with people who agreed to them.",
+        "en": "Applies the edits you kept each time the game starts. The multiplayer check can't see them, so play with people who agreed to them.",
         "pt-BR": "Aplica as edições que você decidiu manter a cada início do jogo. Suas mudanças de valores não entram na comparação de mods, então jogue com quem concordou.",
         "zh-CN": "每次启动游戏时应用你选择保留的修改。你的数值修改不计入模组集哈希，请与同意的玩家一起游戏。",
         "fr": "Applique les modifications gardées à chaque lancement. Vos changements de valeurs ne comptent pas dans la comparaison des mods : jouez avec des gens d'accord.",
