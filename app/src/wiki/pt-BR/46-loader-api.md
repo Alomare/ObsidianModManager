@@ -57,9 +57,13 @@ Chama `fn` toda vez que a tecla ligada a `id` desce. A tecla vem do app, ou do p
 
 Uma lista dos outros jogadores no lobby. Cada entrada tem `peer`, `obsidian` (se o jogador usa o Obsidian), `modset` e `consent`.
 
-### obsidian.session.forfeit_xp() {#obsidian-session-forfeit-xp}
+### obsidian.session.forfeit_progress() {#obsidian-session-forfeit-progress}
 
-A missão em andamento não paga XP, e o jogador é avisado. Serve para um mod que termina uma missão pelo jogador, e vale até a próxima missão começar.
+A missão em andamento não acrescenta nada ao save, e o jogador é avisado: nem XP, amostras, desbloqueios, estatísticas ou conquistas, para todos na missão. Serve para um mod que muda o jeito como uma missão se desenrola. Termina com a missão, então a Armaria continua funcionando na nave.
+
+### obsidian.session.hold_progress() {#obsidian-session-hold-progress}
+
+O mesmo para todas as missões, enquanto o seu mod estiver rodando, e a tela de carregamento da missão avisa no lugar da dica. Chame uma vez, quando o seu mod iniciar.
 
 ### obsidian.on_session(fn) {#obsidian-on-session-fn}
 
@@ -91,20 +95,20 @@ O id do mod cujo código está rodando, para um mod compartilhado registrar quem
 
 ## Menu dentro do jogo {#menu}
 
-### obsidian.menu.add(title, build) {#obsidian-menu-add-title-build}
+### obsidian.menu.add(title, build, opts) {#obsidian-menu-add-title-build-opts}
 
-Adiciona uma página ao topo do menu dentro do jogo. `title` é um texto, ou uma função que o devolve. `build(page)` roda cada vez que a página abre:
+Adiciona uma página à lista à esquerda do menu dentro do jogo. `title` é um texto, ou uma função que o devolve. `build(page)` roda cada vez que a página abre. `opts.icon` é um dos valores de `obsidian.ui.glyphs()`:
 
 ```lua
-obsidian.menu.add("Meu mod", function(page)
-  page:header("Ajustes")
-  page:toggle("Ligado", { get = function() return on end, set = function(v) on = v end })
-  page:number("Força", { min = 1, max = 10, step = 1, get = get_power, set = set_power })
-  page:choice("Modo", { choices = { { id = "a", label = "Primeiro" } }, get = get_mode, set = set_mode })
-  page:action("Fazer", function() return "Feito" end)
-  page:input("Nome", function(text) end)
-  page:page("Mais", function(sub) sub:label("Mais fundo") end)
-end)
+obsidian.menu.add("My mod", function(page)
+  page:header("Tuning")
+  page:toggle("Enabled", { get = function() return on end, set = function(v) on = v end })
+  page:number("Power", { min = 1, max = 10, step = 1, get = get_power, set = set_power })
+  page:choice("Mode", { choices = { { id = "a", label = "First" } }, get = get_mode, set = set_mode })
+  page:action("Do it", function() return "Done" end)
+  page:input("Name", function(text) end)
+  page:page("More", function(sub) sub:label("Deeper") end)
+end, { icon = "player" })
 ```
 
 Qualquer linha aceita `help`, um texto mostrado enquanto está selecionada, e `enabled`, uma função que devolve `false` e um motivo. Um texto devolvido por uma ação aparece como aviso. Uma ação pode chamar `page:refresh()` para montar a página de novo. Uma linha que falha mostra o erro e não conta contra o seu mod.
@@ -125,7 +129,7 @@ Chama `fn(draw, width, height)` a cada quadro, para mostrar algo na tela fora do
 
 ### obsidian.toast(text, seconds) {#obsidian-toast-text-seconds}
 
-Mostra uma mensagem curta no canto inferior esquerdo da tela.
+Mostra uma mensagem curta no canto superior esquerdo da tela, ou ao lado do menu dentro do jogo enquanto ele está aberto.
 
 ## Substituir as telas do jogo {#ui}
 
@@ -141,14 +145,14 @@ ui.on("loadout", {
   mute = true,
   draw = function(kit, data, dt)
     kit:panel{ 120, 140, 1680, 800, cut = 24, corners = "tr bl", fill = "#38383ee0", line = "#ffc433" }
-    kit:text("EQUIPAMENTO", 960, 880, { font = "heading", size = 48, tracking = 4, align = "center" })
+    kit:text("LOADOUT", 960, 880, { font = "heading", size = 48, tracking = 4, align = "center" })
 
     for i, player in ipairs(data.players()) do
       local panel = data.loadout(player.slot)
       local x = 140 + (i - 1) * 420
       kit:band(x, 780, 400, 40, player.color)
       kit:text(player.name, x + 12, 792, { font = "body_large" })
-      if panel then kit:text(panel.ready and "PRONTO" or "ESCOLHENDO", x + 12, 740) end
+      if panel then kit:text(panel.ready and "READY" or "PICKING", x + 12, 740) end
     end
 
     kit:text(ui.prompt("menu_loadout_select"), 140, 150)
@@ -157,9 +161,6 @@ ui.on("loadout", {
 ```
 
 Se o código de uma tela falhar, essa tela para pelo resto da sessão, o jogo volta a desenhar a dele, e o erro vai para o `loader.log`.
-
-> [!NOTE]
-> Duas coisas aguardam um teste no jogo real. Um canvas ainda não desenha nada em uma missão: `enter` e `exit` rodam lá, e a lista `mute` de uma tela espera, então o jogador continua com o HUD do jogo. E `kit:icon` responde `false`, com `kit:band` em tom liso. O mesmo código passa a funcionar quando elas forem ligadas.
 
 ### obsidian.ui.current() {#obsidian-ui-current}
 
@@ -229,17 +230,49 @@ As coordenadas são pixels a partir do canto inferior esquerdo, ou o seu espaço
 | `kit:outline(points, color, width)` | A borda de uma forma, por dentro |
 | `kit:panel{ x, y, w, h, cut, corners, fill, line, line_width }` | Um painel com cantos cortados a 45 graus. `corners` é qualquer um de `"tl tr br bl"`, por padrão `"tr bl"` |
 | `kit:hex(x, y, r, color, icon)` | Um hexágono em volta de um ponto, com um ícone dentro se você passar um |
+| `kit:glyph(name, x, y, size, color)` | Um dos ícones desenhados com formas, a partir do canto inferior esquerdo. `obsidian.ui.glyphs()` lista os nomes |
 | `kit:text(text, x, y, opts)` | Texto. `y` é a linha de base, e uma quebra de linha começa outra linha. `opts`: `font`, `size`, `tracking`, `align`, `color`, `leading` |
 | `kit:measure(text, opts)` | Largura e altura de um texto, com o espaçamento. Não desenha |
+| `kit:point(x, y)` | Um ponto em pixels, como o do mouse, nas coordenadas deste kit |
 | `kit:icon(name, x, y, w, h, color, uv)` | Uma imagem do jogo. `uv` é `{ u0, v0, u1, v1 }`. `obsidian.ui.icons()` lista os nomes |
 | `kit:band(x, y, w, h, color)` | A faixa de jogador do jogo: o degradê dele, tingido |
 | `kit:bar(x, y, w, h, value, color, back)` | Uma barra cheia de 0 a 1, sobre `back` |
 | `kit:clip(x, y, w, h, fn)` | Roda `fn(kit)` com o desenho preso ao retângulo |
 | `kit:layer(n)`, `kit:opacity(a)` | A camada e a força do que vem depois |
 
-Fontes: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"chat"`, `"debug"`, `"debug_medium"`. `"heading"` é a Insignia, e `"chat"` é a que tem chinês, japonês e coreano, para onde um texto vai quando falta uma letra na fonte dele. `"debug"` não precisa de nada carregado, e as outras caem nela até o jogo carregá-las.
+Ícones desenhados (glyphs) não precisam de arte, então continuam funcionando onde `kit:icon` não funciona. O menu dentro do jogo é montado com essas mesmas chamadas, então tudo o que ele desenha um mod também pode desenhar.
+
+Fontes: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"ui"`, `"ui_heading"`, `"chat"`, `"debug"`, `"debug_medium"`. `"ui"` e `"ui_heading"` são a Barlow e a Saira, as fontes do menu dentro do jogo, e têm letras latinas com acento. `"heading"` é a Insignia, e `"chat"` é a que tem chinês, japonês e coreano, para onde um texto vai quando falta uma letra na fonte dele. `"debug"` não precisa de nada carregado, e as outras caem nela até o jogo carregá-las.
 
 Um clip corta formas e ícones com exatidão, e texto em letras inteiras. A arte de menu da tela de equipamento não está disponível: o material dela sai da memória entre estados, e uma gui que lista um material não carregado pode parar o jogo. A sua própria arte precisa da mesma verificação, então por enquanto um canvas aceita só as imagens do jogo.
+
+### obsidian.ui.font(id, opts) {#obsidian-ui-font-id-opts}
+
+Adiciona uma fonte sua, para `kit:text`. O `tools/bake_font.py`, no repositório do Obsidian, transforma um arquivo TrueType no que o jogo lê:
+
+```
+pip install pillow uharfbuzz
+python tools/bake_font.py --out res --base mymod/fonts title=MyFont.ttf
+```
+
+Depois liste cada arquivo em `resources` no seu manifesto, no bundle de inicialização:
+
+```json
+"resources": [
+  { "type": "font", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.font" },
+  { "type": "texture", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.texture" },
+  { "type": "material", "name": "mymod/fonts/fonts", "bundle": "9cf71054ea26dddf", "data": "res/fonts.material" }
+]
+```
+
+Adicione quando o seu mod iniciar, e use pelo id:
+
+```lua
+obsidian.ui.font("title", { path = "mymod/fonts/title", size = 32 })
+kit:text("HELLDIVERS", 100, 200, { font = "title" })
+```
+
+`size` é o tamanho que um texto recebe quando não pede um. A resposta é `false` para uma fonte que a aplicação não tem, e um texto que a nomeia recebe a fonte debug. Ela precisa estar no bundle de inicialização, porque uma gui que lista um material não carregado pode parar o jogo. O texto fica nítido até o tamanho em que você gerou a fonte, 48 por padrão, e uma letra que a sua fonte não tem vem de `"chat"`. Confira a licença da sua fonte: gerar a fonte cria uma versão modificada, então uma fonte com nome reservado não pode manter esse nome.
 
 ### obsidian.ui.frame(w, h), safe() {#obsidian-ui-frame-w-h-safe}
 

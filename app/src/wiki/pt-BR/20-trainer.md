@@ -38,15 +38,14 @@ O menu trava o personagem enquanto está aberto, e fecha sozinho quando o jogo m
 ## O que tem nele {#whats-in-it}
 
 - **Jogador:** modo deus, corrida infinita, velocidade, teleporte, reaparecer, e capacetes, armaduras e capas que você tem.
-- **Armas:** munição infinita, recarga instantânea, reabastecimento, e qualquer arma, mochila ou vantagem que você tem, com as melhorias que escolher.
-- **Estratagemas:** sem tempo de recarga, usos ilimitados, chamada instantânea, ignorar zonas sem estratagemas, qualquer estratagema no cursor, e sinalizadores reais, inclusive Reforço.
+- **Armas:** munição infinita, recarga instantânea, reabastecimento, e qualquer arma, mochila ou vantagem do jogo base ou de uma DLC que você tem, com as melhorias que escolher.
+- **Estratagemas:** sem tempo de recarga, usos ilimitados, chamada instantânea, ignorar zonas sem estratagemas, qualquer estratagema do jogo base ou de uma DLC que você tem lançado no cursor, e sinalizadores reais, inclusive Reforço.
 - **Veículos:** velocidade, giro, armadura, sem dano e foguetes de exotraje infinitos no veículo que você dirige, mais reparo e reabastecimento.
 - **Criar:** munição, caixas de suprimentos e itens no chão na hora, e sinalizadores no cursor.
 - **Inimigos:** parar o surgimento, congelar, cegar ou atordoar, matar, criar mais e ajustar a pressão de encontros e patrulhas.
 - **Missão:** a lista de objetivos, concluir objetivos, proteger comboios e escoltas, extração rápida, pular esperas, modificadores do campo de provas em qualquer missão, quem está no lobby, amostras de pesquisa e missões de treino de qualquer tipo a partir da nave.
 - **Mundo:** velocidade do jogo, câmera, HUD, neblina, hora do dia e gravidade.
 - **Editor:** os números de cada arma, granada, mochila, estratagema, sentinela, mina, ataque, veículo, inimigo e efeito de status.
-- **Progresso:** amostras e desbloqueios.
 - **Console:** os comandos dos próprios desenvolvedores.
 - **Alterações:** o que está ligado, e o caminho de volta.
 
@@ -54,8 +53,8 @@ Ações que só o host pode fazer avisam quando você as escolhe.
 
 ## O que ele não faz {#what-it-wont-do}
 
-- **Não tem controle de XP nem de patente.** Seu XP total vai junto com os resultados da próxima missão normal, mesmo depois de limpar, então um número editado chegaria aos placares compartilhados. Missões reais pagam normalmente, mas uma que você termina com **Vencer agora**, **Extração rápida** ou **Concluir todos os objetivos** não paga nada: seu total fica como estava, e uma mensagem na tela avisa. Missões de treino não pagam nada.
-- **Não libera DLC pago.** As listas mostram o que você tem, e o resto continua como o jogo vende.
+- **Não mexe na sua progressão.** Enquanto ele está ligado, uma missão não acrescenta nada ao seu save: nem XP, amostras, desbloqueios, estatísticas ou conquistas, e a tela de carregamento avisa. Isso vale para todos na missão. Gastar suas amostras na Armaria funciona como sempre. Para ganhar progresso, desligue o Trainer e aplique.
+- **Não dá DLC que você não tem.** As listas mostram todo o jogo base, o que você desbloqueou jogando, mais as DLCs que você tem. Os itens só chegam a você durante aquela missão, então nada é adicionado ao seu save.
 - **Não mexe na guerra compartilhada.** Comandos que informam a Guerra Galáctica são recusados, e os resultados continuam bloqueados ([A Guerra Galáctica](wiki:galactic-war)).
 
 > [!WARNING]
@@ -75,5 +74,3 @@ Duas coisas exigem que você esteja sozinho no lobby: dar a si mesmo a mira lase
 ## Manter mudanças {#keeping-changes}
 
 As mudanças duram até fechar o jogo. Em **Alterações**, **Manter estas edições na próxima vez** salva suas edições do Editor, e elas voltam a cada início enquanto a opção **Manter edições salvas** do mod estiver ligada.
-
-Desbloqueios e amostras vão para o seu save real. O Obsidian faz backup dos seus saves antes de cada aplicação, inclusive os da Steam Cloud.

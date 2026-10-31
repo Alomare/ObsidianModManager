@@ -57,9 +57,13 @@ end)
 
 大厅中其他玩家的列表。每项包含 `peer`、`obsidian`（该玩家是否使用 Obsidian）、`modset` 和 `consent`。
 
-### obsidian.session.forfeit_xp() {#obsidian-session-forfeit-xp}
+### obsidian.session.forfeit_progress() {#obsidian-session-forfeit-progress}
 
-当前任务不会获得经验值，并会告知玩家。适用于替玩家完成任务的模组，效果持续到下一个任务开始。
+正在进行的任务不会向存档写入任何内容，并会告知玩家：任务中的所有人都没有经验值、样本、解锁、统计或成就。适用于改变任务进行方式的模组。效果随任务结束而结束，因此在飞船上军械库仍然可用。
+
+### obsidian.session.hold_progress() {#obsidian-session-hold-progress}
+
+对每个任务都是如此，只要你的模组在运行，任务的加载画面会用这一提示取代原来的小贴士。请在模组启动时调用一次。
 
 ### obsidian.on_session(fn) {#obsidian-on-session-fn}
 
@@ -91,9 +95,9 @@ end)
 
 ## 游戏内菜单 {#menu}
 
-### obsidian.menu.add(title, build) {#obsidian-menu-add-title-build}
+### obsidian.menu.add(title, build, opts) {#obsidian-menu-add-title-build-opts}
 
-在游戏内菜单顶层添加一个页面。`title` 是文本或返回文本的函数。每次打开页面时都会运行 `build(page)`：
+在游戏内菜单左侧的列表中添加一个页面。`title` 是文本或返回文本的函数。每次打开页面时都会运行 `build(page)`。`opts.icon` 是 `obsidian.ui.glyphs()` 中的一个：
 
 ```lua
 obsidian.menu.add("我的模组", function(page)
@@ -104,14 +108,12 @@ obsidian.menu.add("我的模组", function(page)
   page:action("执行", function() return "完成" end)
   page:input("名称", function(text) end)
   page:page("更多", function(sub) sub:label("更深一层") end)
-end)
+end, { icon = "player" })
 ```
 
 每一行都可以设置 `help`（选中时显示的文字）和 `enabled`（返回 `false` 和原因的函数）。操作返回的字符串会以提示显示。操作可以调用 `page:refresh()` 重新构建页面。出错的行会显示错误，且不会计入模组的错误次数。
 
 大厅未处于许可状态时，会话模组的页面不会列出，已打开的也会关闭。
-
-请注意：菜单字体只支持拉丁字母，中文文本会显示为方框。
 
 ### obsidian.menu.open(), close(), toggle(), is_open() {#obsidian-menu-open}
 
@@ -127,7 +129,7 @@ obsidian.keybind("open", function() obsidian.menu.toggle() end)
 
 ### obsidian.toast(text, seconds) {#obsidian-toast-text-seconds}
 
-在屏幕左下角显示一条简短消息。
+在屏幕左上角显示一条简短消息；游戏内菜单打开时，则显示在菜单旁边。
 
 ## 替换游戏界面 {#ui}
 
@@ -159,9 +161,6 @@ ui.on("loadout", {
 ```
 
 如果某个界面的代码出错，该界面会在本次会话中停止，游戏重新绘制自己的界面，错误写入 `loader.log`。
-
-> [!NOTE]
-> 有两项仍在等待真实游戏中的测试。画布目前不会在任务中绘制：`enter` 和 `exit` 仍会运行，界面的 `mute` 列表会等待，所以玩家仍能看到游戏的 HUD。`kit:icon` 返回 `false`，`kit:band` 为纯色。这两项开启后，相同的代码即可工作。
 
 ### obsidian.ui.current() {#obsidian-ui-current}
 
@@ -231,17 +230,49 @@ ui.on("loadout", {
 | `kit:outline(points, color, width)` | 形状的内描边 |
 | `kit:panel{ x, y, w, h, cut, corners, fill, line, line_width }` | 切去 45 度角的面板。`corners` 取 `"tl tr br bl"` 中的任意项，默认 `"tr bl"` |
 | `kit:hex(x, y, r, color, icon)` | 以一点为中心的六边形，可在其中放一个图标 |
+| `kit:glyph(name, x, y, size, color)` | 由形状绘制的图标之一，以其左下角为起点。`obsidian.ui.glyphs()` 列出名称 |
 | `kit:text(text, x, y, opts)` | 文本。`y` 是基线，换行符开始新的一行。`opts`：`font`、`size`、`tracking`、`align`、`color`、`leading` |
 | `kit:measure(text, opts)` | 文本的宽度和高度，包含字距。不绘制 |
+| `kit:point(x, y)` | 把一个像素点（例如鼠标位置）转换为此画布的坐标 |
 | `kit:icon(name, x, y, w, h, color, uv)` | 游戏的一张图片。`uv` 为 `{ u0, v0, u1, v1 }`。`obsidian.ui.icons()` 列出名称 |
 | `kit:band(x, y, w, h, color)` | 游戏的玩家色带：染色后的渐变 |
 | `kit:bar(x, y, w, h, value, color, back)` | 在 `back` 之上从 0 到 1 填充的条 |
 | `kit:clip(x, y, w, h, fn)` | 运行 `fn(kit)`，绘制限制在矩形内 |
 | `kit:layer(n)`、`kit:opacity(a)` | 之后内容的图层和强度 |
 
-字体：`"body"`、`"body_large"`、`"heading"`、`"heading_large"`、`"chat"`、`"debug"`、`"debug_medium"`。`"heading"` 是 Insignia；`"chat"` 含中文、日文和韩文，字体缺字时文本会改用它。`"debug"` 无需加载任何内容，其他字体在游戏加载完成之前都会改用它。
+图标（glyph）不需要美术资源，因此在 `kit:icon` 不可用的地方仍然有效。游戏内菜单就是用这些相同的调用构建的，所以菜单能画的内容，模组也能画。
+
+字体：`"body"`、`"body_large"`、`"heading"`、`"heading_large"`、`"ui"`、`"ui_heading"`、`"chat"`、`"debug"`、`"debug_medium"`。`"ui"` 和 `"ui_heading"` 是 Barlow 和 Saira，即游戏内菜单的字体，包含带音标的拉丁字母。`"heading"` 是 Insignia；`"chat"` 含中文、日文和韩文，字体缺字时文本会改用它。`"debug"` 无需加载任何内容，其他字体在游戏加载完成之前都会改用它。
 
 裁剪能精确切割形状和图标，文本则以完整字符为单位。配装界面的菜单美术不可用：其材质在状态切换之间会卸载，而列出未加载材质的 gui 可能使游戏停止。你自己的美术也需要同样的检查，所以画布目前只接受游戏的图片。
+
+### obsidian.ui.font(id, opts) {#obsidian-ui-font-id-opts}
+
+添加你自己的字体，供 `kit:text` 使用。Obsidian 仓库中的 `tools/bake_font.py` 会把 TrueType 文件转换为游戏能读取的格式：
+
+```
+pip install pillow uharfbuzz
+python tools/bake_font.py --out res --base mymod/fonts title=MyFont.ttf
+```
+
+然后把每个文件列入清单的 `resources`，放在启动包（boot bundle）中：
+
+```json
+"resources": [
+  { "type": "font", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.font" },
+  { "type": "texture", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.texture" },
+  { "type": "material", "name": "mymod/fonts/fonts", "bundle": "9cf71054ea26dddf", "data": "res/fonts.material" }
+]
+```
+
+在模组启动时添加，并通过其 id 使用：
+
+```lua
+obsidian.ui.font("title", { path = "mymod/fonts/title", size = 32 })
+kit:text("HELLDIVERS", 100, 200, { font = "title" })
+```
+
+`size` 是文本未指定大小时使用的字号。如果部署中没有该字体，返回 `false`，指定它的文本会改用调试字体。它必须放在启动包中，因为列出未加载材质的 gui 可能使游戏停止。文本在你烘焙的大小以内（默认 48）保持清晰，字体中缺少的字符来自 `"chat"`。请检查字体的许可：烘焙得到的是修改版，因此带保留名称的字体不能沿用该名称。
 
 ### obsidian.ui.frame(w, h), safe() {#obsidian-ui-frame-w-h-safe}
 

@@ -124,7 +124,7 @@ end)
 | 表 | 用途 |
 |---|---|
 | `api.game` | 当前状态、本地玩家、`is_host()` 和安全写入 |
-| `api.catalog` | 按名称列出武器、战略配备、技能、敌人和敌群，不含玩家未拥有的付费物品。还有 `backpacks`、`crates`、`pickups`、`vehicles`、`by_subtype(name)` 和 `max_upgrade(path)` |
+| `api.catalog` | 按名称列出武器、战略配备、技能、敌人和敌群：基础游戏，加上玩家拥有的 DLC。`usable(name)` 检查这一点，`unowned_path(path)` 检查武器的路径，`unlocked(name)` 说明玩家是否通过游玩解锁了某个物品。还有 `backpacks`、`crates`、`pickups`、`vehicles`、`by_subtype(name)` 和 `max_upgrade(path)` |
 | `api.player` | `heal`、`heal_by(amount)`、`set_health(n)`、`respawn`、`teleport`、`set_cosmetic`、`set_outline(r, g, b)`、`clear_status(name)`、`immune(name, on)`、`knockdown`、`drop_carried` 等 |
 | `api.gear` | `refill`、`give_weapon(slot, path, upgrade)`、`give_backpack(path, upgrade)`、`give_perk`、`remove_perk`、`refresh` |
 | `api.stratagems` | `reset_cooldowns`、`refill_uses`、`give`、`drop`、`call(name, pos, delay)`、`edit(name, field, value)` |
@@ -150,7 +150,7 @@ end)
 | `sprint_speed` | 最高冲刺速度 |
 | `throw_range` | 投掷距离倍率 |
 | `acceleration`、`deceleration` | 玩家起步和停下的快慢 |
-| `ignore_slow` | `true`：减速状态和地形不起作用 |
+| `ignore_slow` | `true`：移动器的减速倍率不再生效，因此任何通过它起作用的东西都无法使玩家减速 |
 | `no_screen_leash` | `true`：镜头不再把玩家限制在屏幕内 |
 | `hide_model` | `true`：隐藏玩家模型 |
 | `heavy_armor_look` | `true`：技能的外观，但没有其护甲 |
@@ -304,4 +304,4 @@ api.progress.set_upgrade("weapon_railgun", 3)
 - 游戏只在大于零时运行的计时器（例如空投舱的 `drop_time`）设为 0 时永远不会结束。请使用 0.01。
 - 生成资源包未加载的单位会使游戏停止。`api.enemies.available(enemy)` 可以检查。
 - `api.console.run` 会拒绝访问共享后端、清除存档或解锁付费内容的命令。`spawn_enemy` 只在大厅没有其他人时运行，因为它只在本玩家的游戏中加载资源包。
-- 修改经验值之前，请先了解修改器为什么不做这件事：总经验值会随之后的普通结果一起上传，即使清除后也是如此。
+- 修改经验值之前请三思：总经验值会随之后的普通结果增加，即使清除之后也是如此，并且会进入共享排行榜。

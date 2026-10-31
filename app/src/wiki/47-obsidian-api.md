@@ -304,4 +304,4 @@ Both write the real save, on the ship, with its menus closed, and answer `"close
 - A timer that the game runs while above zero, such as a hellpod's `drop_time`, never finishes at 0. Use 0.01.
 - Spawning a unit whose package isn't loaded stops the game. `api.enemies.available(enemy)` checks.
 - `api.console.run` refuses commands that reach the shared backend, wipe saves or unlock paid content. `spawn_enemy` runs only when nobody else is in the lobby, because it loads a package on this player's game alone.
-- Only change XP if you've read why the trainer doesn't: the total goes up with the next ordinary results, after any purge.
+- Think twice before changing XP: the total goes up with the next ordinary results, even after a purge, and reaches the shared leaderboards.

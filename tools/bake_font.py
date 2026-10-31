@@ -9,7 +9,7 @@ import argparse
 import struct
 from pathlib import Path
 
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 try:
     import uharfbuzz
@@ -153,11 +153,7 @@ def bake(path, size):
         w, h = right - left, bottom - top
         mask = Image.new("L", (max(1, w), max(1, h)), 0)
         if w > 0 and h > 0:
-            piece = Image.new("L", (w, h), 0)
-            piece_font = font
-            from PIL import ImageDraw
-            ImageDraw.Draw(piece).text((-left, -top), ch, font=piece_font, fill=255, anchor="ls")
-            mask = piece
+            ImageDraw.Draw(mask).text((-left, -top), ch, font=font, fill=255, anchor="ls")
         cells.append({"cp": cp, "mask": mask, "x": left, "top": top, "advance": font.getlength(ch)})
     cells.sort(key=lambda c: -c["mask"].size[1])
     width, height, placed = fit(cells)

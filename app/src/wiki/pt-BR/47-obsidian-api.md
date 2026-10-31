@@ -89,7 +89,7 @@ local kills = 0
 
 api.events.on("on_enemy_killed", function(unit, attacker, owner)
   kills = kills + 1
-  if kills == 50 then api.ui.hint("Cinquenta abatidos") end
+  if kills == 50 then api.ui.hint("Fifty down") end
 end)
 ```
 
@@ -124,7 +124,7 @@ end)
 | Tabela | Para |
 |---|---|
 | `api.game` | O estado atual, o jogador local, `is_host()` e escritas seguras |
-| `api.catalog` | Armas, estratagemas, vantagens, inimigos e grupos por nome, sem itens pagos que o jogador não tem. Também `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` e `max_upgrade(path)` |
+| `api.catalog` | Armas, estratagemas, vantagens, inimigos e grupos por nome: o jogo base, mais as DLCs que o jogador tem. `usable(name)` verifica isso, `unowned_path(path)` verifica o caminho de uma arma, e `unlocked(name)` diz se o jogador desbloqueou um item jogando. Também `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` e `max_upgrade(path)` |
 | `api.player` | `heal`, `heal_by(amount)`, `set_health(n)`, `respawn`, `teleport`, `set_cosmetic`, `set_outline(r, g, b)`, `clear_status(name)`, `immune(name, on)`, `knockdown`, `drop_carried` e mais |
 | `api.gear` | `refill`, `give_weapon(slot, path, upgrade)`, `give_backpack(path, upgrade)`, `give_perk`, `remove_perk`, `refresh` |
 | `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop`, `call(name, pos, delay)`, `edit(name, field, value)` |
@@ -150,7 +150,7 @@ Estes efeitos continuam depois de um respawn. A maioria devolve o que havia ante
 | `sprint_speed` | Velocidade máxima de corrida |
 | `throw_range` | Um multiplicador nos arremessos |
 | `acceleration`, `deceleration` | A rapidez com que o jogador arranca e para |
-| `ignore_slow` | `true`: status e terreno que deixam lento não fazem nada |
+| `ignore_slow` | `true`: o multiplicador de lentidão do movimento não vale, então nada que age por ele deixa o jogador lento |
 | `no_screen_leash` | `true`: a câmera para de prender o jogador na tela |
 | `hide_model` | `true`: o modelo do jogador fica escondido |
 | `heavy_armor_look` | `true`: o visual da vantagem, sem a armadura dela |
@@ -302,6 +302,6 @@ Os dois escrevem no save real, na nave, com os menus fechados, e respondem `"clo
 
 - `api.game.command(unit, component, command, data)` põe na fila um comando de uma lista conhecida, numa unidade deste jogador. Um comando desconhecido direto no jogo o para com um erro que nenhum script captura.
 - Um temporizador que o jogo só roda acima de zero, como o `drop_time` de um hellpod, nunca termina em 0. Use 0.01.
-- Criar uma unidade cujo pacote não está carregado para o jogo. `api.enemies.available(enemy)` verifica.
+- Criar uma unidade cujo pacote não está carregado faz o jogo parar. `api.enemies.available(enemy)` verifica.
 - `api.console.run` recusa comandos que alcançam o backend compartilhado, apagam saves ou liberam conteúdo pago. `spawn_enemy` só roda sem mais ninguém no lobby, porque carrega um pacote apenas no jogo deste jogador.
-- Só mude XP depois de ler por que o trainer não muda: o total vai junto com os próximos resultados normais, depois de qualquer limpeza.
+- Pense bem antes de mudar o XP: o total vai junto com os próximos resultados normais, mesmo depois de uma limpeza, e chega aos placares compartilhados.
