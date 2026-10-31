@@ -157,6 +157,61 @@ test("the_ship_is_free_of_it_so_the_armory_can_spend", function()
 	E.eq(save.user.research_samples, 40, "a purchase saves")
 end)
 
+-- The game's loading state, with its own tips, and a mod that holds every mission when asked.
+local function loading_screen(e, hold)
+	rawset(_G, "LocalizationManager", { string = function(_, key) return "game " .. key end })
+	rawset(_G, "StateMissionStart", { on_enter = function(self)
+		self.loading_tips, self.selected_tip = { "loading_tip1", "loading_tip2" }, "loading_tip1"
+	end })
+	e.opts.modules["lua/states/state_mission_start"] = true
+	rawget(_G, "require")("lua/states/state_mission_start")
+	if hold then
+		local core = e:core()
+		core.current = { id = "holder" }
+		rawget(_G, "obsidian").session.hold_progress()
+		core.current = nil
+	end
+	local state = {}
+	rawget(_G, "StateMissionStart").on_enter(state)
+	e:frames(1)
+	return state
+end
+
+test("the_loading_screen_says_when_a_mission_wont_count", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local state = loading_screen(e, true)
+	E.eq(state.loading_tips[1] ~= state.loading_tips[2], true, "the game loops until it draws a different tip")
+	local lm = rawget(_G, "LocalizationManager")
+	for _, tip in ipairs(state.loading_tips) do E.eq(lm:string(tip), "progress_forfeited", "the loader's text") end
+	E.eq(lm:string(state.selected_tip), "progress_forfeited", "from the first frame")
+	E.eq(lm:string("loading_tip1"), "game loading_tip1", "the game's own tips still read")
+end)
+
+test("a_loading_screen_keeps_its_tips_when_the_mission_counts", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local state = loading_screen(e, false)
+	E.eq(state.selected_tip, "loading_tip1")
+end)
+
+test("once_the_loading_screen_has_said_it_the_mission_doesnt_say_it_again", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	rawset(_G, "StateGame", { on_enter = function() end })
+	e.opts.modules["lua/states/state_game"] = true
+	rawget(_G, "require")("lua/states/state_game")
+	loading_screen(e, true)
+	rawget(_G, "StateGame").on_enter({})
+	local core, session = e:core(), rawget(_G, "obsidian").session
+	session.forfeit_progress()
+	E.eq(e.loaded["obsidian/loader/session"].forfeited, true)
+	E.eq(#core.notices + #core.notices_shown, 0)
+end)
+
+test("a_forfeit_with_no_loading_screen_is_a_message", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	rawget(_G, "obsidian").session.forfeit_progress()
+	E.eq(#e:core().notices + #e:core().notices_shown, 1)
+end)
+
 test("no_achievement_comes_from_a_forfeited_mission", function()
 	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
 	load_save_manager(e)

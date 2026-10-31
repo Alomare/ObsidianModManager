@@ -30,6 +30,7 @@ obsidian.on_session function
 obsidian.session table
 obsidian.session.cleared function
 obsidian.session.forfeit_progress function
+obsidian.session.hold_progress function
 obsidian.session.members function
 obsidian.settings table
 obsidian.settings.get function

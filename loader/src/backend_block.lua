@@ -12,6 +12,9 @@ local game_text = require("obsidian/loader/game_text")
 local COMMON_QUEUES = { "mission_stats", "mission_stats_to_upload", "completed_planets" }
 local USER_QUEUES = { "leaderboard_stats", "leaderboard_stats_to_upload", "leaderboard_provinggrounds_stats", "leaderboard_provinggrounds_stats_to_upload" }
 
+-- Two, because the game's change of tip loops until it draws a different one.
+local TIPS = { "obsidian_forfeit_tip_1", "obsidian_forfeit_tip_2" }
+
 local METHODS = {
 	"upload_mission_stats", "upload_leaderboard_stats", "upload_leaderboard_provinggrounds_stats",
 	"complete_planets", "complete_defend_event_mission", "complete_attack_event_mission",
@@ -47,13 +50,26 @@ function M.setup(core, hooks)
 		if core.session.forfeited then return end
 		return original(self, ...)
 	end)
+	-- The loading screen's tip line is drawn even with hints off, and the player reads it before the
+	-- drop, so this replaces the message that would come up in the mission.
+	hooks.loader_hook("StateMissionStart", "on_enter", function(original, self, ...)
+		original(self, ...)
+		if not core.session.mission_held() then return end
+		for _, tip in B.ipairs(TIPS) do game_text.replace(core, hooks, tip, "progress_forfeited") end
+		self.loading_tips, self.selected_tip = TIPS, TIPS[1]
+		core.session.warned = true
+	end)
 	-- A forfeit ends with the mission, or the Armory couldn't spend samples on the ship.
-	for _, state in B.ipairs({ "StateGame", "StateMenu" }) do
-		hooks.loader_hook(state, "on_enter", function(original, self, ...)
-			core.session.end_forfeit()
-			return original(self, ...)
-		end)
-	end
+	hooks.loader_hook("StateGame", "on_enter", function(original, self, ...)
+		local warned = core.session.warned
+		core.session.end_forfeit()
+		core.session.warned = warned
+		return original(self, ...)
+	end)
+	hooks.loader_hook("StateMenu", "on_enter", function(original, self, ...)
+		core.session.end_forfeit()
+		return original(self, ...)
+	end)
 	for _, name in B.ipairs(METHODS) do
 		hooks.loader_hook("CampaignManager", name, function(original, self, ...)
 			if not modded(core) then return original(self, ...) end

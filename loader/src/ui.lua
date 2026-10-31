@@ -12,10 +12,10 @@ local log = require("obsidian/loader/log")
 
 local upper, cos, sin, pi = string.upper, math.cos, math.sin, math.pi
 
--- Turned on by a run of internal/testing/ui-probe2, one step at a time. mission_draw: the canvas in
--- the game state, proven only on the title screen so far. icons: hud/hud on a gui of the brightness
--- world, which only the cursor's material has shipped on.
-local CLEARED = { mission_draw = false, icons = false }
+-- Each was held back until a run of internal/testing/ui-probe2 proved it, on 2026-10-31. mission_draw:
+-- the canvas in the game state. icons: hud/hud on a gui of the brightness world, which only the cursor's
+-- material has shipped on. Muting the whole HUD passed in the same run.
+local CLEARED = { mission_draw = true, icons = true }
 
 local MENU_LAYER = 876
 local DEFAULT_LAYER = 700

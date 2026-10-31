@@ -11,7 +11,7 @@ local PROGRESS = { "player_xp", "research_samples", "item_unlocks", "new_unlocks
 local HELD = {}
 for _, key in B.ipairs(PROGRESS) do HELD[key] = true end
 
-local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, forfeited = false, kept = nil, restoring = false }
+local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, forfeited = false, kept = nil, restoring = false, holders = {}, peer_holds = false, warned = false }
 
 function M.setup(core)
 	M.core = core
@@ -39,6 +39,15 @@ local function in_mission()
 	return name == "game" or name == "mission_end"
 end
 
+-- A mod that holds every mission does so while it runs.
+local function holding()
+	if not M.state then return false end
+	for _, mod in B.ipairs(M.holders) do
+		if not mod.off then return true end
+	end
+	return false
+end
+
 local function set_cleared(on)
 	if on == M.state then return end
 	M.state = on
@@ -51,7 +60,7 @@ function M.evaluate()
 	local own_consent = core.consent()
 	local l = lobby()
 	if not l then
-		M.members = {}
+		M.members, M.peer_holds = {}, false
 		set_cleared(true)
 		return
 	end
@@ -61,12 +70,12 @@ function M.evaluate()
 		log.line("session: published member data " .. value)
 		M.published, M.published_lobby = value, l
 	end
-	local forfeit = M.forfeited and "1" or "0"
+	local forfeit = (M.forfeited or holding()) and "1" or "0"
 	if M.published_forfeit ~= forfeit or M.forfeit_lobby ~= l then
 		l:set_member_data(FORFEIT_KEY, forfeit)
 		M.published_forfeit, M.forfeit_lobby = forfeit, l
 	end
-	local me, list, signature = l.my_id, {}, {}
+	local me, list, signature, peer_holds = l.my_id, {}, {}, false
 	-- My session mods run when every other player runs the same set or allows other players' mods.
 	-- My own consent is about their mods in my game, so it plays no part here.
 	local allowed = true
@@ -77,10 +86,10 @@ function M.evaluate()
 			B.insert(signature, B.tostring(peer))
 			if not (d and (d.modset == deploy.modset or d.consent)) then allowed = false end
 			-- What one player's mod does to a mission, it does to everyone in it.
-			if l:member_data(peer, FORFEIT_KEY) == "1" and in_mission() then M.forfeit_progress() end
+			if l:member_data(peer, FORFEIT_KEY) == "1" then peer_holds = true end
 		end
 	end
-	M.members = list
+	M.members, M.peer_holds = list, peer_holds
 	local on = allowed
 	set_cleared(on)
 	-- Data overrides and legacy mods can't be switched off live, so everyone running Obsidian gets told.
@@ -105,6 +114,7 @@ function M.tick()
 			-- Not knowing who's here can't count as cleared.
 			set_cleared(false)
 		end
+		if M.mission_held() and in_mission() then M.forfeit_progress() end
 	end
 end
 
@@ -142,7 +152,17 @@ function M.forfeit_progress()
 	local ok, err = B.pcall(keep)
 	if not ok then log.limited("session keep", "session: could not keep the save's values: " .. B.tostring(err)) end
 	log.line("session: this mission adds nothing to the save")
-	M.core.notice("progress_forfeited")
+	if not M.warned then M.core.notice("progress_forfeited") end
+end
+
+-- Every mission adds nothing to the save, for as long as the calling mod runs.
+function M.hold_progress()
+	B.insert(M.holders, M.core.current)
+end
+
+-- True when a mission starting now won't add to the save.
+function M.mission_held()
+	return holding() or M.peer_holds
 end
 
 function M.holds(key)
@@ -161,6 +181,7 @@ function M.restore_progress()
 end
 
 function M.end_forfeit()
+	M.warned = false
 	if not M.forfeited then return end
 	M.restore_progress()
 	M.forfeited, M.kept = false, nil
@@ -170,6 +191,7 @@ function M.api()
 	return {
 		cleared = M.cleared,
 		forfeit_progress = M.forfeit_progress,
+		hold_progress = M.hold_progress,
 		members = function()
 			local copy = {}
 			for i, m in B.ipairs(M.members) do

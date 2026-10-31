@@ -129,7 +129,7 @@ test("a_mission_with_the_trainer_on_adds_nothing_to_the_save", function()
 	local session = e.loaded["obsidian/loader/session"]
 	e.opts.modules["x"] = true
 	rawget(_G, "require")("x")
-	ui.frame()
+	e:frames(31)
 	E.eq(session.forfeited, true, "from the start of the mission")
 	local unlocks = game.save.user.item_unlocks
 	local before = #unlocks
@@ -144,7 +144,7 @@ end)
 
 test("on_the_ship_nothing_is_held", function()
 	local e, game, ui = start({ state = "menu" })
-	ui.frame()
+	e:frames(31)
 	E.eq(e.loaded["obsidian/loader/session"].forfeited, false, "the Armory can spend")
 end)
 

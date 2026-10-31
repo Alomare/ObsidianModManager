@@ -364,16 +364,17 @@ test("a_mod_that_was_switched_off_gives_up_its_mutes", function()
 	E.eq(#game.hd, 2)
 end)
 
-test("the_canvas_waits_for_the_mission_probe", function()
+test("the_canvas_can_be_held_back_from_a_mission", function()
 	local e, ui, game = start([[
 		DRAWS, ENTERED = 0, 0
 		obsidian.ui.on("hud", { mute = true, enter = function() ENTERED = ENTERED + 1 end, draw = function(kit) DRAWS = DRAWS + 1 kit:rect(0, 0, 1, 1) end })
 		KIT = obsidian.ui.canvas("direct")
 	]])
+	module(e).cleared.mission_draw = false
 	ui.state = "game"
 	e:frames(3)
 	E.eq(rawget(_G, "ENTERED"), 1)
-	E.eq(rawget(_G, "DRAWS"), 0, "no draw call in a mission yet")
+	E.eq(rawget(_G, "DRAWS"), 0, "no draw call in a mission")
 	rawget(_G, "KIT"):rect(0, 0, 5, 5)
 	rawget(_G, "KIT"):poly({ 0, 0, 1, 0, 1, 1 })
 	E.eq(#ui.rects, 0, "nor from a canvas of its own")
@@ -638,8 +639,9 @@ test("text_that_isnt_valid_utf8_is_dropped", function()
 	E.eq(select(1, kit:measure("bad")), 0)
 end)
 
-test("icons_wait_for_the_probe", function()
+test("icons_can_be_held_back", function()
 	local kit, ui, e = kit_for()
+	module(e).cleared.icons = false
 	E.eq(kit:icon("icon_arrow_01", 0, 0, 10, 10), false)
 	E.eq(#ui.bitmaps, 0)
 	for _, material in ipairs(ui.guis) do E.eq(material ~= "hud/hud", true) end

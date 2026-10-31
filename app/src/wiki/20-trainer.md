@@ -38,8 +38,8 @@ The menu blocks your character while it's open, and it closes by itself when the
 ## What's in it
 
 - **Player:** god mode, infinite sprint, speed, teleporting, respawning, and helmets, armor and capes you own.
-- **Weapons:** infinite ammo, instant reload, refills, and giving yourself any weapon, backpack or perk you've unlocked, with the upgrades you choose.
-- **Stratagems:** no cooldowns, unlimited uses, instant call-ins, ignoring no-stratagem zones, any stratagem you've unlocked dropped at the cursor, and real flares, Reinforce included.
+- **Weapons:** infinite ammo, instant reload, refills, and giving yourself any weapon, backpack or perk from the base game or a DLC you own, with the upgrades you choose.
+- **Stratagems:** no cooldowns, unlimited uses, instant call-ins, ignoring no-stratagem zones, any stratagem from the base game or a DLC you own dropped at the cursor, and real flares, Reinforce included.
 - **Vehicles:** speed, turning, armor, no damage and endless exosuit rockets for the vehicle you're driving, plus repairs and refills.
 - **Spawn:** ammunition, supply crates and pickups on the spot, and flares at the cursor.
 - **Enemies:** stopping spawns, freezing, blinding or stunning enemies, killing them, spawning more, and setting how hard encounters and patrols push.
@@ -53,8 +53,8 @@ Actions that only the host can do say so when you choose them.
 
 ## What it won't do
 
-- **It can't touch your progression.** While it's on, a mission adds nothing to your save: no XP, samples, unlocks, stats or achievements, and a message on screen says so. That goes for everyone in the mission. Spending your samples in the Armory works as usual. To earn progress, switch the Trainer off and Deploy.
-- **It won't give you locked items.** Lists show what you've unlocked or bought, and everything else stays locked, paid DLC included.
+- **It can't touch your progression.** While it's on, a mission adds nothing to your save: no XP, samples, unlocks, stats or achievements, and the loading screen says so. That goes for everyone in the mission. Spending your samples in the Armory works as usual. To earn progress, switch the Trainer off and Deploy.
+- **It won't give you DLC you don't own.** Lists show all of the base game, whatever you've unlocked by playing, plus the DLC you own. Items only reach you for that mission, so nothing is added to your save.
 - **It won't touch the shared war.** Commands that report to the Galactic War are refused, and results stay blocked ([The Galactic War](wiki:galactic-war)).
 
 > [!WARNING]

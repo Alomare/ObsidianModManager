@@ -124,7 +124,7 @@ end)
 | Table | For |
 |---|---|
 | `api.game` | The current state, the local player, `is_host()`, and safe writes |
-| `api.catalog` | Weapons, stratagems, perks, enemies and groups by name, with only what the player has unlocked or bought. `unlocked(name)` checks one item. Also `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` and `max_upgrade(path)` |
+| `api.catalog` | Weapons, stratagems, perks, enemies and groups by name: the base game, plus the DLC the player owns. `usable(name)` checks that, `unowned_path(path)` checks a weapon's path, and `unlocked(name)` says whether the player has unlocked an item by playing. Also `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` and `max_upgrade(path)` |
 | `api.player` | `heal`, `heal_by(amount)`, `set_health(n)`, `respawn`, `teleport`, `set_cosmetic`, `set_outline(r, g, b)`, `clear_status(name)`, `immune(name, on)`, `knockdown`, `drop_carried`, and more |
 | `api.gear` | `refill`, `give_weapon(slot, path, upgrade)`, `give_backpack(path, upgrade)`, `give_perk`, `remove_perk`, `refresh` |
 | `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop`, `call(name, pos, delay)`, `edit(name, field, value)` |
@@ -195,7 +195,7 @@ api.enemies.set_pressure({ difficulty = false })
 - `set_pressure` is the host's. `cap` runs up to 32 and lifts both limits waves stop at. Corpses count.
 - `difficulty` is what each encounter can spend. The seed, the waves on offer and the objectives stay the same.
 - `force_wave` spawns a wave from `api.enemies.waves()` all at once, ignoring its delays.
-- `spawn_entity` spawns a crate or pickup. Take paths from `api.catalog.crates()` and `pickups()`, which leave out locked and paid items.
+- `spawn_entity` spawns a crate or pickup. Take paths from `api.catalog.crates()` and `pickups()`, which leave out paid items.
 - `near(radius, pos)` lists living enemies, nearest first, around a position or the player.
 - `damage(unit, power, statuses)` is a hit from this player that works from any player's game, and armor counts. `statuses` is an optional list of status names.
 - `set_hitpoints(unit, n)` and `despawn(unit)` go through whichever player's game owns the enemy.

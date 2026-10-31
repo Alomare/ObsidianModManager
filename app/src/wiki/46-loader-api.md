@@ -61,6 +61,10 @@ A list of the other players in the lobby. Each entry has `peer`, `obsidian` (whe
 
 The mission under way adds nothing to the save, and the player is told: no XP, samples, unlocks, stats or achievements, for anyone in the mission. It's for a mod that changes how a mission plays out. It ends with the mission, so the Armory still works on the ship.
 
+### obsidian.session.hold_progress()
+
+The same for every mission, for as long as your mod runs, and the mission's loading screen says so in place of its tip. Call it once, when your mod starts.
+
 ### obsidian.on_session(fn)
 
 Calls `fn(on)` whenever the loader switches this mod on or off, so the mod can undo what other players would see.
@@ -157,9 +161,6 @@ ui.on("loadout", {
 ```
 
 If a screen's code fails, that screen stops for the session, the game draws its own again, and the error goes in `loader.log`.
-
-> [!NOTE]
-> Two things are waiting on a run in the real game. A canvas draws nothing in a mission yet: `enter` and `exit` still run there, and a screen's `mute` list waits, so the player keeps the game's HUD. And `kit:icon` answers `false`, with `kit:band` a flat tint. The same code starts working when they're switched on.
 
 ### obsidian.ui.current()
 

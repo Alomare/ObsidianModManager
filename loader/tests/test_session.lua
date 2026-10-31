@@ -131,6 +131,33 @@ test("a_forfeit_reaches_everyone_in_the_mission", function()
 	E.eq(lobby.published.obsidian_forfeit, "1", "and the word goes on")
 end)
 
+test("a_holding_mod_tells_the_lobby_while_it_runs", function()
+	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OWN .. ";1" } }
+	local e = engine(lobby)
+	local core = e:core()
+	local mod = { id = "holder" }
+	core.current = mod
+	rawget(_G, "obsidian").session.hold_progress()
+	core.current = nil
+	e:frames(31)
+	E.eq(lobby.published.obsidian_forfeit, "1", "before any mission")
+	mod.off = true
+	e:frames(31)
+	E.eq(lobby.published.obsidian_forfeit, "0", "a mod that failed holds nothing")
+end)
+
+test("a_holder_stops_holding_beside_players_who_havent_agreed", function()
+	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. string.rep("b", 64) .. ";0" } }
+	local e = engine(lobby)
+	local core = e:core()
+	core.current = { id = "holder" }
+	rawget(_G, "obsidian").session.hold_progress()
+	core.current = nil
+	e:frames(31)
+	local session = e.loaded["obsidian/loader/session"]
+	E.eq(session.mission_held(), false, "the mod is off, so the mission counts")
+end)
+
 test("a_peers_forfeit_doesnt_hold_the_ship", function()
 	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OWN .. ";1" }, extra = { p2 = { obsidian_forfeit = "1" } } }
 	local e = engine(lobby)
