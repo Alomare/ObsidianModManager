@@ -57,13 +57,13 @@ function M.setup(core, hooks)
 		if not core.session.mission_held() then return end
 		for _, tip in B.ipairs(TIPS) do game_text.replace(core, hooks, tip, "progress_forfeited") end
 		self.loading_tips, self.selected_tip = TIPS, TIPS[1]
-		core.session.warned = true
+		core.session.tip_shown = true
 	end)
 	-- A forfeit ends with the mission, or the Armory couldn't spend samples on the ship.
 	hooks.loader_hook("StateGame", "on_enter", function(original, self, ...)
-		local warned = core.session.warned
+		local tip_shown = core.session.tip_shown
 		core.session.end_forfeit()
-		core.session.warned = warned
+		core.session.tip_shown = tip_shown
 		return original(self, ...)
 	end)
 	hooks.loader_hook("StateMenu", "on_enter", function(original, self, ...)

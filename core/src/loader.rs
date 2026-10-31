@@ -19,6 +19,8 @@ use crate::{ObsidianError, Result};
 
 /// The boot bundle, which holds `foundation/lua/build_date_information`.
 pub const BUNDLE: &str = "9cf71054ea26dddf";
+/// The folder of the loader's own fonts in the game.
+const FONT_BASE: &str = "obsidian/fonts";
 /// The vanilla chunk the game requires at boot; the loader takes the chunk's place.
 pub const ENTRY: &str = "foundation/lua/build_date_information";
 /// The start of `BUILD_REVISION_INFORMATION` on the supported build.
@@ -45,6 +47,63 @@ fn candidates(rel: &str) -> Vec<PathBuf> {
 /// The folder of the starter pack (`bundled/` beside the exe, then in this workspace), if there is one.
 pub fn find_bundled_dir() -> Option<PathBuf> {
     candidates("bundled").into_iter().find(|d| d.is_dir())
+}
+
+/// The loader's baked fonts, `loader/fonts` beside `loader/src`: a type, a resource name and a file each.
+fn own_fonts(loader_dir: &Path) -> Vec<(&'static str, String, PathBuf)> {
+    let Ok(dir) = std::fs::read_dir(loader_dir.join("..").join("fonts")) else {
+        return Vec::new();
+    };
+    let mut files: Vec<PathBuf> = dir.filter_map(|e| e.ok().map(|e| e.path())).collect();
+    files.sort();
+    files
+        .into_iter()
+        .filter_map(|p| {
+            let kind = match p.extension()?.to_str()? {
+                "font" => "font",
+                "texture" => "texture",
+                "material" => "material",
+                _ => return None,
+            };
+            let stem = p.file_stem()?.to_str()?.to_string();
+            Some((kind, format!("{FONT_BASE}/{stem}"), p))
+        })
+        .collect()
+}
+
+/// What a gui may list and a text may name: fonts and materials this deploy puts in the boot bundle,
+/// which is loaded before anything runs and never unloads. Anything else is assumed fatal in the engine.
+fn deployed_fonts(comp: &Composition) -> (Vec<String>, Vec<String>) {
+    let planned = comp.bundles.get(BUNDLE).map_or(&[][..], Vec::as_slice);
+    let (mut files, mut paths) = (Vec::new(), Vec::new());
+    for r in comp.mods.iter().flat_map(|c| &c.manifest.resources) {
+        if r.bundle.as_deref() != Some(BUNDLE) || !planned.iter().any(|p| p.type_hash == r.type_hash && p.name_hash == r.name_hash) {
+            continue;
+        }
+        match r.type_text.as_str() {
+            "material" => files.push(r.name_text.clone()),
+            "font" => paths.push(r.name_text.clone()),
+            _ => {}
+        }
+    }
+    (files, paths)
+}
+
+/// The deploy table, with the loader's own fonts added to what the mods bring.
+fn full_table(loader_dir: &Path, comp: &Composition) -> Result<Value> {
+    let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
+    let mut table = deploy_table(comp, texts)?;
+    for (kind, name, _) in own_fonts(loader_dir) {
+        let key = match kind {
+            "material" => "font_files",
+            "font" => "font_paths",
+            _ => continue,
+        };
+        if let Some(list) = table[key].as_array_mut() {
+            list.push(json!(name));
+        }
+    }
+    Ok(table)
 }
 
 /// `loader/src` beside the exe, then the one in this workspace.
@@ -198,6 +257,7 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
         }));
     }
     let modset = modset_hash(&session);
+    let (font_files, font_paths) = deployed_fonts(comp);
     Ok(json!({
         "version": 1,
         "revision": REVISION,
@@ -205,6 +265,8 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
         "hashes": { "open": open_pool_tag() },
         "has_session": has_session,
         "has_static_session": has_static_session,
+        "font_files": font_files,
+        "font_paths": font_paths,
         "texts": texts,
         "mods": mods,
     }))
@@ -263,8 +325,7 @@ pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
             }
         }
     }
-    let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
-    let source = format!("return {}\n", to_lua(&deploy_table(comp, texts)?));
+    let source = format!("return {}\n", to_lua(&full_table(loader_dir, comp)?));
     scripts.push(("obsidian/deploy".to_string(), Script::Source(source.into_bytes(), "obsidian/deploy".to_string())));
 
     let sources: Vec<(&[u8], &str)> = scripts
@@ -275,13 +336,17 @@ pub fn build(loader_dir: &Path, comp: &Composition) -> Result<Vec<Planned>> {
         })
         .collect();
     let mut compiled = compile_all(&sources)?.into_iter();
-    Ok(scripts
+    let mut planned: Vec<Planned> = scripts
         .iter()
         .map(|(name, s)| match s {
             Script::Bytecode(code) => lua_resource(name, code),
             Script::Source(..) => lua_resource(name, &compiled.next().unwrap()),
         })
-        .collect())
+        .collect();
+    for (kind, name, path) in own_fonts(loader_dir) {
+        planned.push(Planned::new(hash_name(kind), hash_name(&name), 0, std::fs::read(path)?, "obsidian".into()));
+    }
+    Ok(planned)
 }
 
 /// What `build` compiles, uncompiled: the loader sources, each mod entry and the deploy table.
@@ -304,8 +369,11 @@ pub fn build_inputs(loader_dir: &Path, comp: &Composition) -> Result<Vec<u8>> {
             }
         }
     }
-    let texts = read_texts(&loader_dir.join("..").join("..").join("locales"))?;
-    out.extend(deploy_table(comp, texts)?.to_string().as_bytes());
+    for (_, name, path) in own_fonts(loader_dir) {
+        out.extend(name.as_bytes());
+        out.extend(std::fs::read(path)?);
+    }
+    out.extend(full_table(loader_dir, comp)?.to_string().as_bytes());
     Ok(out)
 }
 
@@ -403,6 +471,60 @@ mod tests {
         for name in [ENTRY, "obsidian/loader/core", "obsidian/mods/a/main", "obsidian/mods/b/main", "obsidian/deploy"] {
             assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
         }
+    }
+
+    #[test]
+    fn the_loader_brings_its_fonts_and_tells_the_guis() {
+        let dir = find_loader_dir().unwrap();
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let comp = compose(&lib, &Profile::default()).unwrap();
+        let table = full_table(&dir, &comp).unwrap();
+        assert_eq!(table["font_files"], json!(["obsidian/fonts/fonts"]));
+        assert_eq!(table["font_paths"], json!(["obsidian/fonts/body", "obsidian/fonts/heading"]));
+        let planned = build(&dir, &comp).unwrap();
+        for (kind, name) in [("font", "obsidian/fonts/body"), ("texture", "obsidian/fonts/heading"), ("material", "obsidian/fonts/fonts")] {
+            assert!(planned.iter().any(|p| p.type_hash == hash_name(kind) && p.name_hash == hash_name(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_changed_font_counts_as_a_change_to_deploy() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let comp = compose(&lib, &Profile::default()).unwrap();
+        let root = t.path().join("game");
+        put(&root, "loader/src/boot.lua", b"return true\n");
+        put(&root, "locales/en.json", b"{}");
+        let dir = root.join("loader").join("src");
+        let before = build_inputs(&dir, &comp).unwrap();
+        put(&root, "loader/fonts/body.font", b"one");
+        let with_font = build_inputs(&dir, &comp).unwrap();
+        put(&root, "loader/fonts/body.font", b"two");
+        assert_ne!(before, with_font);
+        assert_ne!(with_font, build_inputs(&dir, &comp).unwrap());
+    }
+
+    #[test]
+    fn only_fonts_in_the_boot_bundle_are_offered() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        let d = t.path().join("stage");
+        let json = format!(
+            r#"{{"obsidian":1,"id":"a.fonts","version":"1.0.0","name":{{"en":"x"}},"scope":"client","entry":"main.lua","options":[{{"id":"extra","type":"toggle","default":false}}],"resources":[
+            {{"type":"font","name":"a/fonts/good","bundle":"{BUNDLE}","data":"f"}},
+            {{"type":"material","name":"a/fonts/fonts","bundle":"{BUNDLE}","data":"f"}},
+            {{"type":"font","name":"a/fonts/elsewhere","bundle":"00000000000000aa","data":"f"}},
+            {{"type":"font","name":"a/fonts/off","bundle":"{BUNDLE}","data":"f","when":{{"extra":true}}}}]}}"#
+        );
+        put(&d, "obsidian.json", json.as_bytes());
+        put(&d, "main.lua", b"return true\n");
+        put(&d, "f", b"x");
+        lib.install(&d).unwrap();
+        let profile = Profile { mods: vec![ProfileEntry { id: "a.fonts".into(), enabled: true, folder: None }], ..Default::default() };
+        let table = deploy_table(&compose(&lib, &profile).unwrap(), json!({})).unwrap();
+        assert_eq!(table["font_files"], json!(["a/fonts/fonts"]));
+        assert_eq!(table["font_paths"], json!(["a/fonts/good"]), "what isn't loaded for sure stays out");
     }
 
     #[test]

@@ -129,7 +129,7 @@ Calls `fn(draw, width, height)` every frame, to put something on screen outside 
 
 ### obsidian.toast(text, seconds)
 
-Shows a short message at the bottom left of the screen.
+Shows a short message at the top left of the screen, or beside the in-game menu while it's open.
 
 ## Replacing the game's screens {#ui}
 
@@ -242,9 +242,37 @@ Coordinates are pixels from the bottom left, or your design space after `obsidia
 
 Glyphs need no art, so they keep working where `kit:icon` doesn't. The in-game menu is built from these same calls, so anything it draws, a mod can draw too.
 
-Fonts: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"chat"`, `"debug"`, `"debug_medium"`. `"heading"` is Insignia, and `"chat"` is the one with Chinese, Japanese and Korean, which a text falls back to when its font lacks a letter. `"debug"` needs nothing loaded, and every other font falls back to it until the game has loaded them.
+Fonts: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"ui"`, `"ui_heading"`, `"chat"`, `"debug"`, `"debug_medium"`. `"ui"` and `"ui_heading"` are Barlow and Saira, the in-game menu's fonts, and they carry Latin letters with accents. `"heading"` is Insignia, and `"chat"` is the one with Chinese, Japanese and Korean, which a text falls back to when its font lacks a letter. `"debug"` needs nothing loaded, and every other font falls back to it until the game has loaded them.
 
 A clip cuts shapes and icons exactly, and text at whole letters. The Loadout screen's menu art isn't available: its material unloads between states, and a gui that lists one that isn't loaded can stop the game. Your own art needs the same check, so a canvas takes only the game's images for now.
+
+### obsidian.ui.font(id, opts)
+
+Adds a font of your own, for `kit:text`. `tools/bake_font.py` in Obsidian's repository turns a TrueType file into what the game reads:
+
+```
+pip install pillow uharfbuzz
+python tools/bake_font.py --out res --base mymod/fonts title=MyFont.ttf
+```
+
+Then list each file in your manifest's `resources`, in the boot bundle:
+
+```json
+"resources": [
+  { "type": "font", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.font" },
+  { "type": "texture", "name": "mymod/fonts/title", "bundle": "9cf71054ea26dddf", "data": "res/title.texture" },
+  { "type": "material", "name": "mymod/fonts/fonts", "bundle": "9cf71054ea26dddf", "data": "res/fonts.material" }
+]
+```
+
+Add it when your mod starts, and use it by its id:
+
+```lua
+obsidian.ui.font("title", { path = "mymod/fonts/title", size = 32 })
+kit:text("HELLDIVERS", 100, 200, { font = "title" })
+```
+
+`size` is the size a text gets when it doesn't ask for one. The answer is `false` for a font the deploy doesn't have, and a text naming it gets the debug font. It has to be in the boot bundle, because a gui that lists a material that isn't loaded can stop the game. Text stays sharp up to the size you baked, 48 by default, and a letter your font lacks comes from `"chat"`. Check your font's license: a bake is a modified version, so a font with a reserved name can't keep that name.
 
 ### obsidian.ui.frame(w, h), safe()
 

@@ -171,6 +171,6 @@ Bug reports and help on the Discord count as much as code. The Wiki pages are Ma
 
 ## License
 
-Copyright (C) 2026 Alomare. Licensed under the [Apache License 2.0](LICENSE). The Obsidian Kit mods are under the MIT License, in their own repositories.
+Copyright (C) 2026 Alomare. Licensed under the [Apache License 2.0](LICENSE). The Obsidian Kit mods are under the MIT License, in their own repositories. The in-game menu uses Barlow and Saira, under the SIL Open Font License: see [loader/fonts](loader/fonts).
 
 Only builds from this repository's GitHub releases are official Obsidian. The license gives no right to use the Obsidian name for other builds.

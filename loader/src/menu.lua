@@ -24,10 +24,10 @@ local CUT_MARK = "..."
 
 -- In design units.
 local DEFAULT_W, DEFAULT_H, MIN_W, MIN_H = 760, 540, 500, 320
-local TITLE_H, NAV_W, NAV_ROW, PAGE_H, ROW_H, FOOT_H = 32, 158, 30, 36, 27, 62
+local TITLE_H, NAV_W, NAV_ROW, PAGE_H, ROW_H, FOOT_H = 32, 178, 30, 36, 27, 62
 local PAD, INDENT, CUT, GRIP, TRACK_W, HELP_LINES = 14, 20, 9, 16, 5, 2
 local SWITCH_W, SWITCH_H, STEPPER_W, STEP_W, BUTTON_W, TOAST_H, FILTER_W = 36, 16, 88, 22, 28, 28, 190
-local WHEEL_ROWS, WIDTHS_KEPT = 3, 4096
+local WHEEL_ROWS, WIDTHS_KEPT, TOAST_GAP = 3, 4096, 16
 
 local NAV_KEYS = {
 	up = { "up", "w" }, down = { "down", "s" }, left = { "left", "a" }, right = { "right", "d" },
@@ -41,12 +41,12 @@ local GOLD, WHITE, GREY, FAINT, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 },
 local PANEL, HEADER, WELL, FIELD = { 41, 44, 48, 250 }, { 54, 57, 62, 255 }, { 28, 30, 33, 200 }, { 21, 23, 25, 255 }
 local HOVER, SELECTED, FOCUS, DIVIDER = { 255, 255, 255, 13 }, { 255, 255, 255, 20 }, { 240, 180, 41, 40 }, { 255, 255, 255, 26 }
 
--- The game's own type: Insignia for names, Handel Gothic for reading.
-local TITLE = { font = "heading", size = 18, tracking = 2 }
-local PAGE = { font = "heading", size = 18, tracking = 1 }
-local HEADING = { font = "heading", size = 14, tracking = 1.5 }
-local BODY = { font = "body", size = 16 }
-local SMALL = { font = "body", size = 14 }
+-- Saira for names and Barlow for reading, in loader/fonts. This is the one place that picks them.
+local TITLE = { font = "ui_heading", size = 21, tracking = 0.5 }
+local PAGE = { font = "ui_heading", size = 21 }
+local HEADING = { font = "ui_heading", size = 16, tracking = 0.5 }
+local BODY = { font = "ui", size = 18 }
+local SMALL = { font = "ui", size = 15 }
 
 local M = { is_open = false, roots = {}, root = nil, nav = true, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, kit = nil, widths = {}, width_count = 0,
 	field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil, closing = false }
@@ -950,18 +950,21 @@ local function draw_toasts(dt)
 		if t.left <= 0 then B.remove(M.toasts, i) end
 	end
 	local kit = M.kit
-	local left, bottom, right = visible()
-	local x, y = left + 16, bottom + 18
+	local left, _, right, top = visible()
+	local x, y = left + TOAST_GAP, top - TOAST_GAP - TOAST_H
+	-- The window opens in the same corner, and a message shouldn't cover what it's about.
+	if M.is_open and M.win then x, y = M.win.x + M.win.w + TOAST_GAP, M.win.top - TOAST_H end
 	for _, t in B.ipairs(M.toasts) do
 		local s = fit(t.text, right - left - 80, BODY)
 		local w = width_of(s, BODY) + 26
+		x = B.min(x, right - w - TOAST_GAP)
 		kit:opacity(B.min(t.left * 2, 1))
 		kit.z = LAYER_TOAST
 		kit:panel({ x, y, w, TOAST_H, cut = 6, corners = "br", fill = PANEL })
 		kit.z = LAYER_TOAST + 1
 		kit:rect(x, y, 3, TOAST_H, GOLD)
 		put(s, x + 13, mid(y, TOAST_H, BODY), BODY, WHITE)
-		y = y + TOAST_H + 4
+		y = y - TOAST_H - 4
 	end
 	kit:opacity(1)
 end

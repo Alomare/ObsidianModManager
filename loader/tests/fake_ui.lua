@@ -35,10 +35,15 @@ function F.install(e, opts)
 		end,
 	})
 	rawset(_G, "World", {
-		create_screen_gui = function(world, a, b, c, d, e)
-			ui.gui_args = { world, a, b, c, d, e }
-			ui.guis[#ui.guis + 1] = d == "fonts/fonts" and d or b
-			return "gui " .. tostring(d == "fonts/fonts" and d or b)
+		create_screen_gui = function(world, ...)
+			local args = { world, ... }
+			ui.gui_args = args
+			local name = args[3]
+			for i = 3, #args - 1, 2 do
+				if args[i] == "fonts/fonts" then name = args[i] end
+			end
+			ui.guis[#ui.guis + 1] = name
+			return "gui " .. tostring(name)
 		end,
 		destroy_gui = function() ui.destroyed = ui.destroyed + 1 end,
 	})

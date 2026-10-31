@@ -199,7 +199,9 @@ test("once_the_loading_screen_has_said_it_the_mission_doesnt_say_it_again", func
 	e.opts.modules["lua/states/state_game"] = true
 	rawget(_G, "require")("lua/states/state_game")
 	loading_screen(e, true)
+	e:frames(31)
 	rawget(_G, "StateGame").on_enter({})
+	e:frames(31)
 	local core, session = e:core(), rawget(_G, "obsidian").session
 	session.forfeit_progress()
 	E.eq(e.loaded["obsidian/loader/session"].forfeited, true)

@@ -34,6 +34,9 @@ local FONTS = {
 	heading = { path = "fonts/insignia_headliner", material = "insignia_headliner", size = 42, gui = "fonts" },
 	heading_large = { path = "fonts/insignia_headliner_large", material = "insignia_headliner_large", size = 64, gui = "fonts" },
 	chat = { path = "fonts/chat", material = "chat", size = 30, gui = "fonts" },
+	-- Baked by tools/bake_font.py and shipped with the loader. A deploy without them gets the game's.
+	ui = { path = "obsidian/fonts/body", material = "body", size = 24, gui = "fonts", instead = "body" },
+	ui_heading = { path = "obsidian/fonts/heading", material = "heading", size = 24, gui = "fonts", instead = "heading" },
 }
 
 -- Immediate guis on the brightness world: it's the only world that outlives a state change, so a gui on
@@ -94,7 +97,7 @@ local PROMPTS = { select = "#cross", back = "#mod_back" }
 
 local M = {
 	wanted = false, cleared = CLEARED, screens = {}, mutes = {}, muted = {}, scope = nil, points = {}, primitives = {},
-	refused = {}, frames = {}, remaps = {}, guis = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
+	refused = {}, frames = {}, remaps = {}, guis = {}, font_files = {}, font_paths = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
 }
 
 local function global(name)
@@ -1252,8 +1255,34 @@ local function protected_tick()
 	if not ok then log.limited("ui frame", "ui: " .. B.tostring(err)) end
 end
 
+-- Only what the deploy put in the boot bundle: a font or material that isn't loaded is assumed fatal.
+local function load_fonts(deploy)
+	for _, file in B.ipairs(deploy.font_files or {}) do
+		B.insert(GUIS.fonts.materials, file)
+		M.font_files[file] = true
+	end
+	for _, path in B.ipairs(deploy.font_paths or {}) do M.font_paths[path] = true end
+	for name, font in B.pairs(FONTS) do
+		if font.instead and not M.font_paths[font.path] then FONTS[name] = FONTS[font.instead] end
+	end
+end
+
+-- A font a mod ships in the boot bundle, named by its resource. tools/bake_font.py gives the material
+-- the font's last name, in fonts.material beside it. false when the deploy doesn't have it.
+function M.font(id, opts)
+	opts = opts or {}
+	local base, name = B.match(B.tostring(opts.path), "^(.*)/([^/]+)$")
+	if B.type(id) ~= "string" or FONTS[id] or not name or not M.font_paths[opts.path] or not M.font_files[base .. "/fonts"] then
+		log.limited("ui font " .. B.tostring(id), "ui: can't add font " .. B.tostring(id))
+		return false
+	end
+	FONTS[id] = { path = opts.path, material = name, size = opts.size or 24, gui = "fonts" }
+	return true
+end
+
 function M.setup(core, hooks, session)
 	M.core, M.session = core, session
+	load_fonts(core.deploy)
 	hooks.on_frame(protected_tick)
 end
 
@@ -1277,6 +1306,7 @@ function M.api()
 		prompt = M.prompt,
 		icons = M.icons,
 		glyphs = M.glyph_names,
+		font = M.font,
 	}
 end
 

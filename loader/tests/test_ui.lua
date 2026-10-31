@@ -62,7 +62,7 @@ end
 
 local function start(source, opts)
 	opts = opts or {}
-	local e = E.new({ deploy = E.deploy({ mods = opts.mods or { E.mod("m", { scope = opts.scope or "client" }) }, texts = { en = {} } }),
+	local e = E.new({ deploy = E.deploy({ font_files = opts.font_files, font_paths = opts.font_paths, mods = opts.mods or { E.mod("m", { scope = opts.scope or "client" }) }, texts = { en = {} } }),
 		mods = opts.sources or { ["obsidian/mods/m/main"] = source }, lobby = opts.lobby })
 	e:boot()
 	e:start_frames()
@@ -637,6 +637,74 @@ test("text_that_isnt_valid_utf8_is_dropped", function()
 	kit:text("bad", 0, 0)
 	E.eq(#ui.texts, 0)
 	E.eq(select(1, kit:measure("bad")), 0)
+end)
+
+local BAKED = { font_files = { "obsidian/fonts/fonts", "m/fonts/fonts" }, font_paths = { "obsidian/fonts/body", "obsidian/fonts/heading", "m/fonts/title" } }
+
+test("the_guis_list_the_fonts_the_deploy_has", function()
+	local e, ui = start([[
+		KIT = obsidian.ui.canvas("direct")
+	]], BAKED)
+	e:frames(2)
+	rawget(_G, "KIT"):text("Hello", 10, 10, { font = "ui" })
+	E.eq(ui.texts[1].font, "obsidian/fonts/body", "the loader's own")
+	E.eq(ui.texts[1].material, "body")
+	local listed = table.concat(ui.gui_args, " ")
+	E.has(listed, "foundation/gui/gui", "shapes share the gui")
+	E.has(listed, "fonts/fonts")
+	E.has(listed, "obsidian/fonts/fonts")
+	E.has(listed, "m/fonts/fonts", "a mod's too")
+end)
+
+test("a_deploy_without_baked_fonts_uses_the_games", function()
+	local e, ui = start([[
+		KIT = obsidian.ui.canvas("direct")
+	]])
+	e:frames(2)
+	rawget(_G, "KIT"):text("Hello", 10, 10, { font = "ui" })
+	rawget(_G, "KIT"):text("Hello", 10, 10, { font = "ui_heading" })
+	E.eq(ui.texts[1].font, "fonts/handel_small")
+	E.eq(ui.texts[2].font, "fonts/insignia_headliner")
+end)
+
+test("a_letter_a_baked_font_lacks_comes_from_the_game", function()
+	local e, ui = start([[
+		KIT = obsidian.ui.canvas("direct")
+	]], BAKED)
+	e:frames(2)
+	ui.missing_glyphs = "x"
+	rawget(_G, "KIT"):text("x", 10, 10, { font = "ui" })
+	E.eq(ui.texts[1].font, "fonts/chat")
+end)
+
+test("a_mod_adds_a_font_it_ships", function()
+	local e, ui = start([[
+		OK = obsidian.ui.font("title", { path = "m/fonts/title", size = 48 })
+		KIT = obsidian.ui.canvas("direct")
+	]], BAKED)
+	e:frames(2)
+	E.eq(rawget(_G, "OK"), true)
+	rawget(_G, "KIT"):text("Hello", 10, 10, { font = "title" })
+	E.eq(ui.texts[1].font, "m/fonts/title")
+	E.eq(ui.texts[1].material, "title", "the bake names it")
+	E.eq(ui.texts[1].size, 48)
+end)
+
+test("a_font_the_deploy_doesnt_have_never_reaches_the_engine", function()
+	local e, ui = start([[
+		ONE = obsidian.ui.font("a", { path = "m/fonts/other" })
+		TWO = obsidian.ui.font("b", { path = "nothing" })
+		THREE = obsidian.ui.font("ui", { path = "m/fonts/title" })
+		FOUR = obsidian.ui.font("c")
+		KIT = obsidian.ui.canvas("direct")
+	]], BAKED)
+	e:frames(2)
+	E.eq(rawget(_G, "ONE"), false, "not deployed")
+	E.eq(rawget(_G, "TWO"), false, "no folder, so no material file")
+	E.eq(rawget(_G, "THREE"), false, "a name that's taken")
+	E.eq(rawget(_G, "FOUR"), false)
+	rawget(_G, "KIT"):text("Hello", 10, 10, { font = "a" })
+	E.eq(ui.texts[1].font, "foundation/fonts/debug_small", "an unknown name falls back")
 end)
 
 test("icons_can_be_held_back", function()

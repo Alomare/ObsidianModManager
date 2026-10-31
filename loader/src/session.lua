@@ -11,7 +11,7 @@ local PROGRESS = { "player_xp", "research_samples", "item_unlocks", "new_unlocks
 local HELD = {}
 for _, key in B.ipairs(PROGRESS) do HELD[key] = true end
 
-local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, forfeited = false, kept = nil, restoring = false, holders = {}, peer_holds = false, warned = false }
+local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, forfeited = false, kept = nil, restoring = false, holders = {}, peer_holds = false, tip_shown = false }
 
 function M.setup(core)
 	M.core = core
@@ -152,7 +152,7 @@ function M.forfeit_progress()
 	local ok, err = B.pcall(keep)
 	if not ok then log.limited("session keep", "session: could not keep the save's values: " .. B.tostring(err)) end
 	log.line("session: this mission adds nothing to the save")
-	if not M.warned then M.core.notice("progress_forfeited") end
+	if not M.tip_shown then M.core.notice("progress_forfeited") end
 end
 
 -- Every mission adds nothing to the save, for as long as the calling mod runs.
@@ -181,7 +181,7 @@ function M.restore_progress()
 end
 
 function M.end_forfeit()
-	M.warned = false
+	M.tip_shown = false
 	if not M.forfeited then return end
 	M.restore_progress()
 	M.forfeited, M.kept = false, nil

@@ -15,6 +15,7 @@ version = json.loads((ROOT / "app" / "src-tauri" / "tauri.conf.json").read_text(
 # The same files the installer carries (tauri.conf.json, bundle.resources), at the same places.
 RESOURCES = [
     (ROOT / "loader" / "src", "loader/src"),
+    (ROOT / "loader" / "fonts", "loader/fonts"),
     (ROOT / "bundled", "bundled"),
     (ROOT / "locales", "locales"),
     (ROOT / "target" / "luajit" / "luajit.exe", "luajit/luajit.exe"),

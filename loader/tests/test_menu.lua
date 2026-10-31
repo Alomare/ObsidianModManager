@@ -272,6 +272,40 @@ test("toasts_show_then_expire", function()
 	E.eq(ui.shown("Hello"), false, "gone")
 end)
 
+test("toasts_sit_at_the_top_left_newest_lower_down", function()
+	local e, ui = start("return true")
+	rawget(_G, "obsidian").toast("First")
+	rawget(_G, "obsidian").toast("Second")
+	ui.frame()
+	local first, second = ui.find("First"), ui.find("Second")
+	E.eq(first.pos.x < 200, true, "on the left")
+	E.eq(first.pos.y > 900, true, "at the top of a 1080p screen")
+	E.eq(second.pos.y < first.pos.y, true)
+end)
+
+test("with_the_window_open_a_toast_sits_beside_it", function()
+	local e, ui = start(PAGE)
+	local M = e.loaded["obsidian/loader/menu"]
+	rawget(_G, "obsidian").menu.open()
+	ui.frame()
+	rawget(_G, "obsidian").toast("Done")
+	ui.frame()
+	local x = ui.find("Done").pos.x / M.kit.scale
+	E.eq(x > M.win.x + M.win.w, true, "clear of the window")
+end)
+
+test("a_toast_stays_on_screen_beside_a_wide_window", function()
+	local e, ui = start(PAGE)
+	local M = e.loaded["obsidian/loader/menu"]
+	rawget(_G, "obsidian").menu.open()
+	ui.frame()
+	M.win.x, M.win.w = 0, 1280
+	rawget(_G, "obsidian").toast("Done")
+	ui.frame()
+	local t = ui.find("Done")
+	E.eq((t.pos.x + #t.text * t.size * 0.5) / M.kit.scale < 1280, true)
+end)
+
 test("the_gui_is_destroyed_before_the_game_shuts_down", function()
 	local e, ui = start("return true")
 	local down = 0
@@ -554,7 +588,7 @@ test("the_window_follows_the_screen_and_the_mouse_lands_on_what_it_sees", functi
 	open_root(ui)
 	local M = menu_of(e)
 	E.eq(M.kit.scale, 3, "the design space fills the screen")
-	E.eq(ui.find("God mode", true).size, 48)
+	E.eq(ui.find("God mode", true).size, 54)
 	click_on(ui, "God mode")
 	E.eq(values().god, true, "a click finds the row at four times the pixels")
 end)
