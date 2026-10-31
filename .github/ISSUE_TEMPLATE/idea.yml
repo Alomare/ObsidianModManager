@@ -1,0 +1,26 @@
+name: Idea
+description: Something Obsidian could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What you'd like to do with Obsidian, and how you do it today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: An example
+      description: A mod, a screen or a moment in game where it would help. Screenshots and sketches are welcome.
+
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who it's for
+      options:
+        - Players
+        - Mod authors
+        - Both

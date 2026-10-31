@@ -1,0 +1,93 @@
+name: Bug report
+description: Something in Obsidian, or in the game with Obsidian's mods deployed, doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a question about how to do something, ask on the [HELLDIVERS 1 Modding Discord](https://dsc.gg/hd1modding) instead.
+
+        If one mod is the problem, use the **Mod problem** form.
+
+  - type: input
+    id: version
+    attributes:
+      label: Obsidian version
+      description: At the bottom right of the window.
+      placeholder: v1.0.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: download
+    attributes:
+      label: Which download
+      options:
+        - Installer
+        - Portable copy
+        - Built from source
+    validations:
+      required: true
+
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options:
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happened
+      options:
+        - Starting Obsidian
+        - Home
+        - Mods
+        - Profiles
+        - Deploy or Purge
+        - Wiki
+        - Settings
+        - Installing an update of Obsidian
+        - Updating a mod
+        - In game, solo
+        - In game, with other players
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, step by step, what you expected, and what happened instead. Screenshots help.
+      placeholder: |
+        1. Turned on Obsidian Quality of Life
+        2. Clicked Deploy, then Play
+        3. Expected the game to skip the intro, but it played as usual
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: Settings ▸ System ▸ Copy report copies what we need to look into it. Paste it here, especially when an error message came up.
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log files
+      description: Settings ▸ System ▸ Open logs opens the folder. Drag `loader.log` in here for a problem in game, along with the log of any mod involved.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I looked through the open issues and this isn't one of them.
+          required: true

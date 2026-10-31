@@ -1,0 +1,55 @@
+name: Mod problem
+description: A mod won't import or deploy, or it stops working with Obsidian.
+labels: ["mods"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a bug inside a mod, ask the author first. The mods in the Obsidian Kit are reported here.
+
+  - type: input
+    id: mod
+    attributes:
+      label: The mod
+      description: The name, the version, and a link to where it comes from.
+      placeholder: Third Person Camera 1.5.0, from Nexus
+    validations:
+      required: true
+
+  - type: dropdown
+    id: what
+    attributes:
+      label: What's wrong
+      options:
+        - It won't import
+        - It won't deploy
+        - It conflicts with another mod
+        - The game crashes or freezes with it on
+        - It doesn't do anything in game
+        - It stops working with other players
+        - It won't update from GitHub
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and any message that came up. Does it happen with only this mod on?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log files
+      description: Settings ▸ System ▸ Open logs opens the folder. Drag `loader.log` in here, along with the log named after the mod.
+
+  - type: input
+    id: version
+    attributes:
+      label: Obsidian version
+      description: At the bottom right of the window.
+      placeholder: v1.0.2
+    validations:
+      required: true
