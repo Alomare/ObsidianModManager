@@ -33,7 +33,6 @@
     "pages/mission.lua",
     "pages/world.lua",
     "pages/editor.lua",
-    "pages/progress.lua",
     "pages/console.lua",
     "pages/changes.lua"
   ],

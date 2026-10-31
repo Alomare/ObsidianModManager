@@ -354,5 +354,5 @@
   "app.wiki.search": "搜索指南",
   "app.wiki.tip": "提示",
   "app.wiki.warning": "注意",
-  "xp_forfeited": "Obsidian：模组完成了此任务，因此不会获得经验值。"
+  "progress_forfeited": "Obsidian: this mission is modded, so it won't add to your progress."
 }

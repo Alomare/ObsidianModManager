@@ -28,6 +28,7 @@ local function load_save_manager(e)
 		user = { leaderboard_stats = {}, leaderboard_stats_to_upload = { 1 }, player_xp = 100 }, saves = 0, user_saves = 0 }
 	rawset(_G, "SaveManager", {
 		set = function(_, k, v) save.common[k] = v end,
+		user_get = function(_, k) return save.user[k] end,
 		user_set = function(_, k, v, id) save.user[k] = v; save.user_id = id end,
 		save = function() save.saves = save.saves + 1 end,
 		user_save = function(_, done, fail, subtitle, details, id) save.user_saves = save.user_saves + 1; save.saved_id = id end,
@@ -78,7 +79,7 @@ test("consent_alone_blocks_uploads_only_beside_a_different_set", function()
 	E.eq(#cm.sent, 1, "the same set again")
 end)
 
-test("a_forfeited_mission_keeps_the_old_xp_until_the_next_mission", function()
+test("a_forfeited_mission_leaves_the_save_as_it_was", function()
 	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
 	local save = load_save_manager(e)
 	local sm = rawget(_G, "SaveManager")
@@ -89,18 +90,84 @@ test("a_forfeited_mission_keeps_the_old_xp_until_the_next_mission", function()
 	E.eq(save.user.player_xp, 200, "an ordinary mission pays")
 
 	local session = rawget(_G, "obsidian").session
-	session.forfeit_xp()
-	session.forfeit_xp()
+	session.forfeit_progress()
+	session.forfeit_progress()
 	sm:user_set("player_xp", 900, "user")
 	E.eq(save.user.player_xp, 200, "every way of paying ends in this write")
 	sm:user_set("research_samples", 7, "user")
-	E.eq(save.user.research_samples, 7, "other values still save")
-	E.eq(E.count(e:log(), "this mission pays no XP"), 1, "told once")
+	E.eq(save.user.research_samples, nil, "samples too")
+	sm:user_set("customization", "cape", "user")
+	E.eq(save.user.customization, "cape", "what isn't progression still saves")
+	E.eq(E.count(e:log(), "this mission adds nothing to the save"), 1, "told once")
 	E.eq(#e:core().notices + #e:core().notices_shown, 1)
 
 	rawget(_G, "StateGame").on_enter({})
 	sm:user_set("player_xp", 300, "user")
 	E.eq(save.user.player_xp, 300, "the next mission pays again")
+end)
+
+-- A mission that's over, for the tests of what comes after it.
+local function forfeit_with(save, values)
+	for k, v in pairs(values) do save.user[k] = v end
+	rawset(_G, "UserManager", { get_user_id = function() return "user" end })
+	rawget(_G, "obsidian").session.forfeit_progress()
+end
+
+test("rewards_the_game_adds_to_a_live_table_never_reach_the_disk", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local save = load_save_manager(e)
+	local sm = rawget(_G, "SaveManager")
+	forfeit_with(save, { item_unlocks = { "owned" }, lifetime_stats = { kills = 5, seasons = { { won = 1 } } } })
+	-- As mission_end_state_waiting_for_data does: read, change in place, write.
+	local unlocks, stats = sm:user_get("item_unlocks"), sm:user_get("lifetime_stats")
+	unlocks[#unlocks + 1] = "reward"
+	stats.kills, stats.seasons[1].won = 900, 9
+	sm:user_set("item_unlocks", unlocks, "user")
+	sm:user_set("lifetime_stats", stats, "user")
+	sm:user_save(nil, nil, nil, nil, "user")
+	E.eq(table.concat(save.user.item_unlocks, ","), "owned", "the reward didn't stay")
+	E.eq(save.user.lifetime_stats.kills, 5)
+	E.eq(save.user.lifetime_stats.seasons[1].won, 1, "however deep")
+end)
+
+test("a_value_the_mission_created_goes_away_too", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local save = load_save_manager(e)
+	forfeit_with(save, {})
+	save.user.seen_enemies = { "bug" }
+	rawget(_G, "SaveManager"):user_save(nil, nil, nil, nil, "user")
+	E.eq(save.user.seen_enemies, nil)
+end)
+
+test("the_ship_is_free_of_it_so_the_armory_can_spend", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local save = load_save_manager(e)
+	local sm = rawget(_G, "SaveManager")
+	rawset(_G, "StateMenu", { on_enter = function() end })
+	e.opts.modules["lua/states/state_menu"] = true
+	rawget(_G, "require")("lua/states/state_menu")
+	forfeit_with(save, { research_samples = 50, new_unlocks = { "old" } })
+	save.user.research_samples = 90
+	local list = sm:user_get("new_unlocks")
+	list[#list + 1] = "reward"
+	rawget(_G, "StateMenu").on_enter({})
+	E.eq(save.user.research_samples, 50, "what the mission left is gone before the ship shows it")
+	E.eq(#save.user.new_unlocks, 1)
+	sm:user_set("research_samples", 40, "user")
+	E.eq(save.user.research_samples, 40, "a purchase saves")
+end)
+
+test("no_achievement_comes_from_a_forfeited_mission", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	load_save_manager(e)
+	local got = {}
+	rawset(_G, "UserManager", { get_user_id = function() return "user" end, unlock_trophy = function(_, name) got[#got + 1] = name end })
+	e.opts.modules["lua/managers/user_manager"] = true
+	rawget(_G, "require")("lua/managers/user_manager")
+	rawget(_G, "UserManager"):unlock_trophy("first")
+	rawget(_G, "obsidian").session.forfeit_progress()
+	rawget(_G, "UserManager"):unlock_trophy("second")
+	E.eq(table.concat(got, ","), "first")
 end)
 
 test("uploads_untouched_without_session_content", function()

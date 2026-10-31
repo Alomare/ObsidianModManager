@@ -37,16 +37,16 @@ local REPEATS = { up = true, down = true, left = true, right = true }
 local ADJUSTABLE = { number = true, choice = true, toggle = true }
 
 -- Obsidian's default theme.
-local GOLD, WHITE, GREY, FAINT, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 140, 142, 140 }, { 255, 155, 94 }, { 15, 17, 19 }
+local GOLD, WHITE, GREY, FAINT, RED, DARK = { 240, 180, 41 }, { 236, 235, 231 }, { 180, 181, 178 }, { 158, 160, 157 }, { 255, 155, 94 }, { 15, 17, 19 }
 local PANEL, HEADER, WELL, FIELD = { 41, 44, 48, 250 }, { 54, 57, 62, 255 }, { 28, 30, 33, 200 }, { 21, 23, 25, 255 }
 local HOVER, SELECTED, FOCUS, DIVIDER = { 255, 255, 255, 13 }, { 255, 255, 255, 20 }, { 240, 180, 41, 40 }, { 255, 255, 255, 26 }
 
 -- The game's own type: Insignia for names, Handel Gothic for reading.
-local TITLE = { font = "heading", size = 17, tracking = 2 }
-local PAGE = { font = "heading", size = 17, tracking = 1 }
-local HEADING = { font = "heading", size = 13, tracking = 1.5 }
-local BODY = { font = "body", size = 15 }
-local SMALL = { font = "body", size = 13 }
+local TITLE = { font = "heading", size = 18, tracking = 2 }
+local PAGE = { font = "heading", size = 18, tracking = 1 }
+local HEADING = { font = "heading", size = 14, tracking = 1.5 }
+local BODY = { font = "body", size = 16 }
+local SMALL = { font = "body", size = 14 }
 
 local M = { is_open = false, roots = {}, root = nil, nav = true, stack = {}, toasts = {}, overlays = {}, keys = nil, gui = nil, kit = nil, widths = {}, width_count = 0,
 	field = nil, state_name = nil, hits = nil, win = nil, drag = nil, hold = nil, cursor = nil, closing = false }

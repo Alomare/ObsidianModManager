@@ -554,7 +554,7 @@ test("the_window_follows_the_screen_and_the_mouse_lands_on_what_it_sees", functi
 	open_root(ui)
 	local M = menu_of(e)
 	E.eq(M.kit.scale, 3, "the design space fills the screen")
-	E.eq(ui.find("God mode", true).size, 45)
+	E.eq(ui.find("God mode", true).size, 48)
 	click_on(ui, "God mode")
 	E.eq(values().god, true, "a click finds the row at four times the pixels")
 end)

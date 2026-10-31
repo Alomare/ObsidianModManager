@@ -115,6 +115,30 @@ test("malformed_member_data_is_not_cleared", function()
 	end
 end)
 
+test("a_forfeit_reaches_everyone_in_the_mission", function()
+	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OWN .. ";1" }, extra = {} }
+	local e = engine(lobby)
+	local session = e.loaded["obsidian/loader/session"]
+	local state = "game"
+	rawset(_G, "Boot", { state_machine = { get_current_state_name = function() return state end } })
+	e:frames(31)
+	E.eq(lobby.published.obsidian_forfeit, "0")
+	E.eq(session.forfeited, false)
+	lobby.extra.p2 = { obsidian_forfeit = "1" }
+	e:frames(31)
+	E.eq(session.forfeited, true, "the host's mod changed this player's mission")
+	e:frames(31)
+	E.eq(lobby.published.obsidian_forfeit, "1", "and the word goes on")
+end)
+
+test("a_peers_forfeit_doesnt_hold_the_ship", function()
+	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = "1;" .. OWN .. ";1" }, extra = { p2 = { obsidian_forfeit = "1" } } }
+	local e = engine(lobby)
+	rawset(_G, "Boot", { state_machine = { get_current_state_name = function() return "menu" end } })
+	e:frames(31)
+	E.eq(e.loaded["obsidian/loader/session"].forfeited, false, "their mission is over, and the Armory is in use")
+end)
+
 test("own_member_data_is_published", function()
 	local lobby = { my_id = "me", members = { "me" }, data = {} }
 	local e = engine(lobby)

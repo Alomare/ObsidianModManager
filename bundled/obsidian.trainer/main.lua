@@ -1,5 +1,6 @@
 -- Obsidian Trainer: an in-game menu built only on the public Obsidian API.
 local t = obsidian.text
+local api = obsidian.import("obsidian.api")
 local player = obsidian.module("pages/player")
 local weapons = obsidian.module("pages/weapons")
 local stratagems = obsidian.module("pages/stratagems")
@@ -9,7 +10,6 @@ local enemies = obsidian.module("pages/enemies")
 local mission = obsidian.module("pages/mission")
 local world = obsidian.module("pages/world")
 local editor = obsidian.module("pages/editor")
-local progress = obsidian.module("pages/progress")
 local console = obsidian.module("pages/console")
 local changes = obsidian.module("pages/changes")
 
@@ -28,12 +28,16 @@ obsidian.after_startup(function()
 	page("page_mission", mission, "mission")
 	page("page_world", world, "world")
 	page("page_editor", editor.build, "editor")
-	page("page_progress", progress, "progress")
 	page("page_console", console, "console")
 	page("page_changes", changes.build, "changes")
 end)
 
 obsidian.keybind("open", function() obsidian.menu.toggle() end)
+
+-- The player's progression stays out of reach: with this mod on, a mission adds nothing to the save.
+obsidian.on_frame(function()
+	if api.game.in_mission() then api.game.forfeit_progress() end
+end)
 
 -- A session that stops being cleared switches everything off, and the player should hear why.
 obsidian.on_session(function(on)

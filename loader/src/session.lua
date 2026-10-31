@@ -4,8 +4,14 @@ local B = require("obsidian/loader/builtins")
 local log = require("obsidian/loader/log")
 
 local EVERY = 30
+local FORFEIT_KEY = "obsidian_forfeit"
 
-local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, xp_forfeited = false }
+-- What a mission can add to a player's save.
+local PROGRESS = { "player_xp", "research_samples", "item_unlocks", "new_unlocks", "item_upgrades", "boss_influence", "lifetime_stats", "trophy_unlock_progress", "seen_enemies" }
+local HELD = {}
+for _, key in B.ipairs(PROGRESS) do HELD[key] = true end
+
+local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, forfeited = false, kept = nil, restoring = false }
 
 function M.setup(core)
 	M.core = core
@@ -23,6 +29,14 @@ local function lobby()
 	local network = B.rawget(B.G, "NetworkGlobal")
 	if B.type(network) == "table" then return network.lobby end
 	return nil
+end
+
+local function in_mission()
+	local boot = B.rawget(B.G, "Boot")
+	local machine = B.type(boot) == "table" and boot.state_machine
+	if not machine then return false end
+	local name = machine:get_current_state_name()
+	return name == "game" or name == "mission_end"
 end
 
 local function set_cleared(on)
@@ -47,6 +61,11 @@ function M.evaluate()
 		log.line("session: published member data " .. value)
 		M.published, M.published_lobby = value, l
 	end
+	local forfeit = M.forfeited and "1" or "0"
+	if M.published_forfeit ~= forfeit or M.forfeit_lobby ~= l then
+		l:set_member_data(FORFEIT_KEY, forfeit)
+		M.published_forfeit, M.forfeit_lobby = forfeit, l
+	end
 	local me, list, signature = l.my_id, {}, {}
 	-- My session mods run when every other player runs the same set or allows other players' mods.
 	-- My own consent is about their mods in my game, so it plays no part here.
@@ -57,6 +76,8 @@ function M.evaluate()
 			B.insert(list, { peer = peer, obsidian = d ~= nil, modset = d and d.modset, consent = d and d.consent or false })
 			B.insert(signature, B.tostring(peer))
 			if not (d and (d.modset == deploy.modset or d.consent)) then allowed = false end
+			-- What one player's mod does to a mission, it does to everyone in it.
+			if l:member_data(peer, FORFEIT_KEY) == "1" and in_mission() then M.forfeit_progress() end
 		end
 	end
 	M.members = list
@@ -95,19 +116,60 @@ function M.on_session(fn)
 	B.insert(M.listeners, { state = M.core.current, fn = fn })
 end
 
--- The mission under way pays no XP, until the next one starts. For a mod that finishes a mission for
--- the player: that XP would go into the save, and a later clean mission would upload the total.
-function M.forfeit_xp()
-	if M.xp_forfeited then return end
-	M.xp_forfeited = true
-	log.line("session: this mission pays no XP")
-	M.core.notice("xp_forfeited")
+local function copy(value)
+	if B.type(value) ~= "table" then return value end
+	local out = {}
+	for k, v in B.pairs(value) do out[k] = copy(v) end
+	return out
+end
+
+-- The save hands out its live tables and the game fills them in place, so holding back the writes
+-- isn't enough: these values go back before anything reaches the disk.
+local function keep()
+	local save, users = B.rawget(B.G, "SaveManager"), B.rawget(B.G, "UserManager")
+	if B.type(save) ~= "table" or B.type(users) ~= "table" then return end
+	local user = users:get_user_id()
+	local values = {}
+	for _, key in B.ipairs(PROGRESS) do values[key] = copy(save:user_get(key, user)) end
+	M.kept = { save = save, user = user, values = values }
+end
+
+-- The mission under way adds nothing to the save, until it's over. For a mod that changes how a mission
+-- plays out: what it earns would stay in the save, and a later clean mission would upload the total.
+function M.forfeit_progress()
+	if M.forfeited then return end
+	M.forfeited = true
+	local ok, err = B.pcall(keep)
+	if not ok then log.limited("session keep", "session: could not keep the save's values: " .. B.tostring(err)) end
+	log.line("session: this mission adds nothing to the save")
+	M.core.notice("progress_forfeited")
+end
+
+function M.holds(key)
+	return M.forfeited and not M.restoring and HELD[key] == true
+end
+
+function M.restore_progress()
+	local kept = M.kept
+	if not kept then return end
+	M.restoring = true
+	local ok, err = B.pcall(function()
+		for _, key in B.ipairs(PROGRESS) do kept.save:user_set(key, copy(kept.values[key]), kept.user) end
+	end)
+	M.restoring = false
+	if not ok then log.limited("session restore", "session: could not restore the save's values: " .. B.tostring(err)) end
+end
+
+function M.end_forfeit()
+	if not M.forfeited then return end
+	M.restore_progress()
+	M.forfeited, M.kept = false, nil
 end
 
 function M.api()
 	return {
 		cleared = M.cleared,
-		forfeit_xp = M.forfeit_xp,
+		forfeit_progress = M.forfeit_progress,
 		members = function()
 			local copy = {}
 			for i, m in B.ipairs(M.members) do

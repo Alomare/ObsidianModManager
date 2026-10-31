@@ -37,16 +37,23 @@ local function empty(t)
 end
 
 function M.setup(core, hooks)
-	-- Every way the game pays XP, proving grounds and a quit included, ends in this one write. These
-	-- are loader hooks, so a stranger joining late can't let the XP through.
+	-- Every way the game pays a player, proving grounds and a quit included, ends in this one write.
+	-- These are loader hooks, so a stranger joining late can't let it through.
 	hooks.loader_hook("SaveManager", "user_set", function(original, self, key, ...)
-		if key == "player_xp" and core.session.xp_forfeited then return end
+		if core.session.holds(key) then return end
 		return original(self, key, ...)
 	end)
-	hooks.loader_hook("StateGame", "on_enter", function(original, self, ...)
-		core.session.xp_forfeited = false
+	hooks.loader_hook("UserManager", "unlock_trophy", function(original, self, ...)
+		if core.session.forfeited then return end
 		return original(self, ...)
 	end)
+	-- A forfeit ends with the mission, or the Armory couldn't spend samples on the ship.
+	for _, state in B.ipairs({ "StateGame", "StateMenu" }) do
+		hooks.loader_hook(state, "on_enter", function(original, self, ...)
+			core.session.end_forfeit()
+			return original(self, ...)
+		end)
+	end
 	for _, name in B.ipairs(METHODS) do
 		hooks.loader_hook("CampaignManager", name, function(original, self, ...)
 			if not modded(core) then return original(self, ...) end
@@ -58,12 +65,14 @@ function M.setup(core, hooks)
 		end)
 	end
 	hooks.loader_hook("SaveManager", "save", function(original, self, ...)
+		core.session.restore_progress()
 		if modded(core) then
 			for _, key in B.ipairs(COMMON_QUEUES) do self:set(key, nil) end
 		end
 		return original(self, ...)
 	end)
 	hooks.loader_hook("SaveManager", "user_save", function(original, self, done, fail, subtitle, details, user, ...)
+		core.session.restore_progress()
 		if modded(core) then
 			for _, key in B.ipairs(USER_QUEUES) do self:user_set(key, nil, user) end
 		end

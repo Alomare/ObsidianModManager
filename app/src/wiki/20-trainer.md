@@ -38,15 +38,14 @@ The menu blocks your character while it's open, and it closes by itself when the
 ## What's in it
 
 - **Player:** god mode, infinite sprint, speed, teleporting, respawning, and helmets, armor and capes you own.
-- **Weapons:** infinite ammo, instant reload, refills, and giving yourself any weapon, backpack or perk you own, with the upgrades you choose.
-- **Stratagems:** no cooldowns, unlimited uses, instant call-ins, ignoring no-stratagem zones, any stratagem dropped at the cursor, and real flares, Reinforce included.
+- **Weapons:** infinite ammo, instant reload, refills, and giving yourself any weapon, backpack or perk you've unlocked, with the upgrades you choose.
+- **Stratagems:** no cooldowns, unlimited uses, instant call-ins, ignoring no-stratagem zones, any stratagem you've unlocked dropped at the cursor, and real flares, Reinforce included.
 - **Vehicles:** speed, turning, armor, no damage and endless exosuit rockets for the vehicle you're driving, plus repairs and refills.
 - **Spawn:** ammunition, supply crates and pickups on the spot, and flares at the cursor.
 - **Enemies:** stopping spawns, freezing, blinding or stunning enemies, killing them, spawning more, and setting how hard encounters and patrols push.
 - **Mission:** the objective list, finishing objectives, protecting convoys and escorts, fast extraction, skipping waits, proving ground modifiers in any mission, who's in the lobby, research samples, and practice missions of any kind from the ship.
 - **World:** game speed, camera, HUD, fog, time of day and gravity.
 - **Editor:** the numbers of every weapon, grenade, backpack, stratagem, sentry, mine, strike, vehicle, enemy and status effect.
-- **Progress:** samples and unlocks.
 - **Console:** the developers' own commands.
 - **Changes:** what's switched on, and the way back.
 
@@ -54,8 +53,8 @@ Actions that only the host can do say so when you choose them.
 
 ## What it won't do
 
-- **It has no control for your XP or rank.** Your total XP goes up with your next ordinary mission results, even after a purge, so an edited number would reach the shared leaderboards. Real missions pay it as usual, but one you end with **Win now**, **Fast extraction** or **Finish all objectives** pays none: your total stays as it was, and a message on screen says so. Practice missions pay nothing.
-- **It won't unlock paid DLC.** Lists show the items you own, and everything else stays as the game sells it.
+- **It can't touch your progression.** While it's on, a mission adds nothing to your save: no XP, samples, unlocks, stats or achievements, and a message on screen says so. That goes for everyone in the mission. Spending your samples in the Armory works as usual. To earn progress, switch the Trainer off and Deploy.
+- **It won't give you locked items.** Lists show what you've unlocked or bought, and everything else stays locked, paid DLC included.
 - **It won't touch the shared war.** Commands that report to the Galactic War are refused, and results stay blocked ([The Galactic War](wiki:galactic-war)).
 
 > [!WARNING]
@@ -75,5 +74,3 @@ Two things need you to be alone in the lobby: giving yourself laser sight, becau
 ## Keeping changes
 
 Changes last until you close the game. In **Changes**, **Keep these edits for next time** saves your Editor edits, and they come back at each launch while the mod's **Keep saved edits** option is on.
-
-Unlocks and samples go into your real save. Obsidian backs up your saves before every deploy, including the ones in Steam Cloud.

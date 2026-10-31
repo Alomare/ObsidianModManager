@@ -189,7 +189,9 @@ function G.start(ids, opts)
 	})
 	rawset(_G, "SaveDataHelper", { save_all = function() game.saved = game.saved + 1 end })
 	rawset(_G, "PlanetRewardSettings", { planet_rewards = { bugs = { xp_boost = { { name = "boost" } }, weapon = { { name = "reward_item" }, { name = "weapon_dlc" } } } } })
-	rawset(_G, "ProgressionSettings", { ranks = { { unlocks = { weapon = { "rank_item" } } } }, get_rank = function() return { name = "rank_private" } end })
+	game.starting_items = {}
+	rawset(_G, "ProgressionSettings", { ranks = { { required_xp = 0, unlocks = { weapon = { "rank_item" }, starting = game.starting_items } }, { required_xp = 5000, unlocks = { weapon = { "late_item" } } } },
+		get_rank = function() return { name = "rank_private" } end })
 	rawset(_G, "CustomizationSettings", { helmet = { { name = "cus_helmet_a" }, { name = "cus_helmet_dlc" } }, body = { { name = "cus_body_a" } }, cape = { { name = "cus_cape_tutorial" } }, gender = { { name = "x" } } })
 	rawset(_G, "LoadoutSettings", {
 		primary_weapon = { { name = "weapon_rifle", unit_path = "equipment/rifle", upgrades = { {}, {} } }, { name = "weapon_dlc", unit_path = "equipment/dlc", upgrades = { {} } } },
@@ -217,6 +219,21 @@ function G.start(ids, opts)
 		upgrade_all = function(t) t.all = 7 end,
 		get_upgraded_settings = function(u) return u.settings end,
 	})
+	local locked = {}
+	for _, name in ipairs(opts.locked or {}) do locked[name] = true end
+	local function own(list)
+		for _, item in ipairs(list or {}) do
+			if item.name and not locked[item.name] then game.starting_items[#game.starting_items + 1] = item.name end
+		end
+	end
+	local loadouts, looks = rawget(_G, "LoadoutSettings"), rawget(_G, "CustomizationSettings")
+	own(loadouts.primary_weapon)
+	own(loadouts.sidearm_weapon)
+	own(loadouts.perks)
+	own(loadouts.stratagems)
+	for _, list in pairs(looks) do
+		if type(list) == "table" then own(list) end
+	end
 	game.perk_calls = {}
 	local function perk_call(name) return function() game.perk_calls[#game.perk_calls + 1] = name end end
 	rawset(_G, "PerkSettings", {

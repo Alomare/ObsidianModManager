@@ -105,7 +105,10 @@ function E.new(opts)
 			lobby = {
 				my_id = l.my_id,
 				members = function() return l.members end,
-				member_data = function(_, peer, key) return key == "obsidian" and l.data[peer] or nil end,
+				member_data = function(_, peer, key)
+					if key == "obsidian" then return l.data[peer] end
+					return l.extra and l.extra[peer] and l.extra[peer][key]
+				end,
 				set_member_data = function(_, key, value) l.published[key] = value end,
 			},
 		})

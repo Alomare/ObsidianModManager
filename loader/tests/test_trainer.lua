@@ -107,11 +107,45 @@ test("the_menu_opens_on_every_page_with_the_key", function()
 	local menu = rawget(_G, "obsidian").menu
 	E.eq(menu.is_open(), true, "F6 opens it")
 	ui.frame()
-	for _, name in ipairs({ "Player", "Weapons", "Stratagems", "Vehicles", "Spawn", "Enemies", "Mission", "World", "Editor", "Progress", "Console", "Changes" }) do
+	for _, name in ipairs({ "Player", "Weapons", "Stratagems", "Vehicles", "Spawn", "Enemies", "Mission", "World", "Editor", "Console", "Changes" }) do
 		E.eq(ui.shown(name), true, name)
 	end
+	E.eq(ui.shown("Progress"), false, "the save's values are out of its reach")
 	ui.tap("f6")
 	E.eq(menu.is_open(), false, "F6 closes it")
+end)
+
+test("no_page_writes_the_players_progression", function()
+	for _, p in ipairs({ "ui", "player", "weapons", "stratagems", "vehicles", "spawn", "enemies", "mission", "world", "editor", "console", "changes" }) do
+		local src = assert(E.read("bundled/obsidian.trainer/pages/" .. p .. ".lua"))
+		for _, call in ipairs({ "progress%.", "api%.progress", "user_set", "SaveManager" }) do
+			E.eq(src:find(call) == nil, true, p .. " has " .. call)
+		end
+	end
+end)
+
+test("a_mission_with_the_trainer_on_adds_nothing_to_the_save", function()
+	local e, game, ui = start()
+	local session = e.loaded["obsidian/loader/session"]
+	e.opts.modules["x"] = true
+	rawget(_G, "require")("x")
+	ui.frame()
+	E.eq(session.forfeited, true, "from the start of the mission")
+	local unlocks = game.save.user.item_unlocks
+	local before = #unlocks
+	unlocks[#unlocks + 1] = "reward"
+	rawget(_G, "SaveManager"):user_set("player_xp", 999999, "user")
+	rawget(_G, "SaveManager"):user_set("research_samples", 999, "user")
+	rawget(_G, "SaveManager"):user_save()
+	E.eq(game.save.user.player_xp, 1000, "XP")
+	E.eq(game.save.user.research_samples, 50, "samples")
+	E.eq(#game.save.user.item_unlocks, before, "unlocks")
+end)
+
+test("on_the_ship_nothing_is_held", function()
+	local e, game, ui = start({ state = "menu" })
+	ui.frame()
+	E.eq(e.loaded["obsidian/loader/session"].forfeited, false, "the Armory can spend")
 end)
 
 test("every_page_opens_and_every_row_has_real_text", function()
@@ -303,7 +337,7 @@ end)
 test("every_text_a_page_asks_for_exists", function()
 	local en = keys_of("en")
 	local files = { "main.lua" }
-	for _, p in ipairs({ "ui", "player", "weapons", "stratagems", "vehicles", "spawn", "enemies", "mission", "world", "editor", "progress", "console", "changes" }) do
+	for _, p in ipairs({ "ui", "player", "weapons", "stratagems", "vehicles", "spawn", "enemies", "mission", "world", "editor", "console", "changes" }) do
 		files[#files + 1] = "pages/" .. p .. ".lua"
 	end
 	local checked = 0

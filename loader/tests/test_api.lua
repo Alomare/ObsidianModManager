@@ -574,20 +574,20 @@ test("winning_marks_the_player_extracted_first", function()
 	E.eq(game.record.player_go.has_extracted, true)
 end)
 
-test("a_mission_the_api_finishes_pays_no_xp", function()
+test("a_mission_the_api_finishes_pays_nothing", function()
 	for _, fn in ipairs({ "win", "finish_objectives" }) do
 		local api, _, e = start()
 		local session = e.loaded["obsidian/loader/session"]
-		E.eq(session.xp_forfeited, false, fn)
+		E.eq(session.forfeited, false, fn)
 		E.eq(api.mission[fn](), true, fn)
-		E.eq(session.xp_forfeited, true, fn)
+		E.eq(session.forfeited, true, fn)
 	end
 end)
 
-test("a_refused_action_leaves_the_xp_alone", function()
+test("a_refused_action_leaves_the_mission_alone", function()
 	local api, _, e = start({ host = false })
 	E.eq(api.mission.win(), false)
-	E.eq(e.loaded["obsidian/loader/session"].xp_forfeited, false)
+	E.eq(e.loaded["obsidian/loader/session"].forfeited, false)
 end)
 
 test("practice_starts_only_from_the_ship_and_pays_nothing", function()
@@ -603,6 +603,80 @@ test("practice_starts_only_from_the_ship_and_pays_nothing", function()
 	E.eq(game.seed_parts[1], 1, "time, zero based")
 	E.eq(game.seed_parts[3], 2, "environment")
 	E.eq(game.seed_parts[7], 7, "difficulty")
+end)
+
+local LOCKED = { locked = { "weapon_rifle", "perk_cardio", "stratagem_machinegun", "stratagem_exosuit", "stratagem_jumppack", "cus_helmet_a" } }
+
+-- The rifle is the fake game's default weapon, so it has to stop being that to be locked.
+local function start_locked()
+	local api, game, e, ui = start(LOCKED)
+	rawget(_G, "LoadoutSettings").default_loadout.primary_weapon = "weapon_other"
+	game.save.user.player_xp = game.save.user.player_xp + 1
+	return api, game, e, ui
+end
+
+local function has(list, name)
+	for _, item in ipairs(list) do
+		if item.name == name then return true end
+	end
+	return false
+end
+
+test("locked_items_stay_out_of_every_list", function()
+	local api = start_locked()
+	E.eq(has(api.catalog.primaries(), "weapon_rifle"), false, "a weapon")
+	E.eq(has(api.catalog.perks(), "perk_cardio"), false, "a perk")
+	E.eq(has(api.catalog.stratagems(), "stratagem_machinegun"), false, "a stratagem")
+	E.eq(has(api.catalog.support_weapons(), "stratagem_machinegun"), false, "the weapon in its crate")
+	E.eq(has(api.catalog.crates(), "stratagem_machinegun"), false, "the crate")
+	E.eq(has(api.catalog.backpacks(), "stratagem_jumppack"), false, "a pack, by its stratagem")
+	E.eq(has(api.catalog.vehicles(), "stratagem_exosuit"), false, "a vehicle")
+	E.eq(has(api.catalog.cosmetics("helmet"), "cus_helmet_a"), false, "a helmet")
+	E.eq(api.catalog.stratagem("stratagem_machinegun"), nil)
+	E.eq(has(api.catalog.stratagems(), "stratagem_resupply"), true, "what's unlocked stays")
+end)
+
+test("locked_items_cant_be_given_or_called", function()
+	local api, game = start_locked()
+	local ok, why = api.gear.give_weapon("primary_weapon", "equipment/rifle")
+	E.eq(ok, false)
+	E.eq(why, "not_available")
+	E.eq(select(2, api.gear.give_perk("perk_cardio")), "not_available")
+	E.eq(select(2, api.stratagems.give("stratagem_machinegun")), "not_available")
+	E.eq(select(2, api.stratagems.call("stratagem_machinegun", api.world.cursor())), "not_available")
+	E.eq(select(2, api.stratagems.drop("stratagem_machinegun", api.world.cursor())), "not_available")
+	E.eq(api.gear.give_weapon("sidearm_weapon", "equipment/pistol"), true, "what's unlocked can")
+end)
+
+test("every_player_keeps_what_they_start_with", function()
+	local api, game = start({ locked = { "stratagem_reinforce", "weapon_pistol", "perk_lasersight" } })
+	E.eq(api.catalog.unlocked("stratagem_reinforce"), true, "always carried")
+	E.eq(api.catalog.unlocked("weapon_pistol"), true, "the default sidearm")
+	E.eq(api.catalog.unlocked("perk_lasersight"), true, "the default perk")
+end)
+
+test("a_rank_or_a_reward_unlocks_an_item_as_soon_as_it_comes", function()
+	local api, game = start_locked()
+	E.eq(api.catalog.unlocked("late_item"), false, "a rank not reached")
+	game.save.user.player_xp = 5000
+	E.eq(api.catalog.unlocked("late_item"), true, "reached")
+	E.eq(api.catalog.unlocked("weapon_rifle"), false)
+	local rewards = game.save.user.item_unlocks
+	rewards[#rewards + 1] = "weapon_rifle"
+	E.eq(api.catalog.unlocked("weapon_rifle"), true, "earned")
+end)
+
+test("a_paid_pack_the_player_owns_counts", function()
+	local api = start()
+	rawget(_G, "DlcSettings").can_use = function(name) return name == "weapon_dlc" end
+	E.eq(api.catalog.unlocked("weapon_dlc"), true)
+	E.eq(api.catalog.unlocked("stratagem_dlc"), false)
+end)
+
+test("gender_isnt_locked", function()
+	local api = start()
+	rawget(_G, "CustomizationSettings").gender = { { name = "male" }, { name = "female" } }
+	E.eq(#api.catalog.cosmetics("gender"), 2)
 end)
 
 test("there_is_no_way_to_change_xp", function()
