@@ -7,7 +7,7 @@ import { run } from "../api";
 import { Confirm } from "../Confirm";
 import { ContextMenu, type MenuItem } from "../ContextMenu";
 import { CloseIcon, FolderIcon, ImportIcon, LockIcon, PlusIcon, ProfilesIcon, SearchIcon, TrashIcon, UnlockIcon, UpdateIcon } from "../Icons";
-import { pick, t } from "../i18n";
+import { language, pick, t } from "../i18n";
 import { useNav } from "../nav";
 import { ProfilesDialog } from "../ProfilesDialog";
 import { Thumb } from "../Thumb";
@@ -62,7 +62,8 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
   const profileImage = snap.profileRows.find((p) => p.name === snap.profile)?.image ?? null;
 
   const byId = useMemo(() => new Map(snap.mods.map((m) => [m.id, m])), [snap.mods]);
-  const names = useMemo(() => new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), [snap.mods]);
+  const lang = language();
+  const names = useMemo(() => new Map(snap.mods.map((m) => [m.id, pick(m.name, m.id)])), [snap.mods, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const saved = useMemo(() => toTree(snap.mods, snap.folders), [snap.mods, snap.folders]);
   const tree = pending ?? saved;
   const order = useMemo(() => flatten(tree), [tree]);
