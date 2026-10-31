@@ -79,7 +79,11 @@ function M.tick()
 	local n = M.core.frame_count
 	if n % EVERY == 0 then
 		local ok, err = B.pcall(M.evaluate)
-		if not ok then log.limited("session", "session check failed: " .. B.tostring(err)) end
+		if not ok then
+			log.limited("session", "session check failed: " .. B.tostring(err))
+			-- Not knowing who's here can't count as cleared.
+			set_cleared(false)
+		end
 	end
 end
 

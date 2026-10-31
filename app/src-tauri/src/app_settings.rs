@@ -80,7 +80,7 @@ impl AppSettings {
 
     pub fn save(&self, data: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(data)?;
-        std::fs::write(data.join(FILE), serde_json::to_string_pretty(self)? + "\n")
+        obsidian_core::paths::write_atomic(&data.join(FILE), (serde_json::to_string_pretty(self)? + "\n").as_bytes())
     }
 }
 

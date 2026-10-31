@@ -18,6 +18,36 @@ local function cleared()
 	return rawget(_G, "obsidian").session.cleared()
 end
 
+test("a_session_check_that_fails_doesnt_stay_cleared", function()
+	local lobby = { my_id = "me", members = { "me" }, data = {} }
+	local e = engine(lobby)
+	e:frames(31)
+	E.eq(cleared(), true)
+	rawget(_G, "NetworkGlobal").lobby.members = function() error("no lobby data") end
+	e:frames(31)
+	E.eq(cleared(), false, "not knowing who's here isn't cleared")
+end)
+
+test("a_hook_that_fails_after_the_game_ran_doesnt_run_it_twice", function()
+	local spawned = 0
+	rawset(_G, "Target", { spawn = function() spawned = spawned + 1; return "unit" end })
+	engine(nil, { mods = { E.mod("c", { scope = "client" }) } }, {
+		["obsidian/mods/c/main"] = "obsidian.hook(Target, 'spawn', function(original, self) original(self); error('after the call') end)",
+	})
+	E.eq(rawget(_G, "Target"):spawn(), "unit", "the game's result still comes back")
+	E.eq(spawned, 1, "spawned once")
+end)
+
+test("a_hook_that_fails_before_the_game_ran_still_runs_it", function()
+	local spawned = 0
+	rawset(_G, "Target", { spawn = function() spawned = spawned + 1; return "unit" end })
+	engine(nil, { mods = { E.mod("c", { scope = "client" }) } }, {
+		["obsidian/mods/c/main"] = "obsidian.hook(Target, 'spawn', function() error('first thing') end)",
+	})
+	E.eq(rawget(_G, "Target"):spawn(), "unit")
+	E.eq(spawned, 1)
+end)
+
 test("solo_is_cleared", function()
 	engine({ my_id = "me", members = { "me" }, data = {} })
 	E.eq(cleared(), true)

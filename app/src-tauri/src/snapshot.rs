@@ -10,7 +10,7 @@ use obsidian_core::game::{GameInstall, find_game, is_running};
 use obsidian_core::gate::{KNOWN_BUILDS, check_build};
 use obsidian_core::hash::{display_name, display_text};
 use obsidian_core::images::{self, Owner};
-use obsidian_core::library::{ImportInfo, Library, Profile};
+use obsidian_core::library::{BrokenMod, ImportInfo, Library, Profile};
 use obsidian_core::manifest::{Localized, Manifest, Scope};
 use obsidian_core::options::{OptionKind, effective_values, parse_keybinds};
 use obsidian_core::{Result, profiles, starter};
@@ -140,6 +140,10 @@ pub struct Snapshot {
     pub game: GameState,
     pub game_dir: Option<PathBuf>,
     pub crash_culprit: Option<String>,
+    /// Mod folders that can't be read, which stay out of the game until they're fixed or removed.
+    pub broken: Vec<BrokenMod>,
+    /// Profiles that couldn't be read and were set aside.
+    pub damaged_profiles: Vec<String>,
     /// The last launch stopped without closing normally. Never set while the game runs.
     pub unclean_end: Option<UncleanEnd>,
     pub portable: bool,
@@ -233,8 +237,12 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
     starter::seed(data)?;
     let lib = Library::open(data)?;
     let mut profile = Profile::load(data)?;
+    let before = profile.clone();
     profile.sync(&lib)?;
-    profile.save(data)?;
+    // Every click comes through here, so the file is only touched when the library changed it.
+    if profile != before {
+        profile.save(data)?;
+    }
     let manifests: BTreeMap<String, Manifest> = lib.list()?.into_iter().map(|m| (m.id.clone(), m)).collect();
     let comp = plan(&lib, &profile)?;
 
@@ -323,10 +331,12 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
         profiles: profiles::list(data)?,
         consent: profile.consent,
         conflicts,
-        changes: changes_waiting_for(&comp, &profile, data).unwrap_or(ChangesWaiting::Waiting),
+        changes: changes_waiting_for(&comp, &profile, data, game_install.as_ref().map(|g| g.contents()).as_deref()).unwrap_or(ChangesWaiting::Waiting),
         game,
         game_dir: game_install.map(|g| tidy(&g.root)),
         crash_culprit,
+        broken: lib.broken()?,
+        damaged_profiles: profiles::damaged(data),
         unclean_end,
         portable,
         version: env!("CARGO_PKG_VERSION"),

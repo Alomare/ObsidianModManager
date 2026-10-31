@@ -16,7 +16,7 @@ import { motionOn, systemReducesMotion } from "./theme";
 import type { AppSettings, Snapshot } from "./types";
 import { checkForUpdate, installUpdate, useUpdates } from "./updates";
 
-type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null; logsDir: string | null };
+type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null; logsDir: string | null; foreign: string[] };
 
 export type SettingsTab = "system" | "theme";
 
@@ -112,6 +112,7 @@ function SystemTab({ snap }: { snap: Snapshot }) {
           {info?.chosenGameDir && <button className="btn small" onClick={() => run("set_game_dir", { path: null })} data-tip={t("app.settings.useSteamHint")}>{t("app.settings.useSteam")}</button>}
           <button className="btn small" onClick={check} disabled={checking || !snap.gameDir}>{t("app.settings.checkAgain")}</button>
         </Row>
+        {info && info.foreign.length > 0 && <p className="muted set-note">{t("app.settings.foreign", info.foreign.join(", "))}</p>}
       </Section>
 
       <Section title={t("app.settings.language")}>

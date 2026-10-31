@@ -61,6 +61,23 @@ test("uploads_blocked_even_in_a_cleared_session", function()
 	E.eq(#cm.sent, 0)
 end)
 
+test("consent_alone_blocks_uploads_only_beside_a_different_set", function()
+	local other = "1;" .. string.rep("c", 64) .. ";1"
+	local lobby = { my_id = "me", members = { "me", "p2" }, data = { p2 = other } }
+	local e = E.new({ deploy = E.deploy({ has_session = false, modset = string.rep("a", 64) }), lobby = lobby })
+	e:boot()
+	e:start_frames()
+	rawget(_G, "require")("obsidian/loader/core").consent = function() return true end
+	e:frames(31)
+	local cm = load_campaign_manager(e)
+	cm:upload_mission_stats({})
+	E.eq(#cm.sent, 0, "someone here runs other session mods")
+	lobby.data.p2 = "1;" .. string.rep("a", 64) .. ";1"
+	e:frames(31)
+	cm:upload_mission_stats({})
+	E.eq(#cm.sent, 1, "the same set again")
+end)
+
 test("uploads_untouched_without_session_content", function()
 	local e = engine(false)
 	local cm = load_campaign_manager(e)

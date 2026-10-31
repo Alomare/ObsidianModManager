@@ -65,14 +65,27 @@ pub fn active(data: &Path) -> Result<String> {
     }
 }
 
+/// Whether two names are one file on Windows, which ignores case beyond ASCII too.
+pub(crate) fn same_name(a: &str, b: &str) -> bool {
+    a.to_lowercase() == b.to_lowercase()
+}
+
 fn find(data: &Path, name: &str) -> Result<Option<String>> {
-    Ok(list(data)?.into_iter().find(|n| n.eq_ignore_ascii_case(name)))
+    Ok(list(data)?.into_iter().find(|n| same_name(n, name)))
 }
 
 fn set_active(data: &Path, name: &str) -> Result<()> {
     std::fs::create_dir_all(dir(data))?;
-    std::fs::write(dir(data).join(ACTIVE), name)?;
+    crate::paths::write_atomic(&dir(data).join(ACTIVE), name.as_bytes())?;
     Ok(())
+}
+
+/// The profiles that couldn't be read and were set aside.
+pub fn damaged(data: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(dir(data)) else { return Vec::new() };
+    let mut out: Vec<String> = entries.flatten().filter_map(|e| e.file_name().to_string_lossy().strip_suffix(".json.damaged").map(str::to_string)).collect();
+    out.sort();
+    out
 }
 
 pub fn use_profile(data: &Path, name: &str) -> Result<()> {

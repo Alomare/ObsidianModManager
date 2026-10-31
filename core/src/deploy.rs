@@ -10,10 +10,13 @@ use crate::compose::{Composition, Conflict, compose};
 use crate::game::GameInstall;
 use crate::gate::{GateReport, KNOWN_BUILDS, KnownBuild, check_build, sha256_file};
 use crate::library::{Library, Profile};
+use crate::paths::{rename_retrying, write_atomic};
 use crate::{ObsidianError, Result, loader, settings};
 
 pub const STATE: &str = "deploy-state.json";
 const TMP: &str = "obsidian-tmp";
+/// A patch of the last deploy, moved aside while the new ones go in.
+const OLD: &str = "obsidian-old";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DeployedFile {
@@ -30,6 +33,12 @@ pub struct DeployState {
     /// `fingerprint` of what was deployed; missing in states written before it existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
+    /// Set while the patches are being swapped: if it's still there, a deploy was cut short.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub incomplete: bool,
+    /// The deploy being replaced, kept until the swap is done.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous: Option<Box<DeployState>>,
 }
 
 /// Whether the game holds what the active profile would deploy.
@@ -89,9 +98,69 @@ fn patch_name(name: &str) -> Option<(String, u32)> {
     Some((bundle.to_string(), n.parse().ok()?))
 }
 
-/// Every regular `*.patch_N` file in `contents` that the recorded state did not write.
+/// Where a recorded patch is now. Patches always sit in `contents`, and the path in the state can be
+/// spelled differently from the game's path today, or carry an old drive letter.
+fn here(contents: &Path, f: &DeployedFile) -> PathBuf {
+    f.path.file_name().map_or_else(|| f.path.clone(), |n| contents.join(n))
+}
+
+/// `path` with `.<suffix>` added.
+fn beside(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(format!(".{suffix}"));
+    PathBuf::from(name)
+}
+
+fn write_state(data_dir: &Path, state: &DeployState) -> Result<()> {
+    std::fs::create_dir_all(data_dir)?;
+    write_atomic(&data_dir.join(STATE), (serde_json::to_string_pretty(state)? + "\n").as_bytes())?;
+    Ok(())
+}
+
+/// Puts the game back as it was before a deploy that a crash or a killed app cut short.
+fn finish_interrupted(contents: &Path, data_dir: &Path) -> Result<()> {
+    let Some(state) = load_state(data_dir)? else { return Ok(()) };
+    if !state.incomplete {
+        return Ok(());
+    }
+    for f in &state.files {
+        let p = here(contents, f);
+        if p.is_file() && sha256_file(&p)? == f.sha256 {
+            std::fs::remove_file(&p)?;
+        }
+    }
+    for f in state.previous.iter().flat_map(|p| &p.files) {
+        let place = here(contents, f);
+        let old = beside(&place, OLD);
+        if old.is_file() {
+            rename_retrying(&old, &place)?;
+        }
+    }
+    match state.previous {
+        Some(p) => write_state(data_dir, &p),
+        None => Ok(std::fs::remove_file(data_dir.join(STATE))?),
+    }
+}
+
+/// Clears what an interrupted write left in the game folder. None of it is a patch the game reads.
+fn clear_leftovers(contents: &Path) -> Result<()> {
+    if !contents.is_dir() {
+        return Ok(());
+    }
+    for e in std::fs::read_dir(contents)? {
+        let p = e?.path();
+        if p.is_file() && p.extension().is_some_and(|x| x == TMP || x == OLD) {
+            std::fs::remove_file(p)?;
+        }
+    }
+    Ok(())
+}
+
+/// Every regular `*.patch_N` file in `contents` that the recorded state did not write, going by name:
+/// the same folder can be spelled two ways.
 fn foreign_patches(contents: &Path, state: Option<&DeployState>) -> Result<Vec<(String, u32, PathBuf)>> {
-    let ours: Vec<&PathBuf> = state.map(|s| s.files.iter().map(|f| &f.path).collect()).unwrap_or_default();
+    let recorded = state.into_iter().flat_map(|s| s.files.iter().chain(s.previous.iter().flat_map(|p| &p.files)));
+    let ours: Vec<String> = recorded.filter_map(|f| f.path.file_name()).map(|n| n.to_string_lossy().to_ascii_lowercase()).collect();
     let mut out = Vec::new();
     if !contents.is_dir() {
         return Ok(out);
@@ -99,10 +168,11 @@ fn foreign_patches(contents: &Path, state: Option<&DeployState>) -> Result<Vec<(
     for e in std::fs::read_dir(contents)? {
         let e = e?;
         let p = e.path();
-        if !e.file_type()?.is_file() || ours.contains(&&p) {
+        let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+        if !e.file_type()?.is_file() || ours.contains(&name) {
             continue;
         }
-        if let Some((bundle, n)) = patch_name(&e.file_name().to_string_lossy()) {
+        if let Some((bundle, n)) = patch_name(&name) {
             out.push((bundle, n, p));
         }
     }
@@ -145,15 +215,18 @@ pub fn fingerprint(comp: &Composition, profile: &Profile, loader_dir: &Path) -> 
     Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
-pub fn changes_waiting(lib: &Library, profile: &Profile, data_dir: &Path) -> Result<ChangesWaiting> {
+/// `contents` is the game's folder of bundles, to check that the recorded patches are still there.
+pub fn changes_waiting(lib: &Library, profile: &Profile, data_dir: &Path, contents: Option<&Path>) -> Result<ChangesWaiting> {
     let mut profile = profile.clone();
     profile.sync(lib)?;
     let comp = compose(lib, &profile)?;
-    changes_waiting_for(&comp, &profile, data_dir)
+    changes_waiting_for(&comp, &profile, data_dir, contents)
 }
 
-/// `changes_waiting` for a composition already made from `profile`, synced with the library.
-pub fn changes_waiting_for(comp: &Composition, profile: &Profile, data_dir: &Path) -> Result<ChangesWaiting> {
+/// `changes_waiting` for a composition already made from `profile`, synced with the library. A deploy
+/// that was cut short, or patches that are gone (a reinstall, another copy of the game), count as
+/// changes waiting: Play would otherwise start the game without the mods.
+pub fn changes_waiting_for(comp: &Composition, profile: &Profile, data_dir: &Path, contents: Option<&Path>) -> Result<ChangesWaiting> {
     let (comp, profile) = (comp, profile);
     let state = load_state(data_dir)?;
     let deployed_nothing = state.as_ref().is_none_or(|s| s.files.is_empty());
@@ -161,8 +234,9 @@ pub fn changes_waiting_for(comp: &Composition, profile: &Profile, data_dir: &Pat
         return Ok(if deployed_nothing { ChangesWaiting::Vanilla } else { ChangesWaiting::Waiting });
     }
     let now = fingerprint(comp, profile, &loader::find_loader_dir()?)?;
+    let whole = state.as_ref().is_some_and(|s| !s.incomplete && contents.is_none_or(|c| s.files.iter().all(|f| here(c, f).is_file())));
     Ok(match state.and_then(|s| s.fingerprint) {
-        Some(f) if f == now => ChangesWaiting::UpToDate,
+        Some(f) if f == now && whole => ChangesWaiting::UpToDate,
         _ => ChangesWaiting::Waiting,
     })
 }
@@ -171,12 +245,8 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
     let contents = game.contents();
     let gate = check_build(&game.root, opts.known_builds)?;
     let build = gate.build.clone().ok_or_else(|| ObsidianError::UnsupportedBuild(gate.clone()))?;
-    for e in std::fs::read_dir(&contents)? {
-        let p = e?.path();
-        if p.is_file() && p.extension().is_some_and(|x| x == TMP) {
-            std::fs::remove_file(p)?;
-        }
-    }
+    finish_interrupted(&contents, data_dir)?;
+    clear_leftovers(&contents)?;
     let previous = load_state(data_dir)?;
     let lib = Library::open(data_dir)?;
     let mut profile = Profile::load(data_dir)?;
@@ -220,7 +290,7 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
 
     let mut temps = Vec::new();
     for (bundle, base, target) in &plan {
-        let mut b = Bundle { props: bundle::read_file(base)?.props, entries: Vec::new() };
+        let mut b = Bundle { props: bundle::read_props(base)?, entries: Vec::new() };
         for p in &comp.bundles[*bundle] {
             let v = Variant { lang: 0, data: p.data.clone(), stream_size: 0 };
             b.entries.push(Entry { type_hash: p.type_hash, name_hash: p.name_hash, flags: p.flags, variants: vec![v] });
@@ -238,49 +308,90 @@ pub fn deploy(game: &GameInstall, data_dir: &Path, opts: &DeployOptions) -> Resu
         .map(|(tmp, p)| Ok(DeployedFile { path: p.clone(), sha256: sha256_file(tmp)? }))
         .collect::<Result<Vec<_>>>()?;
     let mods = profile.mods.iter().filter(|m| m.enabled).map(|m| m.id.clone()).collect();
-    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339(), fingerprint: Some(fingerprint) };
+    let state = DeployState { build, files, mods, time: chrono::Local::now().to_rfc3339(), fingerprint: Some(fingerprint), incomplete: false, previous: None };
 
-    // The old patches go only now, when the new set is ready. The state is recorded before
-    // any rename, so a crash midway still leaves every live patch listed for purge.
-    purge(game, data_dir)?;
-    std::fs::create_dir_all(data_dir)?;
-    let state_tmp = data_dir.join(format!("{STATE}.{TMP}"));
-    std::fs::write(&state_tmp, serde_json::to_string_pretty(&state)? + "\n")?;
-    std::fs::rename(&state_tmp, data_dir.join(STATE))?;
+    // Only now, with the new set ready, does the game change. The old patches step aside instead of
+    // going, so a failure can put them back, and the state says what's under way first, so a crash
+    // or a killed app is put right by the next deploy or purge.
+    write_state(data_dir, &DeployState { incomplete: true, previous: previous.clone().map(Box::new), ..state.clone() })?;
+    let mut aside: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut done: Vec<&PathBuf> = Vec::new();
-    for (tmp, target) in &temps {
-        let occupied = target.symlink_metadata().is_ok();
-        let renamed = if occupied { Err(std::io::Error::other("another file already has this name")) } else { std::fs::rename(tmp, target) };
-        if let Err(e) = renamed {
-            remove_all(done.iter().copied());
-            remove_all(temps.iter().map(|(t, _)| t));
-            let _ = std::fs::remove_file(data_dir.join(STATE));
-            return Err(ObsidianError::DeployFailed(format!("{}: {e}", target.display())));
+    let swapped = (|| -> std::result::Result<(), (PathBuf, String)> {
+        for f in previous.iter().flat_map(|p| &p.files) {
+            let place = here(&contents, f);
+            // A patch another tool changed stops being Obsidian's, as in a purge.
+            if !place.is_file() || sha256_file(&place).map_err(|e| (place.clone(), e.to_string()))? != f.sha256 {
+                continue;
+            }
+            let old = beside(&place, OLD);
+            rename_retrying(&place, &old).map_err(|e| (place.clone(), e.to_string()))?;
+            aside.push((old, place));
         }
-        done.push(target);
+        for (tmp, target) in &temps {
+            if target.symlink_metadata().is_ok() {
+                return Err((target.clone(), "another file already has this name".to_string()));
+            }
+            rename_retrying(tmp, target).map_err(|e| (target.clone(), e.to_string()))?;
+            done.push(target);
+        }
+        Ok(())
+    })();
+    if let Err((file, why)) = swapped {
+        remove_all(done.iter().copied());
+        for (old, place) in &aside {
+            let _ = rename_retrying(old, place);
+        }
+        remove_all(temps.iter().map(|(t, _)| t));
+        match &previous {
+            Some(p) => write_state(data_dir, p)?,
+            None => std::fs::remove_file(data_dir.join(STATE))?,
+        }
+        return Err(ObsidianError::DeployFailed(format!("{}: {why}", file.display())));
+    }
+    write_state(data_dir, &state)?;
+    for (old, _) in &aside {
+        let _ = std::fs::remove_file(old);
     }
     settings::write(&settings::game_side_dir(&game.saves_dir), &settings)?;
     let foreign_paths = foreign.into_iter().filter(|(b, _, _)| comp.bundles.contains_key(b)).map(|(_, _, p)| p).collect();
     Ok(DeployReport { patches: state.files.into_iter().map(|f| f.path).collect(), conflicts: comp.conflicts, foreign: foreign_paths, backup })
 }
 
-/// Removes the patches the last deploy recorded. Never consults the build gate.
-pub fn purge(_game: &GameInstall, data_dir: &Path) -> Result<PurgeReport> {
+/// Removes the patches the last deploy recorded. Never consults the build gate. A file that can't go
+/// doesn't stop the others, and stays recorded for the next try.
+pub fn purge(game: &GameInstall, data_dir: &Path) -> Result<PurgeReport> {
+    let contents = game.contents();
+    finish_interrupted(&contents, data_dir)?;
+    clear_leftovers(&contents)?;
     let mut report = PurgeReport { removed: Vec::new(), kept_changed: Vec::new() };
-    let Some(state) = load_state(data_dir)? else { return Ok(report) };
-    for f in state.files {
-        if !f.path.is_file() {
-            continue;
+    let Some(mut state) = load_state(data_dir)? else { return Ok(report) };
+    let mut stuck = Vec::new();
+    for f in std::mem::take(&mut state.files) {
+        // Where it is now, or where it was when the game lived somewhere else.
+        let Some(path) = [here(&contents, &f), f.path.clone()].into_iter().find(|p| p.is_file()) else { continue };
+        match sha256_file(&path).map(|hash| hash == f.sha256) {
+            Ok(true) => match std::fs::remove_file(&path) {
+                Ok(()) => report.removed.push(path),
+                Err(e) => stuck.push((f, e.to_string())),
+            },
+            Ok(false) => report.kept_changed.push(path),
+            Err(e) => stuck.push((f, e.to_string())),
         }
-        if sha256_file(&f.path)? == f.sha256 {
-            std::fs::remove_file(&f.path)?;
-            report.removed.push(f.path);
-        } else {
-            report.kept_changed.push(f.path);
-        }
+    }
+    if let Some((f, why)) = stuck.first() {
+        let message = format!("{}: {why}", f.path.display());
+        state.files = stuck.into_iter().map(|(f, _)| f).collect();
+        write_state(data_dir, &state)?;
+        return Err(ObsidianError::PurgeStuck(message));
     }
     std::fs::remove_file(data_dir.join(STATE))?;
     Ok(report)
+}
+
+/// The patches in the game folder that aren't Obsidian's, by file name.
+pub fn foreign_files(game: &GameInstall, data_dir: &Path) -> Result<Vec<String>> {
+    let state = load_state(data_dir)?;
+    Ok(foreign_patches(&game.contents(), state.as_ref())?.into_iter().filter_map(|(_, _, p)| p.file_name().map(|n| n.to_string_lossy().into_owned())).collect())
 }
 
 pub fn status(game: &GameInstall, data_dir: &Path, known: &[KnownBuild]) -> Result<Status> {
@@ -445,6 +556,110 @@ mod tests {
         assert!(patch(&w, "00000000000000aa.patch_1").exists(), "foreign patches are never removed");
     }
 
+    /// Turns on a mod for a third bundle, and blocks its patch with a folder, so the swap fails after
+    /// the old patches moved and some new ones landed.
+    fn block_the_swap(w: &World) {
+        let d = w.data.join("stage-cc");
+        let json = r##"{"obsidian":1,"id":"zz-cc","version":"1.0.0","name":{"en":"cc"},
+            "resources":[{"type":"#0000000000000001","name":"#00000000000000f1","bundle":"00000000000000cc","data":"r.bin"}]}"##;
+        put(&d, "obsidian.json", json.as_bytes());
+        put(&d, "r.bin", b"modded");
+        bundle::write_file(&w.game.contents().join("00000000000000cc"), &base(4)).unwrap();
+        let lib = Library::open(&w.data).unwrap();
+        lib.install(&d).unwrap();
+        let mut p = Profile::load(&w.data).unwrap();
+        p.sync(&lib).unwrap();
+        p.set_enabled("zz-cc", true).unwrap();
+        p.save(&w.data).unwrap();
+        std::fs::create_dir_all(patch(w, "00000000000000cc.patch_0")).unwrap();
+    }
+
+    #[test]
+    fn a_failed_swap_puts_the_last_deploy_back() {
+        let mut w = world();
+        // The third bundle has to pass the build check too.
+        w.opts.known_builds = fake_build(&w.game.root, &["contents/00000000000000aa", "contents/00000000000000bb", "contents/9cf71054ea26dddf"]);
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        let (files, state) = (snapshot(&w.game.contents()), load_state(&w.data).unwrap());
+        block_the_swap(&w);
+        let before = snapshot(&w.game.contents());
+        let e = deploy(&w.game, &w.data, &w.opts).unwrap_err();
+        assert!(matches!(e, ObsidianError::DeployFailed(_)), "{e}");
+        assert_eq!(snapshot(&w.game.contents()), before, "every patch is back, and nothing is left over");
+        assert!(before.keys().all(|k| files.contains_key(k) || k == "00000000000000cc"));
+        assert_eq!(load_state(&w.data).unwrap(), state, "the record is back too");
+    }
+
+    #[test]
+    fn a_deploy_cut_short_counts_as_waiting_and_is_put_right() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        let before = snapshot(&w.game.contents());
+        let done = load_state(&w.data).unwrap().unwrap();
+        // As a kill would leave it: the state says a swap is under way, and an old patch is aside.
+        let cut = DeployState { incomplete: true, previous: Some(Box::new(done.clone())), files: Vec::new(), ..done.clone() };
+        write_state(&w.data, &cut).unwrap();
+        let moved = patch(&w, "00000000000000aa.patch_0");
+        std::fs::rename(&moved, beside(&moved, OLD)).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
+
+        finish_interrupted(&w.game.contents(), &w.data).unwrap();
+        assert_eq!(snapshot(&w.game.contents()), before);
+        assert_eq!(load_state(&w.data).unwrap().unwrap(), done);
+    }
+
+    #[test]
+    fn purge_after_a_cut_short_deploy_leaves_the_game_vanilla() {
+        let w = world();
+        let vanilla = snapshot(&w.game.contents());
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        let done = load_state(&w.data).unwrap().unwrap();
+        write_state(&w.data, &DeployState { incomplete: true, previous: Some(Box::new(done.clone())), files: Vec::new(), ..done }).unwrap();
+        let moved = patch(&w, "00000000000000bb.patch_0");
+        std::fs::rename(&moved, beside(&moved, OLD)).unwrap();
+        purge(&w.game, &w.data).unwrap();
+        assert_eq!(snapshot(&w.game.contents()), vanilla);
+    }
+
+    /// The state as written with the game's path spelled another way.
+    fn respell(w: &World, f: impl Fn(&str) -> String) {
+        let mut s = load_state(&w.data).unwrap().unwrap();
+        for file in &mut s.files {
+            file.path = PathBuf::from(f(&file.path.to_string_lossy()));
+        }
+        write_state(&w.data, &s).unwrap();
+    }
+
+    #[test]
+    fn own_patches_are_known_however_the_path_is_spelled() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        respell(&w, |p| p.replace("game", "GAME-with-another-name"));
+        assert_eq!(status(&w.game, &w.data, w.opts.known_builds).unwrap().foreign, Vec::<PathBuf>::new());
+        let r = deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert!(r.patches.iter().all(|p| p.to_string_lossy().ends_with(".patch_0")), "{:?}", r.patches);
+    }
+
+    #[test]
+    fn purge_finds_patches_after_the_game_moved() {
+        let w = world();
+        let vanilla = snapshot(&w.game.contents());
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        respell(&w, |p| p.replace("game", "old-drive-game"));
+        let r = purge(&w.game, &w.data).unwrap();
+        assert_eq!(r.removed.len(), 3);
+        assert_eq!(snapshot(&w.game.contents()), vanilla);
+    }
+
+    #[test]
+    fn patches_that_went_missing_count_as_waiting() {
+        let w = world();
+        deploy(&w.game, &w.data, &w.opts).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::UpToDate);
+        std::fs::remove_file(patch(&w, "00000000000000aa.patch_0")).unwrap();
+        assert_eq!(waiting(&w), ChangesWaiting::Waiting);
+    }
+
     #[test]
     fn foreign_gap_is_refused() {
         let w = world();
@@ -556,7 +771,7 @@ mod tests {
 
     fn waiting(w: &World) -> ChangesWaiting {
         let lib = Library::open(&w.data).unwrap();
-        changes_waiting(&lib, &Profile::load(&w.data).unwrap(), &w.data).unwrap()
+        changes_waiting(&lib, &Profile::load(&w.data).unwrap(), &w.data, Some(&w.game.contents())).unwrap()
     }
 
     fn change(w: &World, f: impl FnOnce(&mut Profile)) {

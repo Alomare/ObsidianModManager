@@ -110,12 +110,14 @@ pub fn import(data: &Path, src: &Path) -> Result<Imported> {
     kept.sort();
 
     let taken = crate::profiles::list(data)?;
-    let free = |n: &str| !taken.iter().any(|t| t.eq_ignore_ascii_case(n));
+    let free = |n: &str| !taken.iter().any(|t| crate::profiles::same_name(t, n));
     let name = (1..).map(|i| if i == 1 { header.name.clone() } else { format!("{} ({i})", header.name) }).find(|n| free(n)).expect("a free name");
     crate::profiles::create(data, &name, None)?;
     let mut profile = header.profile;
     profile.sync(&lib)?;
-    std::fs::write(crate::profiles::path(data, &name), serde_json::to_string_pretty(&profile)? + "\n")?;
+    // Letting other players' mods in is for each player to choose, not for a shared file.
+    profile.consent = false;
+    profile.save_named(data, &name)?;
     let image = images::TYPES.iter().map(|ext| tmp.path().join(format!("image.{ext}"))).find(|p| p.is_file());
     if let Some(img) = image {
         images::set(data, Owner::Profile, &name, Some(&img))?;

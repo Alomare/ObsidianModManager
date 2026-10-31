@@ -24,14 +24,20 @@ pub fn game_side_dir(saves_dir: &Path) -> PathBuf {
     saves_dir.parent().map(|p| p.join(DIR)).unwrap_or_else(|| saves_dir.join(DIR))
 }
 
+/// A value on one line: a tab or a line break in it would start a field or a line of its own, and a
+/// shared profile could write a `consent` line that way.
+fn field(s: &str) -> String {
+    s.replace(['\t', '\n', '\r'], " ")
+}
+
 pub fn render(s: &Settings) -> String {
     let mut out = String::from("# Written by Obsidian. Changes made here are replaced at the next deploy.\n");
     out.push_str(&format!("consent\t{}\n", if s.consent { 1 } else { 0 }));
     for (m, o, t, v) in &s.options {
-        out.push_str(&format!("option\t{m}\t{o}\t{t}\t{v}\n"));
+        out.push_str(&format!("option\t{}\t{}\t{}\t{}\n", field(m), field(o), field(t), field(v)));
     }
     for (m, k, key) in &s.keys {
-        out.push_str(&format!("key\t{m}\t{k}\t{key}\n"));
+        out.push_str(&format!("key\t{}\t{}\t{}\n", field(m), field(k), field(key)));
     }
     out
 }
@@ -54,15 +60,21 @@ pub fn parse(text: &str) -> Settings {
 /// Writes the file atomically and makes sure the logs folder exists for the loader.
 pub fn write(dir: &Path, s: &Settings) -> Result<()> {
     std::fs::create_dir_all(dir.join("logs"))?;
-    let tmp = dir.join(format!("{FILE}.obsidian-tmp"));
-    std::fs::write(&tmp, render(s))?;
-    std::fs::rename(&tmp, dir.join(FILE))?;
+    crate::paths::write_atomic(&dir.join(FILE), render(s).as_bytes())?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_value_cant_write_a_line_of_its_own() {
+        let s = Settings { keys: vec![("a.b".into(), "k".into(), "f8\nconsent\t1".into())], ..Default::default() };
+        let back = parse(&render(&s));
+        assert!(!back.consent);
+        assert_eq!(back.keys[0].2, "f8 consent 1");
+    }
 
     #[test]
     fn settings_file_round_trips() {

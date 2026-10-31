@@ -135,9 +135,22 @@ pub fn import_path(src: &Path, game: &GameInstall, lib: &Library) -> Result<Impo
     Ok(ImportReport { id: m.id, legacy: true, outcome, version: m.version, changed, added, removed_ignored })
 }
 
+/// What an archive may hold. The game's biggest bundle is a little over a gigabyte, so these only stop
+/// an archive built to fill the disk.
+const MAX_UNPACKED: u64 = 16 << 30;
+const MAX_FILES: usize = 100_000;
+
 pub(crate) fn unzip(src: &Path, to: &Path) -> Result<()> {
-    let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))?;
-    z.extract(to).map_err(|e| ObsidianError::UnsupportedArchive(e.to_string()))
+    let bad = |e: zip::result::ZipError| ObsidianError::UnsupportedArchive(e.to_string());
+    let mut z = zip::ZipArchive::new(std::fs::File::open(src)?).map_err(bad)?;
+    let mut total = 0u64;
+    for i in 0..z.len() {
+        total = total.saturating_add(z.by_index_raw(i).map_err(bad)?.size());
+    }
+    if z.len() > MAX_FILES || total > MAX_UNPACKED {
+        return Err(ObsidianError::UnsupportedArchive(format!("too big: {} files, {total} bytes", z.len())));
+    }
+    z.extract(to).map_err(bad)
 }
 
 fn shallowest_manifest(files: &[PathBuf]) -> Option<&PathBuf> {
@@ -226,14 +239,32 @@ fn legacy_id(stem: &str) -> String {
             slug.push('-');
         }
     }
+    // Letters outside ASCII leave nothing in the slug, so different names could become one id.
+    let hashed = stem.chars().any(|c| c.is_alphanumeric() && !c.is_ascii());
     let mut id = format!("legacy.{}", slug.trim_end_matches('-'));
-    id.truncate(64);
-    id.trim_end_matches('-').to_string()
+    id.truncate(if hashed { 55 } else { 64 });
+    let id = id.trim_end_matches('-').to_string();
+    if !hashed {
+        return id;
+    }
+    use sha2::{Digest, Sha256};
+    let hash: String = Sha256::digest(stem.as_bytes()).iter().take(4).map(|b| format!("{b:02x}")).collect();
+    if id.ends_with('.') { format!("{id}{hash}") } else { format!("{id}-{hash}") }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_outside_ascii_stay_apart() {
+        assert_eq!(legacy_id("Third Person Camera"), "legacy.third-person-camera", "ids of plain names don't change");
+        let (a, b) = (legacy_id("更好的武器"), legacy_id("更强的敌人"));
+        assert_ne!(a, b);
+        assert!(a.starts_with("legacy.") && a.len() == "legacy.".len() + 8, "{a}");
+        assert_ne!(legacy_id("Новый мод 2"), legacy_id("Старый мод 2"));
+        assert_ne!(legacy_id("Câmera"), legacy_id("Cámera"));
+    }
 
     #[test]
     fn nexus_file_names_give_a_stable_id_a_clean_name_and_the_version() {

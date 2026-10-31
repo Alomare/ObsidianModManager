@@ -22,7 +22,8 @@ end
 
 local function read(id)
 	local values = {}
-	local f = M.dir and B.open(path(id), "rb")
+	-- A crash between the two steps of `write` leaves the new file under its other name.
+	local f = M.dir and (B.open(path(id), "rb") or B.open(path(id) .. ".tmp", "rb"))
 	if not f then return values end
 	local text = f:read("*a") or ""
 	f:close()
@@ -52,7 +53,8 @@ local function values_of(id)
 end
 
 local function write(id)
-	local f = M.dir and B.open(path(id), "wb")
+	local tmp = M.dir and (path(id) .. ".tmp")
+	local f = tmp and B.open(tmp, "wb")
 	if not f then
 		log.limited("storage " .. id, "storage: can't write the file of " .. id)
 		return false
@@ -73,7 +75,10 @@ local function write(id)
 		end
 	end
 	f:close()
-	return true
+	-- Written beside the real file, so a crash can't cost a mod what it had. Windows won't rename
+	-- over a file, so the old one goes first.
+	B.delete(path(id))
+	return B.rename(tmp, path(id)) ~= nil
 end
 
 function M.setup(core, dir)

@@ -14,6 +14,7 @@ import { Thumb } from "../Thumb";
 import type { Snapshot } from "../types";
 import { winners } from "./conflicts";
 import { CrashBanner } from "./CrashBanner";
+import { Problems } from "./Problems";
 import { Drawer } from "./Drawer";
 import { pickAndImport } from "./dropImport";
 import { DeleteFolder, FOLDER_COLORS, FolderDialog } from "./FolderDialog";
@@ -222,6 +223,7 @@ export function ModsPage({ snap }: { snap: Snapshot }) {
         </label>
       </div>
       <CrashBanner snap={snap} />
+      <Problems snap={snap} />
       <div className="mods-body" ref={body} style={width ? { ["--drawer-w" as string]: `${width}px` } : undefined}>
         <section className={sel.length ? "list batched" : "list"}>
           <ModTable tree={searching ? null : tree} rows={rows} byId={byId} order={order} names={names} conflicts={shownConflicts}

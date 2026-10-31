@@ -19,6 +19,17 @@ local METHODS = {
 
 local M = {}
 
+-- A player with no session mods of their own, who lets others' in, is in a modded game too when
+-- someone here runs a different set.
+local function modded(core)
+	if core.deploy.has_session then return true end
+	if not core.consent() then return false end
+	for _, m in B.ipairs(core.session.members or {}) do
+		if m.obsidian and m.modset ~= core.deploy.modset then return true end
+	end
+	return false
+end
+
 local function empty(t)
 	local keys = {}
 	for k in B.pairs(t) do keys[#keys + 1] = k end
@@ -26,9 +37,9 @@ local function empty(t)
 end
 
 function M.setup(core, hooks)
-	if not core.deploy.has_session then return end
 	for _, name in B.ipairs(METHODS) do
-		hooks.loader_hook("CampaignManager", name, function(_, _, ...)
+		hooks.loader_hook("CampaignManager", name, function(original, self, ...)
+			if not modded(core) then return original(self, ...) end
 			for i = 1, B.select("#", ...) do
 				local v = (B.select(i, ...))
 				if B.type(v) == "table" then empty(v) end
@@ -37,13 +48,18 @@ function M.setup(core, hooks)
 		end)
 	end
 	hooks.loader_hook("SaveManager", "save", function(original, self, ...)
-		for _, key in B.ipairs(COMMON_QUEUES) do self:set(key, nil) end
+		if modded(core) then
+			for _, key in B.ipairs(COMMON_QUEUES) do self:set(key, nil) end
+		end
 		return original(self, ...)
 	end)
 	hooks.loader_hook("SaveManager", "user_save", function(original, self, done, fail, subtitle, details, user, ...)
-		for _, key in B.ipairs(USER_QUEUES) do self:user_set(key, nil, user) end
+		if modded(core) then
+			for _, key in B.ipairs(USER_QUEUES) do self:user_set(key, nil, user) end
+		end
 		return original(self, done, fail, subtitle, details, user, ...)
 	end)
+	if not core.deploy.has_session then return end
 	-- The mission end screen picks one of these two for the Galactic Campaign line.
 	game_text.replace(core, hooks, "mission_end_galactic_campaign_progress", "campaign_not_uploaded")
 	game_text.replace(core, hooks, "mission_end_galactic_campaign_no_progress", "campaign_not_uploaded")

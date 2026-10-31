@@ -36,6 +36,21 @@ test("values_keep_their_type_and_survive_a_reload", function()
 	E.eq(s.all().n, 1.5)
 end)
 
+test("a_crash_between_the_two_steps_of_a_write_loses_nothing", function()
+	local e = start([[ obsidian.storage.set("kept", "yes") ]])
+	local file = e.obsidian_dir .. "/logs/ab.store"
+	E.eq(os.rename(file, file .. ".tmp"), true, "as the old file went and the new one hadn't taken its name")
+	local storage = e.loaded["obsidian/loader/storage"]
+	storage.loaded = {}
+	local core = e:core()
+	core.current = core.mods_by_id["a.b"]
+	E.eq(rawget(_G, "obsidian").storage.get("kept"), "yes")
+	rawget(_G, "obsidian").storage.set("kept", "again")
+	E.eq(io.open(file .. ".tmp", "rb"), nil, "the next write takes its proper name")
+	storage.loaded = {}
+	E.eq(rawget(_G, "obsidian").storage.get("kept"), "again")
+end)
+
 test("a_bad_file_gives_no_values_rather_than_an_error", function()
 	local e = start("VALUE = obsidian.storage.get('k', 'default')")
 	E.eq(rawget(_G, "VALUE"), "default")

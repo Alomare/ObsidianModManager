@@ -42,7 +42,10 @@ export async function checkModUpdates(names: Map<string, string>, startup = fals
     }
     const failed = list.filter((c) => c.error);
     if (failed.length < list.length) notify("info", checkMessage(Object.keys(found).length));
-    for (const c of failed) notify("error", t("app.modUpdates.failed", names.get(c.id) ?? c.id, errorText(c.error)));
+    // The rate limit is one problem, however many mods it stopped.
+    const limit = failed.find((c) => c.error?.code === "UpdateLimited");
+    if (limit) notify("error", errorText(limit.error));
+    for (const c of failed) if (c !== limit && c.error?.code !== "UpdateLimited") notify("error", t("app.modUpdates.failed", names.get(c.id) ?? c.id, errorText(c.error)));
   } catch (e) {
     set({ checking: false });
     if (!startup) notify("error", errorText(e));

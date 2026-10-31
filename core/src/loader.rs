@@ -314,11 +314,8 @@ pub fn build_inputs(loader_dir: &Path, comp: &Composition) -> Result<Vec<u8>> {
 pub fn settings_for(lib: &Library, profile: &Profile) -> Result<Settings> {
     let mut s = Settings { consent: profile.consent, ..Default::default() };
     for entry in profile.mods.iter().filter(|m| m.enabled) {
-        let dir = lib.mod_dir(&entry.id);
-        if !dir.join(crate::manifest::FILE).is_file() {
-            continue;
-        }
-        let m = load_manifest(&dir)?;
+        // A mod that can't be read stays out, as it does in a deploy.
+        let Ok(m) = load_manifest(&lib.mod_dir(&entry.id)) else { continue };
         if m.entry.is_none() {
             continue;
         }

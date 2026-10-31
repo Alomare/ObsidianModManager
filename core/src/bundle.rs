@@ -60,7 +60,8 @@ fn inflate(file: &[u8], want: Option<usize>) -> Result<Vec<u8>> {
     let total = c.u32()? as usize;
     c.u32()?;
     let goal = want.map_or(total, |w| w.min(total));
-    let mut out = Vec::with_capacity(goal);
+    // The header can say anything, so it doesn't choose the allocation.
+    let mut out = Vec::with_capacity(goal.min(file.len().saturating_mul(8)));
     while out.len() < goal {
         let size = c.u32()? as usize;
         let chunk = c.take(size)?;
@@ -68,7 +69,7 @@ fn inflate(file: &[u8], want: Option<usize>) -> Result<Vec<u8>> {
             out.extend_from_slice(chunk);
         } else {
             use std::io::Read;
-            flate2::read::ZlibDecoder::new(chunk).read_to_end(&mut out).map_err(|_| ObsidianError::TruncatedBundle)?;
+            flate2::read::ZlibDecoder::new(chunk).take(CHUNK as u64).read_to_end(&mut out).map_err(|_| ObsidianError::TruncatedBundle)?;
         }
     }
     out.truncate(total);
@@ -105,13 +106,14 @@ pub fn parse_payload(payload: &[u8]) -> Result<Bundle> {
     let props: [u8; PROPS] = c.take(PROPS)?.try_into().unwrap();
     // The index repeats what each entry header says, so skip it.
     c.take(count.checked_mul(16).ok_or(ObsidianError::TruncatedBundle)?)?;
-    let mut entries = Vec::with_capacity(count);
+    // Counts come from the file, so they don't choose an allocation either.
+    let mut entries = Vec::with_capacity(count.min(payload.len() / 24));
     for _ in 0..count {
         let type_hash = c.u64()?;
         let name_hash = c.u64()?;
         let n = c.u32()? as usize;
         let flags = c.u32()?;
-        let mut heads = Vec::with_capacity(n);
+        let mut heads = Vec::with_capacity(n.min(payload.len() / 12));
         for _ in 0..n {
             heads.push((c.u32()?, c.u32()? as usize, c.u32()?));
         }
@@ -165,6 +167,15 @@ pub fn read_file(path: &Path) -> Result<Bundle> {
     parse_payload(&decompress(&std::fs::read(path)?)?)
 }
 
+/// The properties of a bundle, reading only the start of the file: a game bundle can pass a gigabyte.
+pub fn read_props(path: &Path) -> Result<[u8; PROPS]> {
+    use std::io::Read;
+    let mut head = Vec::new();
+    std::fs::File::open(path)?.take(16 + CHUNK as u64).read_to_end(&mut head)?;
+    let payload = inflate(&head, Some(4 + PROPS))?;
+    payload.get(4..4 + PROPS).and_then(|p| p.try_into().ok()).ok_or(ObsidianError::TruncatedBundle)
+}
+
 pub fn write_file(path: &Path, b: &Bundle) -> Result<()> {
     std::fs::write(path, compress(&serialize_payload(b)))?;
     Ok(())
@@ -190,6 +201,21 @@ mod tests {
 
     fn sample() -> Bundle {
         Bundle { props: [7u8; PROPS], entries: vec![entry(2, 9, 0, b"bb"), entry(1, 5, 531101911, b"aaaa")] }
+    }
+
+    #[test]
+    fn props_come_from_the_start_of_the_file_alone() {
+        let t = tempfile::tempdir().unwrap();
+        let path = t.path().join("b");
+        write_file(&path, &sample()).unwrap();
+        assert_eq!(read_props(&path).unwrap(), [7u8; PROPS]);
+    }
+
+    #[test]
+    fn a_count_in_the_file_cant_choose_a_huge_allocation() {
+        let mut p = 0xFFFF_FFFFu32.to_le_bytes().to_vec();
+        p.extend([0u8; PROPS]);
+        assert!(parse_payload(&p).is_err());
     }
 
     #[test]

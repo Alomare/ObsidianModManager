@@ -141,7 +141,8 @@ pub fn get_app_settings(ctx: State<'_, Ctx>) -> AppSettings {
 
 #[tauri::command]
 pub fn set_app_settings(ctx: State<'_, Ctx>, settings: AppSettings) -> CmdResult<AppSettings> {
-    settings.save(&ctx.data)?;
+    // The game folder has its own command, so a window with older settings can't undo it.
+    AppSettings { game_dir: AppSettings::load(&ctx.data).game_dir, ..settings }.save(&ctx.data)?;
     Ok(AppSettings::load(&ctx.data))
 }
 
@@ -168,7 +169,9 @@ pub async fn set_order(ctx: State<'_, Ctx>, ids: Vec<String>, moves: Option<Vec<
 pub async fn use_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
     profiles::use_profile(&ctx.data, &name)?;
-    fresh(&ctx)
+    // The deploy fingerprint leaves out consent, options and keys, so the game's settings have to
+    // follow here, or it keeps the last profile's until the next deploy.
+    live_edit(&ctx, |_, _| Ok(()))
 }
 
 /// A new profile, empty or a copy of `copy_of`.
@@ -190,7 +193,7 @@ pub async fn rename_profile(ctx: State<'_, Ctx>, from: String, to: String) -> Cm
 pub async fn delete_profile(ctx: State<'_, Ctx>, name: String) -> CmdResult<Snapshot> {
     let _turn = ctx.turn();
     profiles::delete(&ctx.data, &name)?;
-    fresh(&ctx)
+    live_edit(&ctx, |_, _| Ok(()))
 }
 
 /// Sets the player's image for a mod or a profile (`owner` "mod" or "profile"), or removes it.
@@ -300,6 +303,8 @@ pub struct SystemInfo {
     pub chosen_game_dir: Option<PathBuf>,
     /// Where the loader and the mods log; `None` with no game.
     pub logs_dir: Option<PathBuf>,
+    /// Patches in the game folder that aren't Obsidian's, by file name.
+    pub foreign: Vec<String>,
 }
 
 /// The folder that holds the logs of the game in `settings`.
@@ -314,7 +319,8 @@ pub fn system_info(ctx: State<'_, Ctx>) -> SystemInfo {
         .map(|p| Backup { name: p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), path: p })
         .collect();
     let settings = AppSettings::load(&ctx.data);
-    SystemInfo { data_dir: ctx.data.clone(), backups, logs_dir: logs_dir(&settings), chosen_game_dir: settings.game_dir }
+    let foreign = find(&settings).and_then(|g| obsidian_core::deploy::foreign_files(&g, &ctx.data).ok()).unwrap_or_default();
+    SystemInfo { data_dir: ctx.data.clone(), backups, logs_dir: logs_dir(&settings), foreign, chosen_game_dir: settings.game_dir }
 }
 
 /// The text for a bug report, for the clipboard.
@@ -477,7 +483,7 @@ pub fn play_with(data: &Path, game: Option<&GameInstall>, launch: impl FnOnce() 
     let lib = Library::open(data)?;
     let mut p = Profile::load(data)?;
     p.sync(&lib)?;
-    if changes_waiting(&lib, &p, data)? == ChangesWaiting::Waiting {
+    if changes_waiting(&lib, &p, data, Some(&game.contents()))? == ChangesWaiting::Waiting {
         core_deploy(game, data, &DeployOptions::default())?;
     }
     launch()

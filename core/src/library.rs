@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::manifest::{Manifest, load_manifest};
+use crate::manifest::{FILE, Manifest, load_manifest};
+use crate::paths::{rename_retrying, write_atomic};
 use crate::{ObsidianError, Result};
 
 pub struct Library {
@@ -22,6 +23,18 @@ pub struct ImportInfo {
 }
 
 pub const IMPORT_INFO: &str = "import.json";
+
+/// The name of the old copy of a mod while a new one goes in, as an extension of its folder.
+const OLD: &str = "obsidian-old";
+/// Added to the file name of a profile that can't be read.
+const DAMAGED: &str = ".damaged";
+
+/// A mod folder whose manifest can't be read. It stays out of the game until it's fixed or removed.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BrokenMod {
+    pub folder: String,
+    pub reason: String,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InstallOutcome {
@@ -53,6 +66,10 @@ impl Library {
     pub fn mod_dir(&self, id: &str) -> PathBuf {
         self.root.join(id)
     }
+    /// The data folder the library lives in.
+    pub fn data_dir(&self) -> &Path {
+        self.root.parent().unwrap_or(&self.root)
+    }
     /// Copies a staged folder holding `obsidian.json` into `mods/<id>`, replacing an older copy.
     pub fn install(&self, staged: &Path) -> Result<InstallOutcome> {
         let m = load_manifest(staged)?;
@@ -66,10 +83,22 @@ impl Library {
             Ok(old) => InstallOutcome::Replaced { old_version: old.version },
             Err(_) => InstallOutcome::Added,
         };
-        if target.exists() {
-            std::fs::remove_dir_all(&target)?;
+        // The old copy steps aside rather than going first, so a failed swap loses nothing.
+        let aside = self.root.join(format!("{}.{OLD}", m.id));
+        if aside.exists() {
+            std::fs::remove_dir_all(&aside)?;
         }
-        std::fs::rename(&tmp, &target)?;
+        if target.exists() {
+            rename_retrying(&target, &aside)?;
+        }
+        if let Err(e) = rename_retrying(&tmp, &target) {
+            if aside.exists() {
+                let _ = rename_retrying(&aside, &target);
+            }
+            let _ = std::fs::remove_dir_all(&tmp);
+            return Err(e.into());
+        }
+        let _ = std::fs::remove_dir_all(&aside);
         crate::manifest::forget(&target);
         Ok(outcome)
     }
@@ -80,28 +109,50 @@ impl Library {
     /// Deletes a mod from the library. Profiles drop it at their next sync.
     pub fn remove(&self, id: &str) -> Result<()> {
         let dir = self.mod_dir(id);
-        load_manifest(&dir).map_err(|_| ObsidianError::ModMissing(id.to_string()))?;
+        if !dir.join(FILE).is_file() {
+            return Err(ObsidianError::ModMissing(id.to_string()));
+        }
         crate::manifest::forget(&dir);
         std::fs::remove_dir_all(dir)?;
         Ok(())
     }
     pub fn list(&self) -> Result<Vec<Manifest>> {
-        let mut out = Vec::new();
+        Ok(self.scan()?.0)
+    }
+    /// The folders that look like mods but can't be read.
+    pub fn broken(&self) -> Result<Vec<BrokenMod>> {
+        Ok(self.scan()?.1)
+    }
+    /// The mods, and the folders that can't be read: one bad manifest must not take the whole app
+    /// down, Purge included. A swap cut short by a crash is put right on the way.
+    fn scan(&self) -> Result<(Vec<Manifest>, Vec<BrokenMod>)> {
+        let (mut good, mut broken) = (Vec::new(), Vec::new());
         for e in std::fs::read_dir(&self.root)? {
             let e = e?;
-            let p = e.path();
-            let tmp = p.extension().is_some_and(|x| x == "obsidian-tmp");
-            if tmp || !e.file_type()?.is_dir() {
+            let mut p = e.path();
+            if !e.file_type()?.is_dir() || p.extension().is_some_and(|x| x == "obsidian-tmp") {
                 continue;
             }
+            if p.extension().is_some_and(|x| x == OLD) {
+                let target = p.with_extension("");
+                if target.exists() {
+                    let _ = std::fs::remove_dir_all(&p);
+                    continue;
+                }
+                rename_retrying(&p, &target)?;
+                p = target;
+            }
             match load_manifest(&p) {
+                Ok(m) => good.push(m),
                 // A folder without a manifest is not a mod.
-                Err(crate::ObsidianError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
-                m => out.push(m?),
+                Err(ObsidianError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => broken.push(BrokenMod { folder: p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), reason: e.to_string() }),
             }
         }
-        out.sort_by(|a, b| a.id.cmp(&b.id));
-        Ok(out)
+        good.sort_by(|a: &Manifest, b| a.id.cmp(&b.id));
+        good.dedup_by(|a, b| a.id == b.id);
+        broken.sort_by(|a, b| a.folder.cmp(&b.folder));
+        Ok((good, broken))
     }
 }
 
@@ -140,9 +191,20 @@ impl Profile {
     pub fn load(data_dir: &Path) -> Result<Profile> {
         Profile::load_named(data_dir, &crate::profiles::active(data_dir)?)
     }
+    /// A profile that can't be read is set aside and starts over: it must not lock the app. The
+    /// file stays for the player, and `profiles::damaged` lists it.
     pub fn load_named(data_dir: &Path, name: &str) -> Result<Profile> {
-        match std::fs::read_to_string(crate::profiles::path(data_dir, name)) {
-            Ok(text) => Ok(serde_json::from_str(&text)?),
+        let path = crate::profiles::path(data_dir, name);
+        match std::fs::read(&path) {
+            Ok(bytes) => match serde_json::from_slice(&bytes) {
+                Ok(p) => Ok(p),
+                Err(_) => {
+                    let mut aside = path.clone().into_os_string();
+                    aside.push(DAMAGED);
+                    rename_retrying(&path, Path::new(&aside))?;
+                    Ok(Profile::default())
+                }
+            },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Profile::default()),
             Err(e) => Err(e.into()),
         }
@@ -154,7 +216,7 @@ impl Profile {
     pub fn save_named(&self, data_dir: &Path, name: &str) -> Result<()> {
         let path = crate::profiles::path(data_dir, name);
         std::fs::create_dir_all(path.parent().expect("profiles folder"))?;
-        std::fs::write(path, serde_json::to_string_pretty(self)? + "\n")?;
+        write_atomic(&path, (serde_json::to_string_pretty(self)? + "\n").as_bytes())?;
         Ok(())
     }
     /// Puts `ids` first, in that order; mods not named keep their order after them.
@@ -198,7 +260,8 @@ impl Profile {
     /// Appends newly installed mods as disabled and drops entries whose mod is gone.
     pub fn sync(&mut self, lib: &Library) -> Result<()> {
         let installed = lib.list()?;
-        self.mods.retain(|m| installed.iter().any(|i| i.id == m.id));
+        // A mod that can't be read keeps its place, so fixing it doesn't lose the load order.
+        self.mods.retain(|m| installed.iter().any(|i| i.id == m.id) || lib.mod_dir(&m.id).join(FILE).is_file());
         for m in &installed {
             if !self.mods.iter().any(|e| e.id == m.id) {
                 self.mods.push(ProfileEntry { id: m.id.clone(), enabled: false, folder: None });
@@ -258,6 +321,56 @@ mod tests {
         p.sync(&lib).unwrap();
         let e = p.switch(&lib, "top", true).unwrap_err();
         assert_eq!(e.to_string(), "top needs gone, which is not installed");
+    }
+
+    #[test]
+    fn a_mod_that_cant_be_read_is_set_aside_and_keeps_its_place() {
+        let t = spaced_tempdir();
+        let data = t.path().join("data");
+        let lib = Library::open(&data).unwrap();
+        lib.install(&staged(t.path(), "a", "1.0.0")).unwrap();
+        lib.install(&staged(t.path(), "b", "1.0.0")).unwrap();
+        let mut p = Profile::default();
+        p.sync(&lib).unwrap();
+        p.set_order(&["b".into(), "a".into()]);
+        put(&lib.mod_dir("b"), "obsidian.json", b"{ not json");
+        crate::manifest::forget(&lib.mod_dir("b"));
+
+        assert_eq!(lib.list().unwrap().iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["a"]);
+        assert_eq!(lib.broken().unwrap()[0].folder, "b");
+        p.sync(&lib).unwrap();
+        assert_eq!(p.mods.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["b", "a"], "still in the load order");
+        lib.remove("b").unwrap();
+        assert!(lib.broken().unwrap().is_empty(), "and it can be removed");
+    }
+
+    #[test]
+    fn a_failed_swap_keeps_the_old_copy() {
+        let t = spaced_tempdir();
+        let data = t.path().join("data");
+        let lib = Library::open(&data).unwrap();
+        lib.install(&staged(t.path(), "a", "1.0.0")).unwrap();
+        // A crash after the old copy stepped aside and before the new one landed.
+        std::fs::rename(lib.mod_dir("a"), data.join("mods").join("a.obsidian-old")).unwrap();
+        assert_eq!(lib.list().unwrap()[0].version, semver::Version::new(1, 0, 0), "the next look puts it back");
+        assert!(lib.mod_dir("a").is_dir());
+        // A crash after the swap, before the old copy went.
+        put(&data.join("mods").join("a.obsidian-old"), "obsidian.json", b"old");
+        assert_eq!(lib.list().unwrap().len(), 1);
+        assert!(!data.join("mods").join("a.obsidian-old").exists());
+    }
+
+    #[test]
+    fn a_damaged_profile_starts_over_and_stays_for_the_player() {
+        let t = spaced_tempdir();
+        let data = t.path().join("data");
+        let path = crate::profiles::path(&data, "Default");
+        put(path.parent().unwrap(), "Default.json", b"{ half a fi");
+        assert_eq!(Profile::load(&data).unwrap(), Profile::default());
+        assert!(!path.exists());
+        assert_eq!(crate::profiles::damaged(&data), ["Default"]);
+        Profile::default().save(&data).unwrap();
+        assert_eq!(Profile::load(&data).unwrap(), Profile::default());
     }
 
     #[test]

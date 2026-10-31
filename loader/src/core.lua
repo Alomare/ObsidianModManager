@@ -70,11 +70,14 @@ function M.text(key, ...)
 end
 
 -- Notices are queued anywhere and shown from the frame hook, where the game UI exists.
+local NOTICE_SECONDS = 10
 local function show_notices()
 	while #M.notices > 0 do
 		local n = B.remove(M.notices, 1)
 		B.insert(M.notices_shown, n)
-		log.line("notice: " .. n.key .. ": " .. M.text(n.key, B.unpack(n.args)))
+		local text = M.text(n.key, B.unpack(n.args))
+		log.line("notice: " .. n.key .. ": " .. text)
+		menu.toast(text, NOTICE_SECONDS)
 	end
 end
 

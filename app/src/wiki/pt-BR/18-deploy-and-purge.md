@@ -11,7 +11,7 @@ Aplicar coloca no jogo os mods ligados do perfil ativo. O botão fica verde quan
 Cada aplicação segue estes passos:
 
 1. Confere se o jogo é a versão que o Obsidian conhece (veja abaixo).
-2. Faz backup da pasta de saves. Os últimos 10 backups ficam guardados.
+2. Faz backup da pasta de saves, quando ela mudou desde o último backup. O primeiro backup e os 9 mais novos ficam guardados, então o seu save de antes de qualquer mod continua lá.
 3. Decide qual mod vence cada recurso, seguindo a ordem de carregamento.
 4. Compila o Lua de cada mod, e do loader, em código que o jogo consegue rodar.
 5. Grava um patch por bundle do jogo e a lista de mods aplicados para o loader.
@@ -23,7 +23,10 @@ Cada aplicação segue estes passos:
 Limpar apaga todos os arquivos que o Obsidian gravou e confere que nenhum ficou para trás. O jogo volta a ser o original. A biblioteca e os perfis continuam; aplique de novo para trazer os mods de volta.
 
 > [!NOTE]
-> Patches que outra ferramenta ou uma pessoa colocou na pasta do jogo aparecem na lista, mas nunca são apagados sem perguntar. Os patches do Obsidian ficam acima deles.
+> Patches que outra ferramenta ou uma pessoa colocou na pasta do jogo aparecem em Jogo, nas [Configurações](app:settings), e nunca são apagados. Os patches do Obsidian ficam acima deles.
+
+> [!WARNING]
+> Use o Purge antes de desinstalar o Obsidian. Os patches ficam na pasta do jogo até alguém removê-los, então o jogo continuaria rodando os seus mods.
 
 ## A verificação de versão {#the-build-check}
 
@@ -33,4 +36,4 @@ O HD1 não recebe atualização desde 2020, então isso normalmente pega arquivo
 
 ## Saves {#saves}
 
-O Obsidian nunca edita o seu save. Mods de sessão podem mudar o seu próprio progresso (XP, desbloqueios), e o Obsidian não desfaz isso; por isso cada aplicação faz um backup antes. Os backups ficam na pasta `backups`, dentro da pasta de dados do app.
+O Obsidian nunca edita o seu progresso. Com conteúdo de sessão em jogo, ele só limpa os resultados que esperam envio, para que não cheguem à Guerra Galáctica depois. Mods de sessão podem mudar o seu próprio progresso (XP, desbloqueios), e o Obsidian não desfaz isso; por isso cada aplicação faz um backup antes. Os backups ficam na pasta `backups`, dentro da pasta de dados do app.

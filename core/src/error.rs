@@ -70,6 +70,8 @@ pub enum ObsidianError {
     GameRunning,
     #[error("deploy failed and was undone: {0}")]
     DeployFailed(String),
+    #[error("purge couldn't remove a file, so run it again with the game closed: {0}")]
+    PurgeStuck(String),
     #[error("the game has no Proton prefix yet: start it once through Steam, then try again")]
     NoProtonPrefix,
     #[error("{0} names no GitHub repository to update from")]
@@ -82,6 +84,8 @@ pub enum ObsidianError {
     UpdateMismatch { wanted: String, found: String },
     #[error("GitHub could not be reached: {0}")]
     UpdateNetwork(String),
+    #[error("GitHub's limit on update checks was reached, so try again in about an hour")]
+    UpdateLimited,
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error(transparent)]

@@ -17,13 +17,33 @@ pub fn backup_game_saves(game: &GameInstall, backups_dir: &Path, keep: usize) ->
     backup_saves(&sources, backups_dir, keep)
 }
 
+/// Whether every file under `dir` is under `copy`, with the same bytes.
+fn all_in(dir: &Path, copy: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    entries.flatten().all(|e| {
+        let there = copy.join(e.file_name());
+        if e.file_type().is_ok_and(|t| t.is_dir()) {
+            all_in(&e.path(), &there)
+        } else {
+            matches!((std::fs::read(e.path()), std::fs::read(there)), (Ok(a), Ok(b)) if a == b)
+        }
+    })
+}
+
 /// Copies each `(subfolder, folder)` that exists into `backups_dir/YYYYMMDD-HHMMSS` (adding `-2`,
-/// `-3`... on a clash), an empty subfolder meaning the backup itself, and keeps the newest `keep`.
+/// `-3`... on a clash), an empty subfolder meaning the backup itself. Saves that haven't changed since
+/// the newest backup make no new one. It keeps `keep` backups: the oldest, which may be the last save
+/// from before any mod, and the newest after it. Ten deploys in a row must not cost that one.
 pub fn backup_saves(sources: &[(String, PathBuf)], backups_dir: &Path, keep: usize) -> Result<Option<PathBuf>> {
     if !sources.iter().any(|(_, dir)| dir.is_dir()) {
         return Ok(None);
     }
     std::fs::create_dir_all(backups_dir)?;
+    if let Some(newest) = list_backups(backups_dir).into_iter().next()
+        && sources.iter().filter(|(_, dir)| dir.is_dir()).all(|(name, dir)| all_in(dir, &newest.join(name)))
+    {
+        return Ok(Some(newest));
+    }
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     // Number above every existing backup of this second: reusing a pruned name would sort the new copy as the oldest.
     let highest = std::fs::read_dir(backups_dir)?
@@ -46,7 +66,7 @@ pub fn backup_saves(sources: &[(String, PathBuf)], backups_dir: &Path, keep: usi
     // Sort by stamp, then by the numeric suffix, so "-10" comes after "-9".
     all.sort();
     let excess = all.len().saturating_sub(keep);
-    for (_, _, old) in all.into_iter().take(excess) {
+    for (_, _, old) in all.into_iter().skip(1).take(excess) {
         std::fs::remove_dir_all(old)?;
     }
     Ok(Some(target))
@@ -89,17 +109,36 @@ mod tests {
     use crate::testutil::{put, spaced_tempdir};
 
     #[test]
-    fn backups_keep_the_newest_ten() {
+    fn backups_keep_the_first_and_the_newest_nine() {
+        let t = spaced_tempdir();
+        let saves = t.path().join("saves");
+        let backups = t.path().join("backups");
+        let sources = [(String::new(), saves.clone())];
+        let made: Vec<PathBuf> = (0..12)
+            .map(|i| {
+                put(&saves, "profile.sav", format!("save {i}").as_bytes());
+                backup_saves(&sources, &backups, 10).unwrap().unwrap()
+            })
+            .collect();
+        let left: Vec<PathBuf> = std::fs::read_dir(&backups).unwrap().map(|e| e.unwrap().path()).collect();
+        assert_eq!(left.len(), 10);
+        assert!(made[0].exists(), "the save from before any mod stays");
+        assert!(!made[1].exists() && !made[2].exists() && made[3].exists() && made[11].exists(), "made {made:?} left {left:?}");
+        assert_eq!(std::fs::read(made[11].join("profile.sav")).unwrap(), b"save 11");
+    }
+
+    #[test]
+    fn saves_that_havent_changed_make_no_new_backup() {
         let t = spaced_tempdir();
         let saves = t.path().join("saves");
         put(&saves, "profile.sav", b"save");
         let backups = t.path().join("backups");
-        let sources = [(String::new(), saves)];
-        let made: Vec<PathBuf> = (0..12).map(|_| backup_saves(&sources, &backups, 10).unwrap().unwrap()).collect();
-        let left: Vec<PathBuf> = std::fs::read_dir(&backups).unwrap().map(|e| e.unwrap().path()).collect();
-        assert_eq!(left.len(), 10);
-        assert!(!made[0].exists() && !made[1].exists() && made[11].exists(), "made {made:?} left {left:?}");
-        assert_eq!(std::fs::read(made[11].join("profile.sav")).unwrap(), b"save");
+        let sources = [(String::new(), saves.clone())];
+        let first = backup_saves(&sources, &backups, 10).unwrap().unwrap();
+        assert_eq!(backup_saves(&sources, &backups, 10).unwrap().unwrap(), first);
+        assert_eq!(list_backups(&backups).len(), 1);
+        put(&saves, "profile.sav", b"later");
+        assert_ne!(backup_saves(&sources, &backups, 10).unwrap().unwrap(), first);
     }
 
     #[test]

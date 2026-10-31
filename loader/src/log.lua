@@ -1,7 +1,10 @@
--- The loader log (rewritten on every line, so a crash leaves the last line on disk) and per-mod logs.
+-- The loader log (closed after every line, so a crash leaves the last line on disk) and per-mod logs.
 local B = require("obsidian/loader/builtins")
 
-local M = { dir = nil, lines = {}, opened = {}, counts = {} }
+-- A mod that logs every frame stops here instead of filling the disk.
+local MOD_LINES = 20000
+
+local M = { dir = nil, lines = {}, written = 0, opened = {}, counts = {}, mod_lines = {} }
 
 function M.setup(dir)
 	M.dir = dir
@@ -9,9 +12,10 @@ end
 
 function M.flush()
 	if not M.dir then return end
-	local f = B.open(M.dir .. "/loader.log", "w")
+	local f = B.open(M.dir .. "/loader.log", M.written > 0 and "a" or "w")
 	if f then
-		f:write(B.concat(M.lines, "\n"), "\n")
+		for i = M.written + 1, #M.lines do f:write(M.lines[i], "\n") end
+		M.written = #M.lines
 		f:close()
 	end
 end
@@ -38,10 +42,17 @@ end
 function M.mod(id, ...)
 	if not M.dir then return end
 	local name = M.file_name(id)
+	local count = (M.mod_lines[name] or 0) + 1
+	if count > MOD_LINES + 1 then return end
+	M.mod_lines[name] = count
 	local f = B.open(M.dir .. "/" .. name .. ".log", M.opened[name] and "a" or "w")
 	if f then
 		M.opened[name] = true
-		f:write(B.date("%H:%M:%S "), B.join(...), "\n")
+		if count > MOD_LINES then
+			f:write(B.date("%H:%M:%S "), "the log is full, later lines are dropped\n")
+		else
+			f:write(B.date("%H:%M:%S "), B.join(...), "\n")
+		end
 		f:close()
 	end
 end

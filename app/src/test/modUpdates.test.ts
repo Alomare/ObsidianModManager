@@ -53,6 +53,13 @@ describe("a check", () => {
     expect(notify.mock.calls.map((c) => c[0])).toEqual(["error"]);
   });
 
+  it("reports the rate limit once, however many mods it stopped", async () => {
+    const limited = { code: "UpdateLimited", message: "limit" };
+    invoke.mockResolvedValue([{ id: "a.mod", version: null, error: limited }, { id: "b.mod", version: null, error: limited }]);
+    await checkModUpdates(names);
+    expect(notify.mock.calls.filter((c) => c[0] === "error")).toHaveLength(1);
+  });
+
   it("at startup, only speaks when it finds something", async () => {
     invoke.mockResolvedValue([{ id: "a.mod", version: null, error: null }, { id: "b.mod", version: null, error: failure }]);
     await checkModUpdates(names, true);

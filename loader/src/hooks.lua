@@ -22,10 +22,23 @@ local function install(h)
 	local core, session, state, fn, site = M.core, M.session, h.state, h.fn, "hook " .. B.tostring(h.method)
 	-- A missing or unknown scope counts as session. The loader's own hooks are never gated.
 	local gated = not h.loader and not (state and state.mod.scope == "client")
+	-- A hook that fails falls back to the game's function, unless it already ran it: that would
+	-- spawn, spend or save twice. One closure per hook, as a new one per call stops the JIT here.
+	local ran, results = false, nil
+	local function once(...)
+		ran = true
+		results = pack(original(...))
+		return B.unpack(results, 1, results.n)
+	end
 	target[h.method] = function(...)
 		if (state and state.off) or (gated and not session.cleared()) then return original(...) end
-		local r = pack(core.call(state, site, fn, original, ...))
+		local outer_ran, outer_results = ran, results
+		ran, results = false, nil
+		local r = pack(core.call(state, site, fn, once, ...))
+		local did, got = ran, results
+		ran, results = outer_ran, outer_results
 		if r[1] then return B.unpack(r, 2, r.n) end
+		if did then return B.unpack(got, 1, got.n) end
 		return original(...)
 	end
 	local where = B.type(h.target) == "string" and h.target or "table"

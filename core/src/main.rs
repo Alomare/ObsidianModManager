@@ -264,7 +264,7 @@ fn run(cli: Cli) -> Result<()> {
                 _ => println!("Deployed: nothing, the game is vanilla"),
             }
             // Status must work with a damaged library, so a failure here only skips the line.
-            if let Ok(w) = Profile::load(&data).and_then(|p| changes_waiting(&lib, &p, &data)) {
+            if let Ok(w) = Profile::load(&data).and_then(|p| changes_waiting(&lib, &p, &data, Some(&g.contents()))) {
                 println!("Changes waiting: {}", if w == ChangesWaiting::Waiting { "yes (run obsidian deploy)" } else { "no" });
             }
             if obsidian_core::game::is_running() {

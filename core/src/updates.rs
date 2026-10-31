@@ -97,6 +97,7 @@ impl GitHub {
         match res.status().as_u16() {
             200 => {}
             404 => return Err(ObsidianError::NoRelease(repo.to_string())),
+            403 | 429 if res.headers().get("x-ratelimit-remaining").is_some_and(|v| v == "0") => return Err(ObsidianError::UpdateLimited),
             code => return Err(network(format!("GitHub answered {code}"))),
         }
         let raw: RawRelease = serde_json::from_str(&res.body_mut().read_to_string().map_err(network)?)?;
@@ -123,12 +124,15 @@ pub struct Checked {
     pub result: Result<Option<Version>>,
 }
 
-/// Asks GitHub about every mod that names a repository. One failure doesn't stop the rest.
+/// Asks GitHub about every mod that names a repository. One failure doesn't stop the rest, except
+/// the rate limit: GitHub counts the calls made after it too.
 pub fn check(github: &GitHub, mods: &[Manifest]) -> Vec<Checked> {
+    let mut limited = false;
     mods.iter()
         .filter_map(|m| {
             let repo = source_of(m)?;
-            let result = github.latest(&repo).map(|r| (r.version > m.version).then_some(r.version));
+            let result = if limited { Err(ObsidianError::UpdateLimited) } else { github.latest(&repo).map(|r| (r.version > m.version).then_some(r.version)) };
+            limited |= matches!(result, Err(ObsidianError::UpdateLimited));
             Some(Checked { id: m.id.clone(), result })
         })
         .collect()

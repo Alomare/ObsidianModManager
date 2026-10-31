@@ -426,6 +426,15 @@ test("back_right_click_and_close", function()
 	E.eq(menu.is_open(), false, "the close button closes")
 end)
 
+test("the_top_page_stays_open_beside_players_who_havent_agreed", function()
+	local e, ui = start(PAGE)
+	local menu = rawget(_G, "obsidian").menu
+	open_root(ui)
+	require("obsidian/loader/session").state = false
+	ui.frame()
+	E.eq(menu.is_open(), true, "the top page belongs to no mod")
+end)
+
 test("a_click_that_closes_the_menu_keeps_the_game_off_the_button_until_it_comes_up", function()
 	local e, ui = start(PAGE)
 	local menu = rawget(_G, "obsidian").menu

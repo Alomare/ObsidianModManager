@@ -54,8 +54,9 @@ local function run(state, what, fn, ...)
 	return B.unpack(r)
 end
 
+-- The top page belongs to no mod and lists only what's allowed, so it's never gated itself.
 local function gated(state)
-	return not (state and state.mod.scope == "client")
+	return state ~= nil and state.mod.scope ~= "client"
 end
 
 local function allowed(state)

@@ -1,8 +1,10 @@
 //! Turning the enabled mods of a profile into one resource set per game bundle.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::library::{Library, Profile};
@@ -37,13 +39,87 @@ fn sha256(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()
 }
 
+/// When a file last changed and its size.
+type Stamp = (SystemTime, u64);
 /// Digests of resource files by path, kept while the file is unchanged, so `plan` reads (and
 /// compiles) a file only once.
-type DigestCache = std::sync::Mutex<std::collections::HashMap<PathBuf, ((std::time::SystemTime, u64), [u8; 32])>>;
+type DigestCache = std::sync::Mutex<std::collections::HashMap<PathBuf, (Stamp, [u8; 32])>>;
 
 fn digests() -> &'static DigestCache {
     static CACHE: std::sync::OnceLock<DigestCache> = std::sync::OnceLock::new();
     CACHE.get_or_init(Default::default)
+}
+
+/// The digests on disk, so a start doesn't read every file and compile every script again.
+const DIGESTS: &str = "digests.json";
+
+#[derive(Serialize, Deserialize)]
+struct SavedDigest {
+    path: PathBuf,
+    secs: u64,
+    nanos: u32,
+    len: u64,
+    digest: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SavedDigests {
+    /// Another version may compile or wrap a script differently, so its digests are no good here.
+    version: String,
+    files: Vec<SavedDigest>,
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn unhex(text: &str) -> Option<[u8; 32]> {
+    let mut out = [0u8; 32];
+    if text.len() != 64 {
+        return None;
+    }
+    for (i, b) in out.iter_mut().enumerate() {
+        *b = u8::from_str_radix(text.get(i * 2..i * 2 + 2)?, 16).ok()?;
+    }
+    Some(out)
+}
+
+/// Reads the digests of a data folder, once. Losing the file only costs the time to work them out.
+fn load_digests(data: &Path) {
+    static LOADED: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+    let mut loaded = LOADED.lock().unwrap();
+    if loaded.iter().any(|d| d == data) {
+        return;
+    }
+    loaded.push(data.to_path_buf());
+    let Ok(text) = std::fs::read_to_string(data.join(DIGESTS)) else { return };
+    let Ok(saved) = serde_json::from_str::<SavedDigests>(&text) else { return };
+    if saved.version != env!("CARGO_PKG_VERSION") {
+        return;
+    }
+    let mut cache = digests().lock().unwrap();
+    for f in saved.files {
+        if let Some(digest) = unhex(&f.digest) {
+            cache.insert(f.path, ((SystemTime::UNIX_EPOCH + Duration::new(f.secs, f.nanos), f.len), digest));
+        }
+    }
+}
+
+fn save_digests(data: &Path) {
+    let files = digests()
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(path, _)| path.starts_with(data))
+        .filter_map(|(path, ((time, len), digest))| {
+            let since = time.duration_since(SystemTime::UNIX_EPOCH).ok()?;
+            Some(SavedDigest { path: path.clone(), secs: since.as_secs(), nanos: since.subsec_nanos(), len: *len, digest: hex(digest) })
+        })
+        .collect();
+    let saved = SavedDigests { version: env!("CARGO_PKG_VERSION").to_string(), files };
+    if let Ok(text) = serde_json::to_vec(&saved) {
+        let _ = crate::paths::write_atomic(&data.join(DIGESTS), &text);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,7 +161,7 @@ pub fn plan(lib: &Library, profile: &Profile) -> Result<Composition> {
 
 /// When each file under a folder last changed and how big the file is, from the folder listings: on Windows
 /// a listing carries both, where asking file by file costs a call each.
-fn file_stamps(dir: &std::path::Path) -> std::collections::HashMap<PathBuf, (std::time::SystemTime, u64)> {
+fn file_stamps(dir: &Path) -> std::collections::HashMap<PathBuf, Stamp> {
     let mut out = std::collections::HashMap::new();
     let mut todo = vec![dir.to_path_buf()];
     while let Some(d) = todo.pop() {
@@ -107,12 +183,17 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
     let mut slots: BTreeMap<(String, u64, u64), (Planned, Vec<String>)> = BTreeMap::new();
     let mut mods = Vec::new();
     let reserved = (hash_name("lua"), hash_name(crate::loader::ENTRY));
+    let mut worked_out = false;
+    if !with_data {
+        load_digests(lib.data_dir());
+    }
     for entry in profile.mods.iter().filter(|m| m.enabled) {
         let dir = lib.mod_dir(&entry.id);
         if !dir.join(crate::manifest::FILE).is_file() {
             return Err(ObsidianError::ModMissing(entry.id.clone()));
         }
-        let m = load_manifest(&dir)?;
+        // `Library::broken` reports a mod that can't be read, and it stays out until it's fixed.
+        let Ok(m) = load_manifest(&dir) else { continue };
         let values = effective_values(&m.option_specs()?, profile.options.get(&m.id));
         if m.resources.iter().any(|r| (r.type_hash, r.name_hash) == reserved) {
             return Err(ObsidianError::ReservedResource { mod_id: m.id.clone(), name: crate::loader::ENTRY.into() });
@@ -152,6 +233,7 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
                     None => {
                         let d = sha256(&game_data()?);
                         digests().lock().unwrap().insert(path.clone(), (stamp, d));
+                        worked_out = true;
                         d
                     }
                 };
@@ -177,6 +259,9 @@ fn compose_with(lib: &Library, profile: &Profile, with_data: bool) -> Result<Com
                 return Err(if lib.mod_dir(id).is_dir() { ObsidianError::MissingRequirement { mod_id, requires } } else { ObsidianError::RequirementNotInstalled { mod_id, requires } });
             }
         }
+    }
+    if worked_out {
+        save_digests(lib.data_dir());
     }
     let mut out = Composition { mods, ..Default::default() };
     for ((bundle, type_hash, name_hash), (planned, losers)) in slots {
