@@ -31,13 +31,13 @@ Importe a versão nova do mesmo jeito. Um mod com o mesmo id substitui o que est
 
 ### Pelo GitHub {#from-github}
 
-Um mod pode indicar o repositório dele no GitHub. Quando algum indica, aparece um botão com duas setas ao lado do **+** verde na aba [Mods](app:mods). Ele pergunta ao GitHub se há versões novas, e cada mod que tiver uma mostra um botão **Atualizar para** ao lado da versão. Clique nele e depois aplique ao jogo.
+Um mod pode indicar o repositório dele no GitHub. Quando indica, aparece um botão com duas setas na linha dele na aba [Mods](app:mods), entre o interruptor e o nome, que pergunta ao GitHub se há uma versão nova daquele mod. O mesmo botão numa pasta pergunta por todos os mods dela, e o do topo da lista pergunta por todos. Um mod com versão nova mostra um botão **Atualizar para** ao lado do nome. Clique nele e depois aplique ao jogo.
 
 O Obsidian fala com o GitHub ao abrir e quando você clica, e só oferece uma versão mais alta do mesmo mod. Nada é instalado até você escolher: use a etiqueta no mod, ou **Atualizar todos** quando houver vários esperando.
 
 ## Remover {#removing}
 
-Clique com o botão direito num mod e escolha **Remover**, ou marque vários mods e use **Remover** na barra acima da lista.
+Clique com o botão direito num mod e escolha **Remover**, ou use a lixeira abaixo do botão de fechar nos detalhes do mod. Para remover vários, marque os mods e use **Remover** na barra no pé da lista.
 
 ## Obsidian Kit
 

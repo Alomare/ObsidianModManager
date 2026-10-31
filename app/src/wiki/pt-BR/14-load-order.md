@@ -24,7 +24,7 @@ Conflito nem sempre é problema. Dois mods podem mudar o mesmo script de propós
 
 Pastas agrupam mods na lista. Elas não mudam nada no jogo: a ordem de carregamento continua indo do topo da lista até o fim, passando por todas as pastas.
 
-- **Criar pasta**, ao lado do botão de perfil, cria uma. Com mods marcados, o botão direito também põe todos numa pasta nova.
+- O botão azul **Criar pasta**, ao lado do botão de perfil, cria uma. Com mods marcados, o botão direito também põe todos numa pasta nova.
 - Arraste mods para o nome de uma pasta para colocá-los dentro, e arraste a pasta para mover junto os mods que estão nela.
 - Clique na seta para recolher a pasta.
 - Clique com o botão direito numa pasta para renomear, trocar a cor ou apagar. Ao apagar, o Obsidian pergunta se os mods vão junto ou ficam na lista.
@@ -35,4 +35,4 @@ O cadeado à direita da pasta trava a pasta. Uma pasta travada mantém o nome, a
 
 ## Marcar vários mods {#checking-several-mods}
 
-As caixas à esquerda selecionam mods para ações em lote. Shift+clique marca um intervalo. Com mods marcados, a barra acima da lista liga, desliga, move para uma pasta ou remove todos de uma vez.
+As caixas à esquerda selecionam mods para ações em lote. Shift+clique marca um intervalo. Com mods marcados, a barra no pé da lista liga, desliga, move para uma pasta ou remove todos de uma vez.

@@ -18,7 +18,7 @@ Um mod de sessão pode mudar o jogo compartilhado: balanceamento, inimigos, spaw
 
 Mods que não declaram escopo contam como mods de sessão. O mesmo vale para mods antigos importados de bundles inteiros, porque o Obsidian não tem como saber o que eles mudam.
 
-O escopo aparece em cada linha da lista de mods e nos detalhes de cada mod.
+Cada linha da lista de mods tem um losango para o escopo: verde para cliente e laranja para sessão. Passe o mouse por cima para ver o nome. Os detalhes de cada mod também mostram o escopo.
 
 ## Quem decide o escopo {#who-decides-the-scope}
 
