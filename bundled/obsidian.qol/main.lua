@@ -115,6 +115,19 @@ if get("widescreen") then
 			obsidian.log("widescreen: aspect ratio limit lifted")
 		end
 	end)
+
+	-- A 3D preview, such as the Armory's character, renders into part of the screen sized against
+	-- 1280x720, and shows up in a box sized the same way. On a wider screen that part is wider than
+	-- the box, so the character looks squashed. The width it renders at is only what the texture
+	-- coordinates read, so narrowing it to match the box leaves everything else alone.
+	obsidian.hook("PreviewWindow", "update_dimensions", function(original, self)
+		original(self)
+		local width, height = rawget(_G, "Application").resolution()
+		if width / height > 16 / 9 then
+			self.norm_width = self.width / 720 * height / width
+			self.viewport_proxy:set_rect(self.norm_x, self.norm_y, self.norm_width, self.norm_height)
+		end
+	end)
 end
 
 -- The mission end screens are sub-states of StateMissionEnd: change_state(self, sub) calls
