@@ -97,7 +97,7 @@ local PROMPTS = { select = "#cross", back = "#mod_back" }
 
 local M = {
 	wanted = false, cleared = CLEARED, screens = {}, mutes = {}, muted = {}, scope = nil, points = {}, primitives = {},
-	refused = {}, frames = {}, remaps = {}, guis = {}, font_files = {}, font_paths = {}, arts = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
+	refused = {}, frames = {}, remaps = {}, guis = {}, font_files = {}, font_paths = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
 }
 
 local function global(name)
@@ -864,8 +864,15 @@ function M.icons()
 	return out
 end
 
-local function bitmap(kit, gui, name, x, y, w, h, c, uv)
-	local self = kit
+-- uv: { u0, v0, u1, v1 } for part of the image. false when it can't draw that name.
+function Kit:icon(name, x, y, w, h, c, uv)
+	if not ready(self) or not M.cleared.icons then return false end
+	if not known_icon(name) then
+		log.limited("ui icon " .. B.tostring(name), "ui: no icon named " .. B.tostring(name))
+		return false
+	end
+	local gui = gui_named("icons")
+	if not gui then return false end
 	local u0, v0, u1, v1 = 0, 0, 1, 1
 	if uv then u0, v0, u1, v1 = uv[1], uv[2], uv[3], uv[4] end
 	local cx, cy, cw, ch = intersect(self.area, x, y, w, h)
@@ -878,27 +885,6 @@ local function bitmap(kit, gui, name, x, y, w, h, c, uv)
 	-- Gui.bitmap_uv(gui, material, uv00, uv11, pos, size, color): hd_gui.lua:220, input_component.lua:267.
 	global("Gui").bitmap_uv(gui, name, v2(nu0, nv0), v2(nu1, nv1), global("Vector3")(self.ox + cx * s, self.oy + cy * s, self.z), v2(cw * s, ch * s), color(self, c))
 	return true
-end
-
--- uv: { u0, v0, u1, v1 } for part of the image. false when it can't draw that name.
-function Kit:icon(name, x, y, w, h, c, uv)
-	if not ready(self) or not M.cleared.icons then return false end
-	if not known_icon(name) then
-		log.limited("ui icon " .. B.tostring(name), "ui: no icon named " .. B.tostring(name))
-		return false
-	end
-	local gui = gui_named("icons")
-	if not gui then return false end
-	return bitmap(self, gui, name, x, y, w, h, c, uv)
-end
-
--- An image from a material a mod ships in the boot bundle, which the fonts' gui lists. A uv with
--- u0 above u1 mirrors it. false when M.art hasn't accepted that name.
-function Kit:art(name, x, y, w, h, c, uv)
-	if not ready(self) or not M.arts[name] then return false end
-	local gui = gui_named("fonts")
-	if not gui then return false end
-	return bitmap(self, gui, name, x, y, w, h, c, uv)
 end
 
 -- The game's player band: its gradient, tinted. A flat tint until the icons are cleared.
@@ -1294,18 +1280,6 @@ function M.font(id, opts)
 	return true
 end
 
--- A sub-material of a material a mod ships in the boot bundle, for kit:art. opts.path: the material's
--- resource name. false when the deploy doesn't have it: a name the gui doesn't list is assumed fatal.
-function M.art(id, opts)
-	opts = opts or {}
-	if B.type(id) ~= "string" or not M.font_files[opts.path] then
-		log.limited("ui art " .. B.tostring(id), "ui: can't add art " .. B.tostring(id))
-		return false
-	end
-	M.arts[id] = true
-	return true
-end
-
 function M.setup(core, hooks, session)
 	M.core, M.session = core, session
 	load_fonts(core.deploy)
@@ -1333,7 +1307,6 @@ function M.api()
 		icons = M.icons,
 		glyphs = M.glyph_names,
 		font = M.font,
-		art = M.art,
 	}
 end
 
