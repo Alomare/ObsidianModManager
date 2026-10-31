@@ -1,7 +1,7 @@
 //! Obsidian Loader as patch resources: the loader modules, every mod entry and the deploy table,
 //! all compiled for the boot bundle, plus the settings file the loader reads at launch.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
@@ -183,6 +183,23 @@ fn scope_text(s: &Scope) -> &'static str {
     if *s == Scope::Client { "client" } else { "session" }
 }
 
+/// The ids of the libraries that run as session mods: those an enabled session mod requires,
+/// directly or through another library. Every other library runs as a client mod.
+fn session_libraries(mods: &[ComposedMod]) -> BTreeSet<&str> {
+    let mut found = BTreeSet::new();
+    let mut waiting: Vec<&ComposedMod> = mods.iter().filter(|c| c.manifest.scope == Scope::Session).collect();
+    while let Some(c) = waiting.pop() {
+        for id in &c.manifest.requires {
+            if let Some(required) = mods.iter().find(|m| m.manifest.id == *id && m.manifest.scope == Scope::Library) {
+                if found.insert(required.manifest.id.as_str()) {
+                    waiting.push(required);
+                }
+            }
+        }
+    }
+    found
+}
+
 /// Load order, with each mod moved just far enough to start after the mods it requires.
 fn start_order(mods: &[ComposedMod]) -> Vec<&ComposedMod> {
     fn visit<'a>(i: usize, mods: &'a [ComposedMod], seen: &mut [bool], out: &mut Vec<&'a ComposedMod>) {
@@ -209,10 +226,16 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
     let mut session = Vec::new();
     let mut mods = Vec::new();
     let (mut has_session, mut has_static_session) = (false, false);
+    let libraries = session_libraries(&comp.mods);
     for c in start_order(&comp.mods) {
         let m = &c.manifest;
         let specs = m.option_specs()?;
-        if m.scope == Scope::Session {
+        let scope = match m.scope {
+            Scope::Library if libraries.contains(m.id.as_str()) => Scope::Session,
+            Scope::Library => Scope::Client,
+            scope => scope,
+        };
+        if scope == Scope::Session {
             has_session = true;
             has_static_session |= c.resources > 0;
             session.push(SessionMod {
@@ -247,7 +270,7 @@ pub fn deploy_table(comp: &Composition, texts: Value) -> Result<Value> {
         mods.push(json!({
             "id": m.id,
             "version": m.version.to_string(),
-            "scope": scope_text(&m.scope),
+            "scope": scope_text(&scope),
             "entry": entry_name(&m.id),
             "loader_api": m.loader_api,
             "requires": m.requires,
@@ -471,6 +494,71 @@ mod tests {
         for name in [ENTRY, "obsidian/loader/core", "obsidian/mods/a/main", "obsidian/mods/b/main", "obsidian/deploy"] {
             assert!(planned.iter().any(|p| p.name_hash == hash_name(name)), "{name}");
         }
+    }
+
+    fn add_requiring(t: &Path, lib: &Library, id: &str, scope: &str, requires: &str) {
+        let d = t.join(format!("stage-{id}"));
+        let json = format!(r#"{{"obsidian":1,"id":"{id}","version":"1.0.0","name":{{"en":"{id}"}},"scope":"{scope}","entry":"main.lua","requires":["{requires}"]}}"#);
+        put(&d, "obsidian.json", json.as_bytes());
+        put(&d, "main.lua", b"return true\n");
+        lib.install(&d).unwrap();
+    }
+
+    fn table_of(lib: &Library, ids: &[&str]) -> Value {
+        let entries = ids.iter().map(|id| ProfileEntry { id: (*id).into(), enabled: true, folder: None }).collect();
+        let profile = Profile { mods: entries, ..Default::default() };
+        deploy_table(&compose(lib, &profile).unwrap(), json!({})).unwrap()
+    }
+
+    fn scope_in<'a>(table: &'a Value, id: &str) -> &'a str {
+        table["mods"].as_array().unwrap().iter().find(|m| m["id"] == id).unwrap()["scope"].as_str().unwrap()
+    }
+
+    #[test]
+    fn a_library_alone_or_with_client_mods_runs_as_a_client_mod() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        add(t.path(), &lib, "lib", "library");
+        add_requiring(t.path(), &lib, "skin", "client", "lib");
+        let vanilla = table_of(&lib, &[]);
+        for ids in [&["lib"][..], &["lib", "skin"][..]] {
+            let table = table_of(&lib, ids);
+            assert_eq!(scope_in(&table, "lib"), "client");
+            assert_eq!(table["has_session"], false);
+            assert_eq!(table["modset"], vanilla["modset"], "it stays out of the sets players compare");
+        }
+    }
+
+    #[test]
+    fn a_library_runs_as_a_session_mod_when_a_session_mod_needs_it() {
+        let t = spaced_tempdir();
+        let lib = Library::open(&t.path().join("data")).unwrap();
+        add(t.path(), &lib, "base", "library");
+        add_requiring(t.path(), &lib, "mid", "library", "base");
+        add_requiring(t.path(), &lib, "cheat", "session", "mid");
+        add_requiring(t.path(), &lib, "skin", "client", "base");
+        let table = table_of(&lib, &["base", "mid", "cheat", "skin"]);
+        assert_eq!(scope_in(&table, "base"), "session", "through the other library");
+        assert_eq!(scope_in(&table, "mid"), "session");
+        assert_eq!(scope_in(&table, "skin"), "client");
+        assert_eq!(table["has_session"], true);
+    }
+
+    #[test]
+    fn a_library_version_counts_only_when_it_runs_as_a_session_mod() {
+        let hash = |version: &str, with_session_mod: bool| {
+            let t = spaced_tempdir();
+            let lib = Library::open(&t.path().join("data")).unwrap();
+            let d = t.path().join("stage-lib");
+            put(&d, "obsidian.json", format!(r#"{{"obsidian":1,"id":"lib","version":"{version}","name":{{"en":"lib"}},"scope":"library","entry":"main.lua"}}"#).as_bytes());
+            put(&d, "main.lua", b"return true\n");
+            lib.install(&d).unwrap();
+            add_requiring(t.path(), &lib, "cheat", "session", "lib");
+            let ids: &[&str] = if with_session_mod { &["lib", "cheat"] } else { &["lib"] };
+            table_of(&lib, ids)["modset"].clone()
+        };
+        assert_ne!(hash("1.0.0", true), hash("1.0.1", true));
+        assert_eq!(hash("1.0.0", false), hash("1.0.1", false));
     }
 
     #[test]

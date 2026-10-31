@@ -12,6 +12,7 @@ obsidian.capabilities.module boolean
 obsidian.capabilities.on_frame boolean
 obsidian.capabilities.on_require boolean
 obsidian.capabilities.on_session boolean
+obsidian.capabilities.scope boolean
 obsidian.capabilities.session boolean
 obsidian.capabilities.settings boolean
 obsidian.capabilities.storage boolean
@@ -27,9 +28,11 @@ obsidian.module function
 obsidian.on_frame function
 obsidian.on_require function
 obsidian.on_session function
+obsidian.scope function
 obsidian.session table
 obsidian.session.cleared function
 obsidian.session.forfeit_progress function
+obsidian.session.guard function
 obsidian.session.hold_progress function
 obsidian.session.members function
 obsidian.settings table

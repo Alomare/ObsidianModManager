@@ -86,12 +86,12 @@ function G.start(ids, opts)
 				for k, v in raw:gmatch('"([^"]+)": "(.-)",?\r?\n') do texts[lang][k] = v end
 			end
 		end
-		deploy_mods[#deploy_mods + 1] = E.mod(id, { scope = "session", texts = texts,
+		deploy_mods[#deploy_mods + 1] = E.mod(id, { scope = opts.scope or "session", texts = texts,
 			requires = id == "obsidian.trainer" and { "obsidian.api" } or nil,
 			options = { { id = "keep_edits", type = "toggle", default = false } },
 			keybinds = { { id = "open", default = "f6" } } })
 	end
-	local e = E.new({ deploy = E.deploy({ mods = deploy_mods, has_session = true, texts = { en = {
+	local e = E.new({ deploy = E.deploy({ mods = deploy_mods, has_session = opts.scope ~= "client", texts = { en = {
 		menu_title = "Obsidian", menu_empty = "No pages", menu_failed = "Page failed", menu_unavailable = "Not now",
 		menu_filter = "Filter", menu_keys = "Keys",
 	} } }), mods = mods, lobby = opts.lobby })

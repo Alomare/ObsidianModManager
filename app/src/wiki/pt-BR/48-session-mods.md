@@ -55,6 +55,33 @@ end)
 > [!NOTE]
 > Mudar o seu próprio progresso, como XP ou desbloqueios, é permitido. O Obsidian faz backup do save antes de cada aplicação e não desfaz essas mudanças.
 
+## Escrever uma biblioteca {#libraries}
+
+Um mod que existe para outros mods usarem pode se declarar uma biblioteca:
+
+```json
+"scope": "library"
+```
+
+A cada aplicação, o Obsidian o trata como mod de sessão se um mod de sessão ligado precisar dele, diretamente ou por outra biblioteca. Nos outros casos, ele é um mod de cliente. O que ele faz como mod de sessão segue as regras de sempre, e ele entra no conjunto que os jogadores comparam. Uma biblioteca que substitui arquivos do jogo com `resources` mantém esses arquivos nos dois casos, então não coloque mudanças de jogabilidade neles.
+
+O seu código precisa funcionar dos dois jeitos. `obsidian.scope()` diz qual dos dois esta aplicação definiu, e `obsidian.session.guard` separa as funções que você entrega a outros mods. Liste as que são seguras para qualquer um: ler, desfazer e mudanças que só este jogador vê ou ouve. Qualquer outra função responde `false, "needs_session"` quando a biblioteca roda como mod de cliente, e `false, "not_cleared"` num lobby que não está liberado. Uma função que você esquecer de listar é recusada.
+
+```lua
+local M = obsidian.module("lib/enemies")
+
+-- Os hooks de jogabilidade esperam um mod de sessão que precise deles.
+if obsidian.scope() == "session" then
+  obsidian.hook("Damage", "apply", M.on_damage)
+end
+
+return {
+  enemies = obsidian.session.guard(M, { "list", "count" }),
+}
+```
+
+O seu próprio código continua com a tabela real, então ainda consegue desfazer as mudanças depois que o lobby deixa de estar liberado.
+
 ## Opções em mods de sessão {#options-in-session-mods}
 
 Todo valor de opção conta quando o Obsidian compara os conjuntos dos jogadores, a não ser que você marque a opção com `"scope": "client"`. Marque as opções que só mudam o que este jogador vê ([Opções e teclas](wiki:options-and-keys#personal-options-in-session-mods)).

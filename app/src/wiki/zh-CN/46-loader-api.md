@@ -53,6 +53,10 @@ end)
 
 该玩家的会话模组可以运行时为 `true`。客户端模组很少需要它。
 
+### obsidian.session.guard(t, free) {#obsidian-session-guard}
+
+返回表 `t` 的一个视图，用于提供给其他模组。列表 `free` 中的函数照常工作。其他函数在模组作为客户端模组运行时返回 `false, "needs_session"`，在会话未获许可时返回 `false, "not_cleared"`（[编写库](wiki:session-mods#libraries)）。
+
 ### obsidian.session.members() {#obsidian-session-members}
 
 大厅中其他玩家的列表。每项包含 `peer`、`obsidian`（该玩家是否使用 Obsidian）、`modset` 和 `consent`。
@@ -88,6 +92,10 @@ end)
 ### obsidian.import(id) {#obsidian-import-id}
 
 另一个模组的 `entry` 脚本返回的值；该模组未运行时为 `nil`。请把该模组写进 `requires`，使其先启动（[Obsidian 运行时 API](wiki:obsidian-api)）。
+
+### obsidian.scope() {#obsidian-scope}
+
+模组在本次部署中的运行方式：`"client"` 或 `"session"`。库会得到其中之一（[编写库](wiki:session-mods#libraries)）。
 
 ### obsidian.caller() {#obsidian-caller}
 

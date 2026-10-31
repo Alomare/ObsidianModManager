@@ -804,6 +804,64 @@ test("events_stop_when_the_session_stops_being_cleared", function()
 	E.eq(count, 1, "the delegate isn't gated by the loader")
 end)
 
+test("as_a_client_mod_it_refuses_what_changes_the_game", function()
+	local api = start({ scope = "client" })
+	for name, call in pairs({
+		heal = function() return api.player.heal() end,
+		kill = function() return api.enemies.kill_near(20) end,
+		effect = function() return api.effects.set("god", true) end,
+		edit = function() return api.edits.set_unit("equipment/wep_assaultrifle_01", "weapon_info.power", 150) end,
+		command = function() return api.game.command({}, "health", "reset") end,
+		console = function() return api.console.run("help") end,
+		ping = function() return api.ui.ping(nil) end,
+	}) do
+		local ok, why = call()
+		E.eq(ok, false, name)
+		E.eq(why, "needs_session", name)
+	end
+end)
+
+test("as_a_client_mod_it_still_reads_and_shows", function()
+	local api = start({ scope = "client" })
+	E.eq(type(api.catalog.stratagems()), "table")
+	E.eq(api.game.in_mission(), true)
+	E.eq(type(api.mission.objectives()), "table")
+	E.eq(type(api.lobby.players()), "table")
+	E.eq(api.ui.hint("words"), true)
+	E.eq(api.events.on("on_avatar_extract", function() end), true)
+end)
+
+test("as_a_client_mod_it_leaves_the_game_alone", function()
+	local _, _, e = start({ scope = "client" })
+	E.eq(e:log():find("hook installed: HealthComponent", 1, true), nil)
+	E.eq(e:log():find("hook installed: UserManager.unlock_trophy by obsidian.api", 1, true), nil)
+end)
+
+test("as_a_client_mod_it_hears_events_in_any_lobby", function()
+	local api, game, e = start({ scope = "client", lobby = { my_id = "me", members = { "me", "stranger" }, data = {} } })
+	local count = 0
+	api.events.on("on_avatar_extract", function() count = count + 1 end)
+	e:frames(31)
+	E.eq(rawget(_G, "obsidian").session.cleared(), false)
+	game.state.event_delegate:trigger("on_avatar_extract", "unit", "shuttle")
+	E.eq(count, 1)
+end)
+
+test("a_guarded_function_waits_for_a_cleared_session", function()
+	local api, _, e = start({ lobby = { my_id = "me", members = { "me", "stranger" }, data = {} } })
+	e:frames(31)
+	E.eq(rawget(_G, "obsidian").session.cleared(), false)
+	local ok, why = api.player.heal()
+	E.eq(ok, false)
+	E.eq(why, "not_cleared")
+	E.eq(type(api.catalog.stratagems()), "table")
+end)
+
+test("every_function_it_lists_as_free_exists", function()
+	local _, _, e = start()
+	E.eq(e:log():find("guard:", 1, true), nil, e:log())
+end)
+
 test("a_mod_that_was_switched_off_hears_nothing", function()
 	local api, game, e = start()
 	local count = 0

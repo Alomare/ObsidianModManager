@@ -55,6 +55,33 @@ end)
 > [!NOTE]
 > Changing your own progress, such as XP or unlocks, is allowed. Obsidian backs up the save before every deploy and doesn't undo those changes.
 
+## Writing a library {#libraries}
+
+A mod that exists for other mods to build on can declare itself a library:
+
+```json
+"scope": "library"
+```
+
+On each deploy, Obsidian makes it a session mod if an enabled session mod requires it, directly or through another library. Otherwise it's a client mod. Anything it does as a session mod goes through the usual rules, and it joins the set players compare. A library that replaces game files with `resources` keeps them in both cases, so keep gameplay changes out of those.
+
+Your code has to work both ways. `obsidian.scope()` says which one this deploy gave you, and `obsidian.session.guard` sorts the functions you hand to other mods. Name the ones that are safe for anyone: reading, undoing, and changes only this player sees or hears. Every other function answers `false, "needs_session"` when your library runs as a client mod, and `false, "not_cleared"` in a lobby that isn't cleared. A function you forget to list is refused.
+
+```lua
+local M = obsidian.module("lib/enemies")
+
+-- The gameplay hooks wait for a session mod that needs them.
+if obsidian.scope() == "session" then
+  obsidian.hook("Damage", "apply", M.on_damage)
+end
+
+return {
+  enemies = obsidian.session.guard(M, { "list", "count" }),
+}
+```
+
+Your own code keeps the real table, so it can still undo its changes after the lobby stops being cleared.
+
 ## Options in session mods
 
 Every option value counts when Obsidian compares players' sets, unless you mark it `"scope": "client"`. Mark the options that only change what this player sees ([Options and keys](wiki:options-and-keys#personal-options-in-session-mods)).

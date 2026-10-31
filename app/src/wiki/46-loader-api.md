@@ -53,6 +53,10 @@ Calls `fn` each time the key bound to `id` goes down. The key comes from the app
 
 `true` while this player's session mods may run. Client mods rarely need it.
 
+### obsidian.session.guard(t, free)
+
+A view of table `t` to hand to other mods. The functions named in the list `free` work as usual. Every other function answers `false, "needs_session"` when the calling mod runs as a client mod, and `false, "not_cleared"` when the session isn't cleared ([Writing a library](wiki:session-mods#libraries)).
+
 ### obsidian.session.members()
 
 A list of the other players in the lobby. Each entry has `peer`, `obsidian` (whether that player runs Obsidian), `modset` and `consent`.
@@ -88,6 +92,10 @@ Loads another Lua file of this mod and returns what it returns. The file has to 
 ### obsidian.import(id)
 
 What the `entry` script of another mod returned, or `nil` when that mod isn't running. List the mod in `requires`, so it starts first ([Obsidian API](wiki:obsidian-api)).
+
+### obsidian.scope()
+
+How the calling mod runs in this deploy: `"client"` or `"session"`. A library gets one of the two ([Writing a library](wiki:session-mods#libraries)).
 
 ### obsidian.caller()
 

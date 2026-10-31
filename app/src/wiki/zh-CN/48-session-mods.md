@@ -55,6 +55,33 @@ end)
 > [!NOTE]
 > 修改你自己的进度（例如经验或解锁）是允许的。Obsidian 会在每次部署前备份存档，且不会撤销这些更改。
 
+## 编写库 {#libraries}
+
+专门供其他模组使用的模组可以声明为库：
+
+```json
+"scope": "library"
+```
+
+每次部署时，如果有已启用的会话模组直接或通过其他库需要它，Obsidian 就把它当作会话模组，否则当作客户端模组。作为会话模组时，它遵循通常的规则，并计入玩家比较的组合。用 `resources` 替换游戏文件的库在两种情况下都会保留这些文件，所以不要把玩法更改放在里面。
+
+你的代码必须两种情况都能运行。`obsidian.scope()` 告诉你本次部署的结果，`obsidian.session.guard` 用来区分你提供给其他模组的函数。请列出对任何人都安全的函数：读取、撤销，以及只有该玩家自己能看到或听到的更改。其他函数在库作为客户端模组运行时返回 `false, "needs_session"`，在未获许可的大厅中返回 `false, "not_cleared"`。忘记列出的函数会被拒绝。
+
+```lua
+local M = obsidian.module("lib/enemies")
+
+-- 玩法挂钩要等到有会话模组需要时才安装。
+if obsidian.scope() == "session" then
+  obsidian.hook("Damage", "apply", M.on_damage)
+end
+
+return {
+  enemies = obsidian.session.guard(M, { "list", "count" }),
+}
+```
+
+你自己的代码仍使用真实的表，所以大厅不再获许可后，它依然可以撤销更改。
+
 ## 会话模组中的选项 {#options-in-session-mods}
 
 比较玩家的组合时，每个选项值都会计入，除非你把它标记为 `"scope": "client"`。请标记那些只改变该玩家自己所见内容的选项（[选项和按键](wiki:options-and-keys#personal-options-in-session-mods)）。

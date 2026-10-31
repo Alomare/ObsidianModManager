@@ -18,7 +18,13 @@ A session mod can change the shared game: balance, enemies, spawns, missions, ph
 
 Mods that don't declare a scope count as session mods. So do older mods imported from whole bundles, because Obsidian can't know what they change.
 
-Every row of the mod list has a diamond for the scope, green for client and orange for session. Hover over it for the name. The details of each mod say it too.
+## Libraries
+
+A library is code other mods build on, such as Obsidian API. It takes the scope of the mods using it: a session mod while an enabled session mod requires it, and a client mod the rest of the time. A library on its own, or used only by client mods, doesn't move you out of the normal matchmaking pool or stop your Galactic War results.
+
+## In the app
+
+Every row of the mod list has a diamond for the scope, green for client, orange for session and half of each for a library. Hover over it for the name. The details of each mod say it too.
 
 ## Who decides the scope
 

@@ -196,7 +196,11 @@ fn run(cli: Cli) -> Result<()> {
             for (i, entry) in profile.mods.iter().enumerate() {
                 let Some(m) = mods.iter().find(|m| m.id == entry.id) else { continue };
                 let on = if entry.enabled { "on " } else { "off" };
-                let scope = if m.scope == Scope::Client { "client" } else { "session" };
+                let scope = match m.scope {
+                    Scope::Client => "client",
+                    Scope::Session => "session",
+                    Scope::Library => "library",
+                };
                 println!("{:>3}. [{on}] {} {} ({scope})", i + 1, m.id, m.version);
             }
         }

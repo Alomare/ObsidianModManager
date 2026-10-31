@@ -23,7 +23,7 @@ local M = {
 local capabilities = {
 	after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true,
 	settings = true, keybind = true, text = true, on_frame = true, module = true, import = true, menu = true, toast = true, storage = true, caller = true,
-	ui = true,
+	ui = true, scope = true,
 }
 local api = {
 	version = API_VERSION,
@@ -180,6 +180,13 @@ local function run_frame_callbacks()
 		if not stop then B.insert(keep, cb) end
 	end
 	M.frame_callbacks = keep
+end
+
+-- How the calling mod runs in this deploy: "client" or "session". A library has become one of the two.
+function api.scope()
+	local state = M.current
+	if not state then return nil end
+	return state.mod.scope == "client" and "client" or "session"
 end
 
 function api.after_startup(fn)

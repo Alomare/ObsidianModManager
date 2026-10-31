@@ -187,8 +187,38 @@ function M.end_forfeit()
 	M.forfeited, M.kept = false, nil
 end
 
+-- A view of a mod's table for other mods to call. Every function not named in `free` answers
+-- false and a reason when the calling mod's scope or the lobby doesn't allow it, so a function
+-- nobody sorted is refused rather than let through. The mod's own code keeps using the real table,
+-- because undoing a change has to work after the session stops being cleared.
+function M.guard(t, free)
+	local state = M.core.current
+	if not state then B.error("obsidian.session.guard needs a running mod", 2) end
+	local open, wrapped = {}, {}
+	for _, name in B.ipairs(free or {}) do
+		open[name] = true
+		if t[name] == nil then log.line("guard: " .. state.id .. " lists " .. B.tostring(name) .. ", which doesn't exist") end
+	end
+	return B.setmetatable({}, {
+		__index = function(_, k)
+			local v = t[k]
+			if B.type(v) ~= "function" or open[k] then return v end
+			if not wrapped[v] then
+				wrapped[v] = function(...)
+					if state.mod.scope == "client" then return false, "needs_session" end
+					if not M.state then return false, "not_cleared" end
+					return v(...)
+				end
+			end
+			return wrapped[v]
+		end,
+		__newindex = t,
+	})
+end
+
 function M.api()
 	return {
+		guard = M.guard,
 		cleared = M.cleared,
 		forfeit_progress = M.forfeit_progress,
 		hold_progress = M.hold_progress,

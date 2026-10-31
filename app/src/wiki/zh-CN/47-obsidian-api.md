@@ -16,6 +16,8 @@ Obsidian API 是供其他模组使用的模组。它知道游戏中各项内容�
 "requires": ["obsidian.api"]
 ```
 
+Obsidian API 是一个[库](wiki:session-mods#libraries)。客户端模组可以依赖它并保持客户端身份，不影响匹配和银河战争。这种情况下，它可以读取游戏数据并使用 `api.ui`、`api.audio` 和 `api.events`，而任何会改变共享游戏的操作都返回 `false, "needs_session"`。要使用这些操作，请把你的模组设为会话模组。
+
 然后获取它：
 
 ```lua

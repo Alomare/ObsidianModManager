@@ -17,6 +17,8 @@ pub enum Scope {
     /// Anything that may change the shared game. Missing or unknown scopes count as session.
     #[default]
     Session,
+    /// Code for other mods: session when an enabled session mod requires it, client otherwise.
+    Library,
 }
 
 impl Serialize for Scope {
@@ -24,6 +26,7 @@ impl Serialize for Scope {
         s.serialize_str(match self {
             Scope::Client => "client",
             Scope::Session => "session",
+            Scope::Library => "library",
         })
     }
 }
@@ -31,7 +34,11 @@ impl Serialize for Scope {
 impl<'de> Deserialize<'de> for Scope {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
         let v = Value::deserialize(d)?;
-        Ok(if v.as_str() == Some("client") { Scope::Client } else { Scope::Session })
+        Ok(match v.as_str() {
+            Some("client") => Scope::Client,
+            Some("library") => Scope::Library,
+            _ => Scope::Session,
+        })
     }
 }
 
@@ -354,6 +361,8 @@ mod tests {
         assert_eq!(load_manifest(mod_with(&weird).path()).unwrap().scope, Scope::Session);
         let missing = EXAMPLE.replace(r#""scope": "client","#, "");
         assert_eq!(load_manifest(mod_with(&missing).path()).unwrap().scope, Scope::Session);
+        let library = EXAMPLE.replace(r#""scope": "client""#, r#""scope": "library""#);
+        assert_eq!(load_manifest(mod_with(&library).path()).unwrap().scope, Scope::Library);
     }
 
     #[test]

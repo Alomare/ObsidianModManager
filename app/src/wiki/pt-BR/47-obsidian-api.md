@@ -16,6 +16,8 @@ Coloque-o em `requires`. O Obsidian liga o API junto com o seu mod e o inicia pr
 "requires": ["obsidian.api"]
 ```
 
+O Obsidian API é uma [biblioteca](wiki:session-mods#libraries). Um mod de cliente pode exigi-lo e continuar sendo de cliente, sem efeito na busca de partidas nem na Guerra Galáctica. Nesse caso, ele pode ler os dados do jogo e usar `api.ui`, `api.audio` e `api.events`, e tudo que muda o jogo compartilhado responde `false, "needs_session"`. Para usar essas funções, faça do seu mod um mod de sessão.
+
 Depois peça por ele:
 
 ```lua

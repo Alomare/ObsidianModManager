@@ -25,7 +25,7 @@ fn manifest(lib: &Library, id: &str) -> Result<Manifest> {
 
 /// Whether a change to `option` of `m` needs a deploy.
 pub fn needs_deploy(m: &Manifest, option: &str, client: bool) -> bool {
-    m.resources.iter().any(|r| r.when.contains_key(option)) || (m.scope == Scope::Session && !client) || m.entry.is_none()
+    m.resources.iter().any(|r| r.when.contains_key(option)) || (m.scope != Scope::Client && !client) || m.entry.is_none()
 }
 
 /// Sets an option to `value`, or back to the default when `value` is `None`.

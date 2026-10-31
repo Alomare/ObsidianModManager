@@ -213,7 +213,7 @@ fn option_rows(m: &Manifest, profile: &Profile) -> Result<Vec<OptionRow>> {
                 OptionKind::Number { min, max, step } => (*min, *max, *step),
                 _ => (None, None, None),
             };
-            let deploy = m.resources.iter().any(|r| r.when.contains_key(&s.id)) || (m.scope == Scope::Session && !s.client) || m.entry.is_none();
+            let deploy = m.resources.iter().any(|r| r.when.contains_key(&s.id)) || (m.scope != Scope::Client && !s.client) || m.entry.is_none();
             OptionRow {
                 id: s.id.clone(),
                 kind: s.kind.name(),
@@ -289,7 +289,11 @@ pub fn snapshot(data: &Path, settings: &AppSettings, gate: &mut GateCache) -> Re
             description: m.description.clone().unwrap_or_default(),
             authors: m.authors.clone(),
             version: if unversioned { None } else { Some(m.version.to_string()) },
-            scope: if m.scope == Scope::Client { "client" } else { "session" },
+            scope: match m.scope {
+                Scope::Client => "client",
+                Scope::Session => "session",
+                Scope::Library => "library",
+            },
             on: e.enabled,
             options: option_rows(m, &profile)?,
             keybinds,

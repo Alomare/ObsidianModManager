@@ -53,6 +53,10 @@ Chama `fn` toda vez que a tecla ligada a `id` desce. A tecla vem do app, ou do p
 
 `true` enquanto os mods de sessão deste jogador podem rodar. Mods de cliente quase nunca precisam.
 
+### obsidian.session.guard(t, free) {#obsidian-session-guard}
+
+Uma visão da tabela `t` para entregar a outros mods. As funções da lista `free` funcionam normalmente. Qualquer outra responde `false, "needs_session"` quando o mod roda como mod de cliente, e `false, "not_cleared"` quando a sessão não está liberada ([Escrever uma biblioteca](wiki:session-mods#libraries)).
+
 ### obsidian.session.members() {#obsidian-session-members}
 
 Uma lista dos outros jogadores no lobby. Cada entrada tem `peer`, `obsidian` (se o jogador usa o Obsidian), `modset` e `consent`.
@@ -88,6 +92,10 @@ Carrega outro arquivo Lua deste mod e devolve o que ele devolve. O arquivo preci
 ### obsidian.import(id) {#obsidian-import-id}
 
 O que o script `entry` de outro mod devolveu, ou `nil` quando esse mod não está rodando. Coloque o mod em `requires`, para ele iniciar primeiro ([API Obsidian](wiki:obsidian-api)).
+
+### obsidian.scope() {#obsidian-scope}
+
+Como o mod roda nesta aplicação: `"client"` ou `"session"`. Uma biblioteca recebe um dos dois ([Escrever uma biblioteca](wiki:session-mods#libraries)).
 
 ### obsidian.caller() {#obsidian-caller}
 
