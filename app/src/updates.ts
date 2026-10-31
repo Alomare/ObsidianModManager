@@ -71,5 +71,52 @@ export async function startupUpdate(mode: AppSettings["updates"], portable: bool
 
 export const updateState = () => state;
 
+export type ChangelogEntry = { version: string; date: string | null; notes: string; url: string | null; when: "new" | "installed" | "older" };
+
+/** Orders plain versions: 1.0.2 before 1.0.10. Below zero when a comes first. */
+export function compareVersions(a: string, b: string) {
+  const parts = (v: string) => v.split(".").map((n) => parseInt(n, 10) || 0);
+  const x = parts(a), y = parts(b);
+  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+  return 0;
+}
+
+// The notes this build shipped with, so the changelog reads without a connection.
+const shipped = Object.entries(import.meta.glob("../../docs/releases/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>)
+  .map(([path, notes]) => ({ version: path.replace(/^.*\/|\.md$/g, ""), notes }));
+
+/** Every version there are notes for, newest first. GitHub's text wins, as it can be edited there. */
+export function changelog(remote: Release[], current: string, local: { version: string; notes: string }[] = shipped): ChangelogEntry[] {
+  const when = (v: string): ChangelogEntry["when"] => {
+    const c = compareVersions(v, current);
+    return c > 0 ? "new" : c === 0 ? "installed" : "older";
+  };
+  const all = new Map<string, ChangelogEntry>();
+  for (const r of local) all.set(r.version, { version: r.version, date: null, notes: r.notes.trim(), url: null, when: when(r.version) });
+  for (const r of remote) {
+    all.set(r.version, { version: r.version, date: r.date, url: r.url, notes: r.notes.trim() || all.get(r.version)?.notes || "", when: when(r.version) });
+  }
+  return [...all.values()].sort((a, b) => compareVersions(b.version, a.version));
+}
+
+export type Release = { version: string; date: string | null; notes: string; url: string };
+type ReleaseList = { list: Release[]; failed: boolean; loaded: boolean };
+
+let releases: ReleaseList = { list: [], failed: false, loaded: false };
+const releaseListeners = new Set<() => void>();
+
+/** Asks GitHub once per launch, when the changelog first shows. */
+export function loadReleases() {
+  if (releases.loaded) return;
+  releases = { ...releases, loaded: true };
+  call<Release[]>("release_list")
+    .then((list) => { releases = { ...releases, list, failed: false }; })
+    .catch(() => { releases = { ...releases, failed: true }; })
+    .finally(() => releaseListeners.forEach((f) => f()));
+}
+
+export const useReleases = () =>
+  useSyncExternalStore((f) => { releaseListeners.add(f); return () => { releaseListeners.delete(f); }; }, () => releases);
+
 export const useUpdates = () =>
   useSyncExternalStore((f) => { listeners.add(f); return () => { listeners.delete(f); }; }, updateState);

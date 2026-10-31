@@ -44,3 +44,26 @@ describe("the notes of an update", () => {
     expect(updateState().notes).toBe("From latest.json");
   });
 });
+
+describe("the changelog", () => {
+  const remote = [
+    { version: "1.0.10", date: "2026-11-02T00:00:00Z", notes: "Ten", url: "u10" },
+    { version: "1.0.2", date: "2026-11-01T00:00:00Z", notes: "  ", url: "u2" },
+  ];
+  const local = [{ version: "1.0.2", notes: "Shipped" }, { version: "1.0.1", notes: "Old" }];
+
+  it("puts new versions first and marks the installed one", async () => {
+    const { changelog } = await load();
+    expect(changelog(remote, "1.0.2", local).map((e) => [e.version, e.when])).toEqual([["1.0.10", "new"], ["1.0.2", "installed"], ["1.0.1", "older"]]);
+  });
+
+  it("keeps the shipped notes when GitHub has no text", async () => {
+    const { changelog } = await load();
+    expect(changelog(remote, "1.0.2", local)[1].notes).toBe("Shipped");
+  });
+
+  it("reads without GitHub, and has the versions this build shipped with", async () => {
+    const { changelog } = await load();
+    expect(changelog([], "1.0.1").map((e) => e.version)).toContain("1.0.1");
+  });
+});

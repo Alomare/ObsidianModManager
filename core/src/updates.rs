@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use semver::Version;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::library::{InstallOutcome, Library};
 use crate::manifest::{Manifest, load_manifest};
@@ -61,6 +61,27 @@ struct RawNotes {
     body: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RawListed {
+    tag_name: String,
+    html_url: String,
+    published_at: Option<String>,
+    body: Option<String>,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    prerelease: bool,
+}
+
+/// A published release as the changelog shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ListedRelease {
+    pub version: String,
+    pub date: Option<String>,
+    pub notes: String,
+    pub url: String,
+}
+
 #[derive(Debug)]
 pub struct Release {
     pub version: Version,
@@ -97,7 +118,7 @@ impl GitHub {
 
     /// The newest release of `repo`. GitHub leaves out drafts and prereleases.
     pub fn latest(&self, repo: &Repo) -> Result<Release> {
-        let raw: RawRelease = serde_json::from_str(&self.release_json(repo, "latest")?)?;
+        let raw: RawRelease = serde_json::from_str(&self.release_json(repo, "/latest")?)?;
         let tag = raw.tag_name.strip_prefix(['v', 'V']).unwrap_or(&raw.tag_name);
         let version = Version::parse(tag).map_err(|_| ObsidianError::NoRelease(repo.to_string()))?;
         Ok(Release { version, assets: raw.assets })
@@ -105,12 +126,26 @@ impl GitHub {
 
     /// The notes of one release as GitHub has them now, so an edit there counts.
     pub fn notes(&self, repo: &Repo, tag: &str) -> Result<Option<String>> {
-        let raw: RawNotes = serde_json::from_str(&self.release_json(repo, &format!("tags/{tag}"))?)?;
+        let raw: RawNotes = serde_json::from_str(&self.release_json(repo, &format!("/tags/{tag}"))?)?;
         Ok(raw.body.filter(|b| !b.trim().is_empty()))
     }
 
+    /// The published releases of `repo`, newest first. A tag that isn't a version is left out.
+    pub fn releases(&self, repo: &Repo) -> Result<Vec<ListedRelease>> {
+        let raw: Vec<RawListed> = serde_json::from_str(&self.release_json(repo, "?per_page=50")?)?;
+        Ok(raw
+            .into_iter()
+            .filter(|r| !r.draft && !r.prerelease)
+            .filter_map(|r| {
+                let version = r.tag_name.strip_prefix(['v', 'V']).unwrap_or(&r.tag_name);
+                Version::parse(version).ok()?;
+                Some(ListedRelease { version: version.to_string(), date: r.published_at, notes: r.body.unwrap_or_default(), url: r.html_url })
+            })
+            .collect())
+    }
+
     fn release_json(&self, repo: &Repo, which: &str) -> Result<String> {
-        let url = format!("{}/repos/{repo}/releases/{which}", self.api);
+        let url = format!("{}/repos/{repo}/releases{which}", self.api);
         let mut res = self.agent.get(&url).header("Accept", "application/vnd.github+json").call().map_err(network)?;
         match res.status().as_u16() {
             200 => {}
@@ -292,6 +327,25 @@ mod tests {
     fn mods_without_a_repository_are_left_out_of_a_check() {
         let plain: Manifest = serde_json::from_str(r#"{"obsidian":1,"id":"b.mod","version":"1.0.0","name":{"en":"B"}}"#).unwrap();
         assert!(check(&github("v1.0.0", vec![]), &[plain]).is_empty());
+    }
+
+    #[test]
+    fn the_changelog_lists_published_versions_only() {
+        let (base, routes) = server();
+        let list = br#"[
+            {"tag_name":"v1.0.2","html_url":"u2","published_at":"2026-10-31T00:00:00Z","body":"Two"},
+            {"tag_name":"v1.0.3","html_url":"u3","draft":true},
+            {"tag_name":"v1.1.0-beta.1","html_url":"u4","prerelease":true},
+            {"tag_name":"nightly","html_url":"u5"},
+            {"tag_name":"1.0.1","html_url":"u1","body":null}
+        ]"#;
+        routes.lock().unwrap().push(("/repos/me/mod/releases?per_page=50".into(), 200, list.to_vec()));
+        let github = GitHub::at(base);
+        let found = github.releases(&github_repo("https://github.com/me/mod").unwrap()).unwrap();
+        let versions: Vec<&str> = found.iter().map(|r| r.version.as_str()).collect();
+        assert_eq!(versions, ["1.0.2", "1.0.1"]);
+        assert_eq!(found[0].notes, "Two");
+        assert_eq!(found[1].notes, "");
     }
 
     #[test]

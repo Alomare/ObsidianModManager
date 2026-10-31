@@ -1,24 +1,22 @@
-// Settings (spec 4.4): System (game, language, updates, data) and Theme (colours, size,
+// Settings (spec 4.4): System (game, language, when to update, data), Updates and Theme (colours, size,
 // animations). App settings save to app.json at once. The subtab scrolls; the header stays.
 import { open } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { call, errorText, run } from "./api";
 import { Confirm } from "./Confirm";
-import { ExternalIcon } from "./Icons";
 import { LANGUAGES, language, t } from "./i18n";
-import { LINKS } from "./links";
 import { notify } from "./notices";
 import { copyReport } from "./report";
 import { Select } from "./Select";
+import { Row, Section } from "./SettingRow";
 import { updateSettings, useAppSettings } from "./settings";
 import { motionOn, systemReducesMotion } from "./theme";
 import type { AppSettings, Snapshot } from "./types";
-import { checkForUpdate, installUpdate, useUpdates } from "./updates";
+import { UpdatesTab } from "./UpdatesTab";
 
 type SystemInfo = { dataDir: string; backups: { name: string; path: string }[]; chosenGameDir: string | null; logsDir: string | null; foreign: string[] };
 
-export type SettingsTab = "system" | "theme";
+export type SettingsTab = "system" | "updates" | "theme";
 
 export function SettingsPage({ snap, tab, onTab }: { snap: Snapshot; tab: SettingsTab; onTab: (t: SettingsTab) => void }) {
   return (
@@ -26,36 +24,14 @@ export function SettingsPage({ snap, tab, onTab }: { snap: Snapshot; tab: Settin
       <div className="head">
         <h1 className="cap">{t("app.nav.settings")}</h1>
         <div className="subtabs" role="tablist">
-          {(["system", "theme"] as const).map((id) => (
+          {(["system", "updates", "theme"] as const).map((id) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "cap cur" : "cap"} onClick={() => onTab(id)}>
               {t(`app.settings.${id}`)}
             </button>
           ))}
         </div>
       </div>
-      <div className="view settings-body" key={tab}>{tab === "system" ? <SystemTab snap={snap} /> : <ThemeTab />}</div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="set-section">
-      <h2 className="cap">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-/** One row: what it is (and a line about it) on the left, the control on the right. */
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="set-row">
-      <div className="set-text">
-        <div className="l">{label}</div>
-        {hint && <div className="d">{hint}</div>}
-      </div>
-      <div className="set-ctl">{children}</div>
+      <div className="view settings-body" key={tab}>{tab === "system" ? <SystemTab snap={snap} /> : tab === "updates" ? <UpdatesTab snap={snap} onSystem={() => onTab("system")} /> : <ThemeTab />}</div>
     </div>
   );
 }
@@ -123,16 +99,15 @@ function SystemTab({ snap }: { snap: Snapshot }) {
         </Row>
       </Section>
 
-      <Section title={t("app.settings.updates")}>
-        <UpdateRow snap={snap} />
-        {!snap.portable && (
+      {!snap.portable && (
+        <Section title={t("app.settings.updates")}>
           <Row label={t("app.settings.updateMode")} hint={t(`app.settings.updates.${settings.updates}Hint`)}>
             <Select<AppSettings["updates"]> value={settings.updates} label={t("app.settings.updateMode")}
               options={(["manual", "prompt", "auto"] as const).map((v) => ({ value: v, label: t(`app.settings.updates.${v}`) }))}
               onChange={(v) => updateSettings({ updates: v })} />
           </Row>
-        )}
-      </Section>
+        </Section>
+      )}
 
       <Section title={t("app.settings.starter")}>
         <Row label={t("app.settings.starterLabel")} hint={t("app.settings.starterHint")}>
@@ -169,27 +144,6 @@ function SystemTab({ snap }: { snap: Snapshot }) {
           onCancel={() => setRestoring(false)} onConfirm={restore} />
       )}
     </>
-  );
-}
-
-function UpdateRow({ snap }: { snap: Snapshot }) {
-  const u = useUpdates();
-  const busy = u.phase === "checking" || u.phase === "downloading" || u.phase === "installing";
-  const pct = u.total ? Math.round((u.got / u.total) * 100) : 0;
-  const line =
-    u.phase === "checking" ? t("app.update.checking")
-    : u.phase === "none" ? t("app.update.none")
-    : u.phase === "found" ? t("app.update.found", u.version ?? "") + (u.error ? ` ${t("app.update.failedInstall", u.error)}` : "")
-    : u.phase === "failed" ? t("app.update.failed")
-    : u.phase === "downloading" ? t("app.update.downloading", pct)
-    : u.phase === "installing" ? t("app.update.installing")
-    : snap.portable ? t("app.settings.portableHint") : "";
-  return (
-    <Row label={t("app.settings.version", snap.version)} hint={line || undefined}>
-      {u.phase === "found" && !snap.portable && <button className="btn small play" onClick={installUpdate}>{t("app.update.install")}</button>}
-      <button className="btn small" disabled={busy} onClick={() => checkForUpdate()}>{t("app.update.checkNow")}</button>
-      <button className="btn small" onClick={() => openUrl(LINKS.releases).catch(() => {})}>{t("app.settings.releases")} <ExternalIcon /></button>
-    </Row>
   );
 }
 

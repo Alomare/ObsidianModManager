@@ -19,6 +19,7 @@ import { loadSettings, useAppSettings } from "./settings";
 import { StatusBar } from "./StatusBar";
 import { Tooltip } from "./Tooltip";
 import { installUpdate, startupUpdate, useUpdates } from "./updates";
+import { UpdateProgress } from "./UpdateProgress";
 
 export default function App() {
   const snap = useSnapshot();
@@ -70,7 +71,7 @@ export default function App() {
   if (!settings) return null;
   return (
     <div className="app">
-      <NavBar tab={tab} onTab={setTab} snap={snap} busy={busy} wave={wave} onWaveEnd={() => setWave(null)} onPurge={() => setAskPurge(true)}
+      <NavBar tab={tab} onTab={(to) => { if (to === "settings" && update.phase === "found") setSettingsTab("updates"); setTab(to); }} snap={snap} busy={busy} updateFound={update.phase === "found"} wave={wave} onWaveEnd={() => setWave(null)} onPurge={() => setAskPurge(true)}
         onDeploy={() => { startWave(snap?.changes === "Waiting" ? "green" : "grey"); deploy(); }} onPlay={() => { startWave("yellow"); play(); }} />
       <main className={tab === "home" || tab === "wiki" ? "page bleed" : "page"}>
         {tab === "home" && <div className="view" key="home"><HomePage /></div>}
@@ -79,7 +80,7 @@ export default function App() {
         {tab === "wiki" && <div className="view" key="wiki"><WikiPage /></div>}
         {snap && tab === "settings" && <div className="view" key="settings"><SettingsPage snap={snap} tab={settingsTab} onTab={setSettingsTab} /></div>}
       </main>
-      <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("system"); setTab("settings"); }} />
+      <StatusBar version={snap?.version ?? null} updateFound={update.phase === "found"} onUpdates={() => { setSettingsTab("updates"); setTab("settings"); }} />
       {dropping && (
         <div className={dropping.inside ? "dropzone cap over" : "dropzone cap"}
           style={{ left: dropping.rect.left, top: dropping.rect.top, width: dropping.rect.width, height: dropping.rect.height }}>
@@ -96,6 +97,7 @@ export default function App() {
           {update.notes && <div className="update-notes"><Markdown tokens={parse(update.notes).tokens} /></div>}
         </Confirm>
       )}
+      <UpdateProgress />
       <Notices />
       <Tooltip />
     </div>

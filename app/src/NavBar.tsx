@@ -16,6 +16,8 @@ type Props = {
   onTab: (t: Tab) => void;
   snap: Snapshot | null;
   busy: boolean;
+  /** A new version of Obsidian is out: the Settings button says so, and opens on Updates. */
+  updateFound: boolean;
   wave: Wave | null;
   onWaveEnd: () => void;
   onPurge: () => void;
@@ -25,7 +27,7 @@ type Props = {
 
 const TABS: [Tab, ComponentType][] = [["home", HomeIcon], ["mods", ModsIcon], ["wiki", BookIcon]];
 
-export function NavBar({ tab, onTab, snap, busy, wave, onWaveEnd, onPurge, onDeploy, onPlay }: Props) {
+export function NavBar({ tab, onTab, snap, busy, updateFound, wave, onWaveEnd, onPurge, onDeploy, onPlay }: Props) {
   const running = snap?.game === "running";
   const missing = snap?.game === "notFound";
   const locked = busy || running || !snap || missing;
@@ -73,9 +75,11 @@ export function NavBar({ tab, onTab, snap, busy, wave, onWaveEnd, onPurge, onDep
         </div>
       </div>
       <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === "settings"} aria-label={t("app.nav.settings")} className={tab === "settings" ? "tab cur" : "tab"}
-          onClick={() => onTab("settings")} data-tip={t("app.nav.settings")}>
+        <button role="tab" aria-selected={tab === "settings"} aria-label={updateFound ? `${t("app.nav.settings")}: ${t("app.status.updateFound")}` : t("app.nav.settings")}
+          className={`tab${tab === "settings" ? " cur" : ""}${updateFound ? " lit" : ""}`} onClick={() => onTab("settings")}
+          data-tip-title={updateFound ? t("app.nav.settings") : undefined} data-tip={updateFound ? t("app.status.updateFound") : t("app.nav.settings")}>
           <CogIcon />
+          {updateFound && <i className="tab-dot" aria-hidden="true" />}
         </button>
       </div>
     </nav>

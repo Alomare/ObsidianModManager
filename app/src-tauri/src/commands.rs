@@ -392,6 +392,13 @@ pub async fn release_notes(version: String) -> CmdResult<Option<String>> {
     Ok(GitHub::default().notes(&repo, &format!("v{version}"))?)
 }
 
+/// Every published version of Obsidian, for the changelog.
+#[tauri::command]
+pub async fn release_list() -> CmdResult<Vec<updates::ListedRelease>> {
+    let Some(repo) = updates::github_repo(APP_SOURCE) else { return Ok(Vec::new()) };
+    Ok(GitHub::default().releases(&repo)?)
+}
+
 /// Asks GitHub about the mods in `ids` that name a repository. Only reading the library takes a
 /// turn, so the other commands don't wait for the network.
 #[tauri::command]

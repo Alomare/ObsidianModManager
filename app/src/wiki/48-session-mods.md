@@ -80,7 +80,7 @@ return {
 }
 ```
 
-Your own code keeps the real table, so it can still undo its changes after the lobby stops being cleared.
+Your own code keeps the real table, so it can still undo what it changed after the lobby stops being cleared.
 
 ## Options in session mods
 

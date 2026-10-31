@@ -66,6 +66,7 @@ pub fn run() {
             commands::import_paths,
             commands::check_mod_updates,
             commands::release_notes,
+            commands::release_list,
             commands::update_mod,
             commands::deploy,
             commands::purge,

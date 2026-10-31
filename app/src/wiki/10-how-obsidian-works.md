@@ -38,6 +38,14 @@ The bar at the top holds the multiplayer switch and three buttons:
 
 The status bar at the bottom shows what Obsidian is doing, the version, your notifications and the About box.
 
+## Updating Obsidian
+
+The **Updates** tab in [Settings](app:settings) shows your version, checks for a new one and lists what each version changed. **When a new version is out**, in the System tab, decides what happens at startup: **Show it here**, **Ask at startup** or **Install it**. The list opens the installed version and any newer ones, and you can open older ones.
+
+While a new version downloads, a window in front of the app shows the progress. Obsidian then closes, the installer runs for a moment, and Obsidian opens again on the new version.
+
+A portable copy doesn't install new versions. Download them from the releases page and unzip them over the old copy.
+
 ## Where your files are
 
 | What | Where |

@@ -20,7 +20,7 @@ Mods that don't declare a scope count as session mods. So do older mods imported
 
 ## Libraries
 
-A library is code other mods build on, such as Obsidian API. It takes the scope of the mods using it: a session mod while an enabled session mod requires it, and a client mod the rest of the time. A library on its own, or used only by client mods, doesn't move you out of the normal matchmaking pool or stop your Galactic War results.
+A library is code other mods build on, such as Obsidian API. It takes the scope of the mods using it: a session mod while an enabled session mod requires it, and a client mod the rest of the time. A library that no mod uses, or that only client mods use, doesn't move you out of the normal matchmaking pool or stop your Galactic War results.
 
 ## In the app
 

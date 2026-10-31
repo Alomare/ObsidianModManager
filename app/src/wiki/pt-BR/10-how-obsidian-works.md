@@ -38,6 +38,14 @@ A barra de cima tem o interruptor de multijogador e três botões:
 
 A barra de status, embaixo, mostra o que o Obsidian está fazendo, a versão, as notificações e o Sobre.
 
+## Atualizar o Obsidian {#updating-obsidian}
+
+A aba **Atualizações** em [Configurações](app:settings) mostra a sua versão, procura uma nova e lista o que cada versão mudou. Na aba Sistema, **Quando sair uma nova versão** decide o que acontece ao abrir: **Mostrar aqui**, **Perguntar ao iniciar** ou **Instalar**. A lista abre a versão instalada e as mais novas, e você pode abrir as mais antigas.
+
+Enquanto uma nova versão baixa, uma janela na frente do app mostra o progresso. Depois o Obsidian fecha, o instalador roda por um instante e o Obsidian abre de novo na versão nova.
+
+Uma cópia portátil não instala novas versões. Baixe-as na página de lançamentos e descompacte por cima da cópia antiga.
+
 ## Onde ficam os arquivos {#where-your-files-are}
 
 | O quê | Onde |
