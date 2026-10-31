@@ -237,6 +237,7 @@ ui.on("loadout", {
 | `kit:measure(text, opts)` | 文本的宽度和高度，包含字距。不绘制 |
 | `kit:point(x, y)` | 把一个像素点（例如鼠标位置）转换为此画布的坐标 |
 | `kit:icon(name, x, y, w, h, color, uv)` | 游戏的一张图片。`uv` 为 `{ u0, v0, u1, v1 }`。`obsidian.ui.icons()` 列出名称 |
+| `kit:art(name, x, y, w, h, color, uv)` | 你的模组自带材质中的图像，用 `obsidian.ui.art` 添加。`uv` 为 `{ u0, v0, u1, v1 }`，`u0` 大于 `u1` 时左右镜像 |
 | `kit:band(x, y, w, h, color)` | 游戏的玩家色带：染色后的渐变 |
 | `kit:bar(x, y, w, h, value, color, back)` | 在 `back` 之上从 0 到 1 填充的条 |
 | `kit:clip(x, y, w, h, fn)` | 运行 `fn(kit)`，绘制限制在矩形内 |
@@ -276,9 +277,13 @@ kit:text("HELLDIVERS", 100, 200, { font = "title" })
 
 `size` 是文本未指定大小时使用的字号。如果部署中没有该字体，返回 `false`，指定它的文本会改用调试字体。它必须放在启动包中，因为列出未加载材质的 gui 可能使游戏停止。文本在你烘焙的大小以内（默认 48）保持清晰，字体中缺少的字符来自 `"chat"`。请检查字体的许可：烘焙得到的是修改版，因此带保留名称的字体不能沿用该名称。
 
+### obsidian.ui.art(name, opts) {#obsidian-ui-art-name-opts}
+
+为 `kit:art` 添加模组放在启动包中的材质的子材质。`opts.path` 是材质的资源名称。部署中没有该材质时返回 `false`。
+
 ### obsidian.ui.frame(w, h), safe() {#obsidian-ui-frame-w-h-safe}
 
-`frame(1920, 1080)` 让本模组的坐标成为设计空间，按玩家的窗口和界面缩放，以游戏的方式缩放并居中。`frame()` 恢复为像素。调用一次即可，模组启动时也可以调用。
+`frame(1920, 1080)` 让本模组的坐标成为设计空间，按玩家的窗口和界面缩放，以游戏的方式缩放并居中。`frame()` 恢复为像素。调用一次即可，模组启动时也可以调用。 界面缩放小于 1 时，游戏会把该空间留在窗口底部；`frame(1920, 1080, { centered = true })` 则让它保持在中间。
 
 `safe()` 返回 `{ x, y, w, h, scale }`，即游戏放置自己菜单的区域，使用你的坐标。
 

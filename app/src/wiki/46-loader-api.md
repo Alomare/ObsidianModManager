@@ -237,6 +237,7 @@ Coordinates are pixels from the bottom left, or your design space after `obsidia
 | `kit:measure(text, opts)` | Width and height of a text, tracking included. Draws nothing |
 | `kit:point(x, y)` | A point in pixels, such as the mouse's, in this kit's coordinates |
 | `kit:icon(name, x, y, w, h, color, uv)` | One of the game's images. `uv` is `{ u0, v0, u1, v1 }`. `obsidian.ui.icons()` lists the names |
+| `kit:art(name, x, y, w, h, color, uv)` | An image from a material your mod ships, added with `obsidian.ui.art`. `uv` is `{ u0, v0, u1, v1 }`, and `u0` above `u1` mirrors it |
 | `kit:band(x, y, w, h, color)` | The game's player band: its gradient, tinted |
 | `kit:bar(x, y, w, h, value, color, back)` | A bar filled from 0 to 1, over `back` |
 | `kit:clip(x, y, w, h, fn)` | Runs `fn(kit)` with drawing kept inside the rectangle |
@@ -276,9 +277,13 @@ kit:text("HELLDIVERS", 100, 200, { font = "title" })
 
 `size` is the size a text gets when it doesn't ask for one. The answer is `false` for a font the deploy doesn't have, and a text naming it gets the debug font. It has to be in the boot bundle, because a gui that lists a material that isn't loaded can stop the game. Text stays sharp up to the size you baked, 48 by default, and a letter your font lacks comes from `"chat"`. Check your font's license: a bake is a modified version, so a font with a reserved name can't keep that name.
 
+### obsidian.ui.art(name, opts)
+
+Adds a sub-material of a material your mod ships in the boot bundle, for `kit:art`. `opts.path` is the material's resource name. The answer is `false` for a material the deploy doesn't have.
+
 ### obsidian.ui.frame(w, h), safe()
 
-`frame(1920, 1080)` makes this mod's coordinates a design space, scaled and centred the way the game does it, from the player's window and UI scale. `frame()` goes back to pixels. Call it once, even while the mod starts.
+`frame(1920, 1080)` makes this mod's coordinates a design space, scaled and centred the way the game does it, from the player's window and UI scale. `frame()` goes back to pixels. Call it once, even while the mod starts. The game leaves the space at the bottom of the window when the UI scale is below 1; `frame(1920, 1080, { centered = true })` keeps it in the middle.
 
 `safe()` gives `{ x, y, w, h, scale }`, the area the game keeps its own menus in, in your coordinates.
 

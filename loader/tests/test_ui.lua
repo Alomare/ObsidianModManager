@@ -1014,4 +1014,41 @@ test("the_mission_end_data_names_the_step_and_copies_the_values", function()
 	E.eq(d.values.extracted_players, 3)
 end)
 
+test("a_mod_draws_art_from_a_material_it_ships", function()
+	local e, ui = start([[
+		OK = obsidian.ui.art("mod_art", { path = "m/fonts/fonts" })
+		NO = obsidian.ui.art("other", { path = "not/deployed" })
+		KIT = obsidian.ui.canvas("direct")
+	]], BAKED)
+	e:frames(2)
+	E.eq(rawget(_G, "OK"), true)
+	E.eq(rawget(_G, "NO"), false, "a material the deploy lacks is refused")
+	local kit = rawget(_G, "KIT")
+	E.eq(kit:art("mod_art", 10, 20, 30, 40, "#ffffff", { 0.5, 0, 0, 0.5 }), true)
+	local b = ui.bitmaps[1]
+	E.eq(b.name, "mod_art")
+	E.eq(b.gui, "gui fonts/fonts", "the gui that lists the material")
+	E.eq(b.uv0.x, 0.5, "u0 above u1 mirrors it")
+	E.eq(b.uv1.x, 0)
+	E.eq(kit:art("other", 0, 0, 1, 1), false, "and a refused name never reaches the engine")
+	E.eq(#ui.bitmaps, 1)
+end)
+
+test("a_centred_frame_stays_in_the_middle_at_any_ui_scale", function()
+	rawset(_G, "SaveManager", { get = function(_, key) return key == "ui_scale" and 0.5 or nil end })
+	local e, ui = start([[
+		obsidian.ui.frame(1920, 1080, { centered = true })
+		KIT = obsidian.ui.canvas("t")
+	]])
+	ui.state = "menu"
+	ui.height, ui.width = 1080, 1920
+	e:core().current = e:core().mods_by_id.m
+	e:frames(2)
+	rawget(_G, "KIT"):rect(0, 0, 100, 50)
+	E.eq(ui.rects[1].pos.x, 480)
+	E.eq(ui.rects[1].pos.y, 270)
+	E.eq(ui.rects[1].size.x, 50)
+	rawset(_G, "SaveManager", nil)
+end)
+
 return T

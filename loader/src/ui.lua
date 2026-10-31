@@ -97,7 +97,7 @@ local PROMPTS = { select = "#cross", back = "#mod_back" }
 
 local M = {
 	wanted = false, cleared = CLEARED, screens = {}, mutes = {}, muted = {}, scope = nil, points = {}, primitives = {},
-	refused = {}, frames = {}, remaps = {}, guis = {}, font_files = {}, font_paths = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
+	refused = {}, frames = {}, remaps = {}, guis = {}, font_files = {}, font_paths = {}, arts = {}, stamp = 0, can_draw = false, fade = 1, win = nil, glyphs = {}, glyph_count = 0,
 }
 
 local function global(name)
@@ -444,24 +444,26 @@ end
 
 -- HdGui's sums for any design size (hd_gui.lua:27-34). y keeps the game's centring, which leaves out
 -- the player's ui_scale.
-local function layout(design_w, design_h)
+local function layout(design_w, design_h, centered)
 	local w, h, x, y = window()
 	local user = ui_scale()
 	local scale = B.min(w / design_w, h / design_h) * user
+	if centered then user = 1 end
 	return scale, x + (w - design_w * scale) * 0.5, y + (h - design_h * scale / user) * 0.5
 end
 
 -- Sets this mod's design space: its kits take coordinates in it from now on, centred and scaled as
 -- the game does, whatever the resolution. nil goes back to pixels. Worked out each frame, so a mod
--- can call this while it starts, before the game has a window.
-function M.frame(design_w, design_h)
+-- can call this while it starts, before the game has a window. opts.centered keeps the space in the
+-- middle of the window at any ui_scale, where the game's own sums leave it at the bottom.
+function M.frame(design_w, design_h, opts)
 	local owner = M.core.current or NOBODY
 	if design_w == nil then
 		M.frames[owner] = nil
 		return true
 	end
 	if B.type(design_w) ~= "number" or B.type(design_h) ~= "number" or design_w <= 0 or design_h <= 0 then return false, "out_of_range" end
-	M.frames[owner] = { w = design_w, h = design_h }
+	M.frames[owner] = { w = design_w, h = design_h, centered = B.type(opts) == "table" and opts.centered == true }
 	return true
 end
 
@@ -629,7 +631,7 @@ local function sync(kit)
 	kit.stamp = M.stamp
 	local f = M.frames[kit.owner]
 	if f then
-		kit.scale, kit.ox, kit.oy = layout(f.w, f.h)
+		kit.scale, kit.ox, kit.oy = layout(f.w, f.h, f.centered)
 	else
 		kit.scale, kit.ox, kit.oy = 1, 0, 0
 	end
@@ -864,15 +866,8 @@ function M.icons()
 	return out
 end
 
--- uv: { u0, v0, u1, v1 } for part of the image. false when it can't draw that name.
-function Kit:icon(name, x, y, w, h, c, uv)
-	if not ready(self) or not M.cleared.icons then return false end
-	if not known_icon(name) then
-		log.limited("ui icon " .. B.tostring(name), "ui: no icon named " .. B.tostring(name))
-		return false
-	end
-	local gui = gui_named("icons")
-	if not gui then return false end
+local function bitmap(kit, gui, name, x, y, w, h, c, uv)
+	local self = kit
 	local u0, v0, u1, v1 = 0, 0, 1, 1
 	if uv then u0, v0, u1, v1 = uv[1], uv[2], uv[3], uv[4] end
 	local cx, cy, cw, ch = intersect(self.area, x, y, w, h)
@@ -885,6 +880,27 @@ function Kit:icon(name, x, y, w, h, c, uv)
 	-- Gui.bitmap_uv(gui, material, uv00, uv11, pos, size, color): hd_gui.lua:220, input_component.lua:267.
 	global("Gui").bitmap_uv(gui, name, v2(nu0, nv0), v2(nu1, nv1), global("Vector3")(self.ox + cx * s, self.oy + cy * s, self.z), v2(cw * s, ch * s), color(self, c))
 	return true
+end
+
+-- uv: { u0, v0, u1, v1 } for part of the image. false when it can't draw that name.
+function Kit:icon(name, x, y, w, h, c, uv)
+	if not ready(self) or not M.cleared.icons then return false end
+	if not known_icon(name) then
+		log.limited("ui icon " .. B.tostring(name), "ui: no icon named " .. B.tostring(name))
+		return false
+	end
+	local gui = gui_named("icons")
+	if not gui then return false end
+	return bitmap(self, gui, name, x, y, w, h, c, uv)
+end
+
+-- An image from a material a mod ships in the boot bundle, which the fonts' gui lists. A uv with
+-- u0 above u1 mirrors it. false when M.art hasn't accepted that name.
+function Kit:art(name, x, y, w, h, c, uv)
+	if not ready(self) or not M.arts[name] then return false end
+	local gui = gui_named("fonts")
+	if not gui then return false end
+	return bitmap(self, gui, name, x, y, w, h, c, uv)
 end
 
 -- The game's player band: its gradient, tinted. A flat tint until the icons are cleared.
@@ -1280,6 +1296,18 @@ function M.font(id, opts)
 	return true
 end
 
+-- A sub-material of a material a mod ships in the boot bundle, for kit:art. opts.path: the material's
+-- resource name. false when the deploy doesn't have it: a name the gui doesn't list is assumed fatal.
+function M.art(id, opts)
+	opts = opts or {}
+	if B.type(id) ~= "string" or not M.font_files[opts.path] then
+		log.limited("ui art " .. B.tostring(id), "ui: can't add art " .. B.tostring(id))
+		return false
+	end
+	M.arts[id] = true
+	return true
+end
+
 function M.setup(core, hooks, session)
 	M.core, M.session = core, session
 	load_fonts(core.deploy)
@@ -1307,6 +1335,7 @@ function M.api()
 		icons = M.icons,
 		glyphs = M.glyph_names,
 		font = M.font,
+		art = M.art,
 	}
 end
 

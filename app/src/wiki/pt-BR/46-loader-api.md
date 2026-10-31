@@ -237,6 +237,7 @@ As coordenadas são pixels a partir do canto inferior esquerdo, ou o seu espaço
 | `kit:measure(text, opts)` | Largura e altura de um texto, com o espaçamento. Não desenha |
 | `kit:point(x, y)` | Um ponto em pixels, como o do mouse, nas coordenadas deste kit |
 | `kit:icon(name, x, y, w, h, color, uv)` | Uma imagem do jogo. `uv` é `{ u0, v0, u1, v1 }`. `obsidian.ui.icons()` lista os nomes |
+| `kit:art(name, x, y, w, h, color, uv)` | Uma imagem de um material que o seu mod traz, adicionada com `obsidian.ui.art`. `uv` é `{ u0, v0, u1, v1 }`, e `u0` acima de `u1` espelha a imagem |
 | `kit:band(x, y, w, h, color)` | A faixa de jogador do jogo: o degradê dele, tingido |
 | `kit:bar(x, y, w, h, value, color, back)` | Uma barra cheia de 0 a 1, sobre `back` |
 | `kit:clip(x, y, w, h, fn)` | Roda `fn(kit)` com o desenho preso ao retângulo |
@@ -276,9 +277,13 @@ kit:text("HELLDIVERS", 100, 200, { font = "title" })
 
 `size` é o tamanho que um texto recebe quando não pede um. A resposta é `false` para uma fonte que a aplicação não tem, e um texto que a nomeia recebe a fonte debug. Ela precisa estar no bundle de inicialização, porque uma gui que lista um material não carregado pode parar o jogo. O texto fica nítido até o tamanho em que você gerou a fonte, 48 por padrão, e uma letra que a sua fonte não tem vem de `"chat"`. Confira a licença da sua fonte: gerar a fonte cria uma versão modificada, então uma fonte com nome reservado não pode manter esse nome.
 
+### obsidian.ui.art(name, opts) {#obsidian-ui-art-name-opts}
+
+Adiciona um submaterial de um material que o seu mod traz no bundle de boot, para `kit:art`. `opts.path` é o nome do recurso do material. A resposta é `false` para um material que o deploy não tem.
+
 ### obsidian.ui.frame(w, h), safe() {#obsidian-ui-frame-w-h-safe}
 
-`frame(1920, 1080)` faz das coordenadas deste mod um espaço de design, escalado e centralizado como o jogo faz, a partir da janela e da escala de interface do jogador. `frame()` volta para pixels. Chame uma vez, mesmo enquanto o mod inicia.
+`frame(1920, 1080)` faz das coordenadas deste mod um espaço de design, escalado e centralizado como o jogo faz, a partir da janela e da escala de interface do jogador. `frame()` volta para pixels. Chame uma vez, mesmo enquanto o mod inicia. O jogo deixa o espaço na parte de baixo da janela quando a escala de interface é menor que 1; `frame(1920, 1080, { centered = true })` o mantém no meio.
 
 `safe()` dá `{ x, y, w, h, scale }`, a área em que o jogo mantém os próprios menus, nas suas coordenadas.
 
