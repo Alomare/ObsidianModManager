@@ -54,7 +54,7 @@ Ações que só o host pode fazer avisam quando você as escolhe.
 
 ## O que ele não faz {#what-it-wont-do}
 
-- **Não tem controle de XP nem de patente.** Seu XP total vai junto com os resultados da próxima missão normal, mesmo depois de limpar, então um número editado chegaria aos placares compartilhados. Mas missões reais continuam pagando XP. Terminar uma com **Vencer agora**, **Extração rápida** ou **Concluir todos os objetivos** soma o XP de sempre ao seu save, e a próxima missão limpa envia esse total. Missões de treino não pagam nada.
+- **Não tem controle de XP nem de patente.** Seu XP total vai junto com os resultados da próxima missão normal, mesmo depois de limpar, então um número editado chegaria aos placares compartilhados. Missões reais pagam normalmente, mas uma que você termina com **Vencer agora**, **Extração rápida** ou **Concluir todos os objetivos** não paga nada: seu total fica como estava, e uma mensagem na tela avisa. Missões de treino não pagam nada.
 - **Não libera DLC pago.** As listas mostram o que você tem, e o resto continua como o jogo vende.
 - **Não mexe na guerra compartilhada.** Comandos que informam a Guerra Galáctica são recusados, e os resultados continuam bloqueados ([A Guerra Galáctica](wiki:galactic-war)).
 

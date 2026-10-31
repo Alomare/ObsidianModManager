@@ -37,6 +37,16 @@ local function empty(t)
 end
 
 function M.setup(core, hooks)
+	-- Every way the game pays XP, proving grounds and a quit included, ends in this one write. These
+	-- are loader hooks, so a stranger joining late can't let the XP through.
+	hooks.loader_hook("SaveManager", "user_set", function(original, self, key, ...)
+		if key == "player_xp" and core.session.xp_forfeited then return end
+		return original(self, key, ...)
+	end)
+	hooks.loader_hook("StateGame", "on_enter", function(original, self, ...)
+		core.session.xp_forfeited = false
+		return original(self, ...)
+	end)
 	for _, name in B.ipairs(METHODS) do
 		hooks.loader_hook("CampaignManager", name, function(original, self, ...)
 			if not modded(core) then return original(self, ...) end

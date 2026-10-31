@@ -54,7 +54,7 @@ Actions that only the host can do say so when you choose them.
 
 ## What it won't do
 
-- **It has no control for your XP or rank.** Your total XP goes up with your next ordinary mission results, even after a purge, so an edited number would reach the shared leaderboards. Real missions still pay XP, though. Ending one with **Win now**, **Fast extraction** or **Finish all objectives** adds the usual XP to your save, and your next clean mission uploads that total. Practice missions pay nothing.
+- **It has no control for your XP or rank.** Your total XP goes up with your next ordinary mission results, even after a purge, so an edited number would reach the shared leaderboards. Real missions pay it as usual, but one you end with **Win now**, **Fast extraction** or **Finish all objectives** pays none: your total stays as it was, and a message on screen says so. Practice missions pay nothing.
 - **It won't unlock paid DLC.** Lists show the items you own, and everything else stays as the game sells it.
 - **It won't touch the shared war.** Commands that report to the Galactic War are refused, and results stay blocked ([The Galactic War](wiki:galactic-war)).
 

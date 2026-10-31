@@ -57,6 +57,10 @@ end)
 
 大厅中其他玩家的列表。每项包含 `peer`、`obsidian`（该玩家是否使用 Obsidian）、`modset` 和 `consent`。
 
+### obsidian.session.forfeit_xp() {#obsidian-session-forfeit-xp}
+
+当前任务不会获得经验值，并会告知玩家。适用于替玩家完成任务的模组，效果持续到下一个任务开始。
+
 ### obsidian.on_session(fn) {#obsidian-on-session-fn}
 
 每当加载器开启或关闭本模组时调用 `fn(on)`，让模组可以撤销其他玩家会看到的更改。

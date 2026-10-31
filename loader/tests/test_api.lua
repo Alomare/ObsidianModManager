@@ -574,6 +574,22 @@ test("winning_marks_the_player_extracted_first", function()
 	E.eq(game.record.player_go.has_extracted, true)
 end)
 
+test("a_mission_the_api_finishes_pays_no_xp", function()
+	for _, fn in ipairs({ "win", "finish_objectives" }) do
+		local api, _, e = start()
+		local session = e.loaded["obsidian/loader/session"]
+		E.eq(session.xp_forfeited, false, fn)
+		E.eq(api.mission[fn](), true, fn)
+		E.eq(session.xp_forfeited, true, fn)
+	end
+end)
+
+test("a_refused_action_leaves_the_xp_alone", function()
+	local api, _, e = start({ host = false })
+	E.eq(api.mission.win(), false)
+	E.eq(e.loaded["obsidian/loader/session"].xp_forfeited, false)
+end)
+
 test("practice_starts_only_from_the_ship_and_pays_nothing", function()
 	local api, game, e, ui = start()
 	local ok, why = api.mission.practice({ time = 1, environment = 1, enemy = 1, kind = 1, difficulty = 5 })

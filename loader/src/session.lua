@@ -5,7 +5,7 @@ local log = require("obsidian/loader/log")
 
 local EVERY = 30
 
-local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil }
+local M = { state = true, members = {}, listeners = {}, published = nil, published_lobby = nil, warned = nil, xp_forfeited = false }
 
 function M.setup(core)
 	M.core = core
@@ -95,9 +95,19 @@ function M.on_session(fn)
 	B.insert(M.listeners, { state = M.core.current, fn = fn })
 end
 
+-- The mission under way pays no XP, until the next one starts. For a mod that finishes a mission for
+-- the player: that XP would go into the save, and a later clean mission would upload the total.
+function M.forfeit_xp()
+	if M.xp_forfeited then return end
+	M.xp_forfeited = true
+	log.line("session: this mission pays no XP")
+	M.core.notice("xp_forfeited")
+end
+
 function M.api()
 	return {
 		cleared = M.cleared,
+		forfeit_xp = M.forfeit_xp,
 		members = function()
 			local copy = {}
 			for i, m in B.ipairs(M.members) do

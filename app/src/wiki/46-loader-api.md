@@ -57,6 +57,10 @@ Calls `fn` each time the key bound to `id` goes down. The key comes from the app
 
 A list of the other players in the lobby. Each entry has `peer`, `obsidian` (whether that player runs Obsidian), `modset` and `consent`.
 
+### obsidian.session.forfeit_xp()
+
+The mission under way pays no XP, and the player is told. It's for a mod that finishes a mission for the player, and it lasts until the next mission starts.
+
 ### obsidian.on_session(fn)
 
 Calls `fn(on)` whenever the loader switches this mod on or off, so the mod can undo what other players would see.

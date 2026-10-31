@@ -78,6 +78,31 @@ test("consent_alone_blocks_uploads_only_beside_a_different_set", function()
 	E.eq(#cm.sent, 1, "the same set again")
 end)
 
+test("a_forfeited_mission_keeps_the_old_xp_until_the_next_mission", function()
+	local e = engine(true, { my_id = "me", members = { "me" }, data = {} })
+	local save = load_save_manager(e)
+	local sm = rawget(_G, "SaveManager")
+	rawset(_G, "StateGame", { on_enter = function() end })
+	e.opts.modules["lua/states/state_game"] = true
+	rawget(_G, "require")("lua/states/state_game")
+	sm:user_set("player_xp", 200, "user")
+	E.eq(save.user.player_xp, 200, "an ordinary mission pays")
+
+	local session = rawget(_G, "obsidian").session
+	session.forfeit_xp()
+	session.forfeit_xp()
+	sm:user_set("player_xp", 900, "user")
+	E.eq(save.user.player_xp, 200, "every way of paying ends in this write")
+	sm:user_set("research_samples", 7, "user")
+	E.eq(save.user.research_samples, 7, "other values still save")
+	E.eq(E.count(e:log(), "this mission pays no XP"), 1, "told once")
+	E.eq(#e:core().notices + #e:core().notices_shown, 1)
+
+	rawget(_G, "StateGame").on_enter({})
+	sm:user_set("player_xp", 300, "user")
+	E.eq(save.user.player_xp, 300, "the next mission pays again")
+end)
+
 test("uploads_untouched_without_session_content", function()
 	local e = engine(false)
 	local cm = load_campaign_manager(e)

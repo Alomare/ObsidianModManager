@@ -57,6 +57,10 @@ Chama `fn` toda vez que a tecla ligada a `id` desce. A tecla vem do app, ou do p
 
 Uma lista dos outros jogadores no lobby. Cada entrada tem `peer`, `obsidian` (se o jogador usa o Obsidian), `modset` e `consent`.
 
+### obsidian.session.forfeit_xp() {#obsidian-session-forfeit-xp}
+
+A missão em andamento não paga XP, e o jogador é avisado. Serve para um mod que termina uma missão pelo jogador, e vale até a próxima missão começar.
+
 ### obsidian.on_session(fn) {#obsidian-on-session-fn}
 
 Chama `fn(on)` sempre que o loader liga ou desliga este mod, para que o mod possa desfazer o que outros jogadores veriam.
