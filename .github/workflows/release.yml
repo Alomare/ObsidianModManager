@@ -88,6 +88,7 @@ jobs:
         with:
           projectPath: app
           releaseId: ${{ steps.draft.outputs.id }}
+          tagName: ${{ github.ref_name }}
           releaseBody: ${{ steps.draft.outputs.notes }}
 
       - name: The portable ZIP
