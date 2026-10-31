@@ -18,6 +18,7 @@ local events = obsidian.module("lib/events")
 local combat = obsidian.module("lib/combat")
 local vehicles = obsidian.module("lib/vehicles")
 local lobby = obsidian.module("lib/lobby")
+local audio = obsidian.module("lib/audio")
 local ui = obsidian.module("lib/ui")
 
 obsidian.on_require("foundation/lua/debug/debug", console.install)
@@ -39,6 +40,7 @@ obsidian.on_frame(function()
 	game.tick()
 	effects.tick(dt)
 	events.tick()
+	enemies.tick()
 end)
 
 -- Stat-changed play earns no Steam achievements. The hook is the mod's, so it's off when the mod is.
@@ -88,4 +90,5 @@ return {
 	vehicles = vehicles,
 	lobby = lobby,
 	ui = ui,
+	audio = audio,
 }

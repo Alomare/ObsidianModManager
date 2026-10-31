@@ -129,6 +129,134 @@ obsidian.keybind("open", function() obsidian.menu.toggle() end)
 
 在屏幕左下角显示一条简短消息。
 
+## 替换游戏界面 {#ui}
+
+`obsidian.ui` 用于重绘游戏菜单和 HUD 的模组。任何作用范围的模组都能使用，`requires` 中无需填写任何内容，所以换肤模组仍是客户端模组，保留银河战争和匹配功能。在模组请求之前，这里的任何内容都不会运行。
+
+思路是保留游戏的逻辑和输入，停止它的绘制，读取它的数据，然后在上面绘制。游戏的更新和绘制函数始终运行，因为按键、鼠标和网络代码都在这些函数里。
+
+```lua
+local ui = obsidian.ui
+ui.frame(1920, 1080)
+
+ui.on("loadout", {
+  mute = true,
+  draw = function(kit, data, dt)
+    kit:panel{ 120, 140, 1680, 800, cut = 24, corners = "tr bl", fill = "#38383ee0", line = "#ffc433" }
+    kit:text("LOADOUT", 960, 880, { font = "heading", size = 48, tracking = 4, align = "center" })
+
+    for i, player in ipairs(data.players()) do
+      local panel = data.loadout(player.slot)
+      local x = 140 + (i - 1) * 420
+      kit:band(x, 780, 400, 40, player.color)
+      kit:text(player.name, x + 12, 792, { font = "body_large" })
+      if panel then kit:text(panel.ready and "READY" or "PICKING", x + 12, 740) end
+    end
+
+    kit:text(ui.prompt("menu_loadout_select"), 140, 150)
+  end,
+})
+```
+
+如果某个界面的代码出错，该界面会在本次会话中停止，游戏重新绘制自己的界面，错误写入 `loader.log`。
+
+> [!NOTE]
+> 有两项仍在等待真实游戏中的测试。画布目前不会在任务中绘制：`enter` 和 `exit` 仍会运行，界面的 `mute` 列表会等待，所以玩家仍能看到游戏的 HUD。`kit:icon` 返回 `false`，`kit:band` 为纯色。这两项开启后，相同的代码即可工作。
+
+### obsidian.ui.current() {#obsidian-ui-current}
+
+玩家所在的位置：`{ state, screen, sub }`。`screen` 是本节其余部分使用的 id：菜单用其名称（`"loadout"`、`"armory_profile"`、`"main"`），没有打开菜单时为 `"title"` 或 `"ship"`，任务中为 `"hud"`，其他情况为状态自身的名称，例如 `"mission_end"`。`sub` 是其中的步骤（如果有）。
+
+### obsidian.ui.on(id, handlers), off(id) {#obsidian-ui-on-id-handlers-off-id}
+
+在某个界面显示时运行代码。`id` 是 `screen` 的取值，`"*"` 表示所有界面。
+
+| 处理器 | 时机 |
+|---|---|
+| `enter(screen)` | 界面出现。参数与 `current()` 的返回值相同 |
+| `draw(kit, data, dt)` | 每帧。`kit` 是它专用的画布，`data` 是 `obsidian.ui.data` |
+| `exit()` | 界面消失 |
+| `mute` | 不是函数：`true` 表示此界面，或一个 id 列表，只在界面显示期间有效 |
+
+大厅未处于许可状态时，会话模组的处理器会停止，其静音也会解除。`off(id)` 移除本模组的处理器。
+
+### obsidian.ui.mute(id), unmute(id) {#obsidian-ui-mute-id-unmute-id}
+
+让游戏的某个部分停止绘制，直到 `unmute`。其逻辑继续运行。
+
+| Id | 隐藏的内容 |
+|---|---|
+| 菜单名称 | 该菜单：`"loadout"`、`"armory"`、`"options"`、`"mission_briefing"` 等 |
+| `"hud"` | 下列所有部分 |
+| `"hud.panels"` | 玩家面板 |
+| `"hud.map"` | 地图 |
+| `"hud.stratagems"` | 战略配备列表和冷却 |
+| `"hud.names"` | 玩家头顶的名字 |
+| `"hud.world"` | 世界中物体的标签 |
+| `"hud.prompts"` | 可交互物体的提示 |
+| `"hud.dialogue"` | 对话 |
+| `"chat"`、`"hints"`、`"samples"`、`"news"`、`"save_icon"` | 对应的内容 |
+| `"mission_end"` | 结算界面的各个步骤 |
+
+各部分相互嵌套：静音 `"hud.panels"` 时地图仍会显示，除非也将其静音。飞船上的 3D 控制台、星系地图和开场影片不是这样绘制的，所以会保留。战役界面有几处框体是直接绘制的，也会保留。
+
+### obsidian.ui.scope(id, target, method) {#obsidian-ui-scope-id-target-method}
+
+添加你自己的部分。之后 `mute(id)` 会停止游戏这个函数绘制的所有内容：`target` 是表或全局表的名称。其他方面不受影响。
+
+### obsidian.ui.data {#obsidian-ui-data}
+
+游戏数据的副本，写入副本不会改变任何内容。不适用时各函数返回 `nil`。`player` 是 1 到 4 的位置，`nil` 表示使用本机键盘的玩家。
+
+| 函数 | 返回 |
+|---|---|
+| `players()` | 每位玩家的 `name`、`title`、`rank_icon`、`xp`、`color`、`index`、`slot`、`is_local`、`pad` |
+| `loadout(player)` | 在配装界面：`items`、`available`、`selection`、`submenu`、`slot`、`ready`、`random`、`loadout`、`presets`、`new_unlocks`、`upgrades` |
+| `hud(player)` | `state`、`health`、`shield`、`inventory`、`character`、`stratagems`、`cooldowns`、`respawn`。其中的表使用游戏自己的字段名 |
+| `map(player)` | `zoom`、`offset`、`size`、`pings`、`markers` |
+| `mission()` | `objectives`、`enemy`、`difficulty`、`environment`、`type`、`seed`、`game_over`、`exit` |
+| `campaign()` | `status`、`statistics`、`season`。数据量大，请只请求一次 |
+| `mission_end()` | `sub`，以及包含状态所有简单字段的 `values` |
+
+### obsidian.ui.canvas(id, opts) {#obsidian-ui-canvas-id-opts}
+
+绘图工具，用于 `draw` 处理器之外的代码。`opts.layer` 取值 0 到 875，`opts.over_fades` 让它在游戏淡出到黑屏时保持完全显示。默认情况下，画布随游戏一起淡出。
+
+坐标是从左下角起算的像素，调用 `obsidian.ui.frame` 后则是你的设计空间。颜色为 `{ r, g, b }`、`{ r, g, b, a }`、`"#rrggbb"` 或 `"#rrggbbaa"`。
+
+| 方法 | 绘制 |
+|---|---|
+| `kit:rect(x, y, w, h, color)` | 矩形 |
+| `kit:poly(points, color)` | 凸多边形，由 `{ x1, y1, x2, y2, ... }` 定义 |
+| `kit:outline(points, color, width)` | 形状的内描边 |
+| `kit:panel{ x, y, w, h, cut, corners, fill, line, line_width }` | 切去 45 度角的面板。`corners` 取 `"tl tr br bl"` 中的任意项，默认 `"tr bl"` |
+| `kit:hex(x, y, r, color, icon)` | 以一点为中心的六边形，可在其中放一个图标 |
+| `kit:text(text, x, y, opts)` | 文本。`y` 是基线，换行符开始新的一行。`opts`：`font`、`size`、`tracking`、`align`、`color`、`leading` |
+| `kit:measure(text, opts)` | 文本的宽度和高度，包含字距。不绘制 |
+| `kit:icon(name, x, y, w, h, color, uv)` | 游戏的一张图片。`uv` 为 `{ u0, v0, u1, v1 }`。`obsidian.ui.icons()` 列出名称 |
+| `kit:band(x, y, w, h, color)` | 游戏的玩家色带：染色后的渐变 |
+| `kit:bar(x, y, w, h, value, color, back)` | 在 `back` 之上从 0 到 1 填充的条 |
+| `kit:clip(x, y, w, h, fn)` | 运行 `fn(kit)`，绘制限制在矩形内 |
+| `kit:layer(n)`、`kit:opacity(a)` | 之后内容的图层和强度 |
+
+字体：`"body"`、`"body_large"`、`"heading"`、`"heading_large"`、`"chat"`、`"debug"`、`"debug_medium"`。`"heading"` 是 Insignia；`"chat"` 含中文、日文和韩文，字体缺字时文本会改用它。`"debug"` 无需加载任何内容，其他字体在游戏加载完成之前都会改用它。
+
+裁剪能精确切割形状和图标，文本则以完整字符为单位。配装界面的菜单美术不可用：其材质在状态切换之间会卸载，而列出未加载材质的 gui 可能使游戏停止。你自己的美术也需要同样的检查，所以画布目前只接受游戏的图片。
+
+### obsidian.ui.frame(w, h), safe() {#obsidian-ui-frame-w-h-safe}
+
+`frame(1920, 1080)` 让本模组的坐标成为设计空间，按玩家的窗口和界面缩放，以游戏的方式缩放并居中。`frame()` 恢复为像素。调用一次即可，模组启动时也可以调用。
+
+`safe()` 返回 `{ x, y, w, h, scale }`，即游戏放置自己菜单的区域，使用你的坐标。
+
+### obsidian.ui.remap_hits(id, fn) {#obsidian-ui-remap-hits-id-fn}
+
+游戏按绘制位置检测鼠标。当你的布局移动了某个内容时，`fn(x, y, w, h)` 会收到每个矩形的像素值，并返回它现在的位置，`nil` 表示不变，`false` 表示不可点击。`remap_hits(id)` 停止映射。
+
+### obsidian.ui.prompt(name, pad) {#obsidian-ui-prompt-name-pad}
+
+玩家设备对应的按键，作为可绘制的文本。`name` 是动作（如 `"select"`、`"back"`、`"fire"`、`"reload"`、`"map"`）、标记（如 `"#mod_map"`）或游戏的文本键，文本键返回时已填入按键。`pad` 是 `data.players()` 中的手柄编号，`nil` 表示主玩家。
+
 ## 保存的值 {#storage}
 
 ### obsidian.storage.get(key, default), set(key, value), all() {#obsidian-storage}
@@ -139,7 +267,7 @@ obsidian.keybind("open", function() obsidian.menu.toggle() end)
 
 `obsidian.version` 是 API 版本，目前为 `1`。需要更新 API 的模组在 `obsidian.json` 中设置 `loader_api`，较旧的加载器会拒绝启动它。
 
-`obsidian.capabilities` 是一个只读表，列出当前加载器支持的功能，每项一个条目：`hook`、`on_require`、`on_frame`、`on_session`、`after_startup`、`settings`、`keybind`、`session`、`text`、`log`、`module`、`import`、`caller`、`menu`、`toast`、`storage`。使用较晚加入的功能前，先按名称检查：
+`obsidian.capabilities` 是一个只读表，列出当前加载器支持的功能，每项一个条目：`hook`、`on_require`、`on_frame`、`on_session`、`after_startup`、`settings`、`keybind`、`session`、`text`、`log`、`module`、`import`、`caller`、`menu`、`toast`、`storage`、`ui`。使用较晚加入的功能前，先按名称检查：
 
 ```lua
 if obsidian.capabilities.on_frame then

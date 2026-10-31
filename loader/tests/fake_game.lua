@@ -22,7 +22,7 @@ for component, list in pairs({
 	character = "infinite_stamina move_speed_sprint_max do_knockdown drop_carry exit_interact_objective set_throw_range_multiplier",
 	mover = "position position_teleport move_speed acceleration deceleration ignore_slow keep_inside_screen destroy enable",
 	inventory = "ammo_pickup set_grenades set_grenade_path set_stratagem_info broadcast_stratagem_cooldown set_stratagem_cooldown_multiplier receive_stratagem set_weapon set_perk set_item_upgrades set_backpack",
-	customization = "set_customization communication_event",
+	customization = "set_customization communication_event enable_heavy_armor disable_heavy_armor set_visible set_silhouette_color",
 	enemy_target = "enable disable",
 	enemy = "remove_from_group",
 	research_sample_pickup = "interact",
@@ -134,7 +134,17 @@ function G.start(ids, opts)
 		immediate_raycast = function() return true, v3(5, 5, 0) end,
 		set_gravity = function(_, g) game.gravity = g end,
 	})
-	rawset(_G, "Timpani", { set_bus_volume = function(bus, v) game.bus = { bus, v } end })
+	game.buses = {}
+	rawset(_G, "Timpani", { set_bus_volume = function(bus, v)
+		game.bus = { bus, v }
+		game.buses[bus] = v
+	end })
+	-- The sounds this mission has, and what it was asked to play.
+	game.played = {}
+	rawset(_G, "TimpaniWorld", {
+		has_event = function(world, name) return world == "sound world" and (name == "ui_select" or name == "music_objective_found") end,
+		trigger_event = function(_, name, pos) game.played[#game.played + 1] = { name = name, pos = pos } end,
+	})
 	rawset(_G, "Network", { peer_id = function() return "me" end, ping = function(peer)
 		if peer == "lost" then error("no connection") end
 		return 0.042
@@ -154,13 +164,20 @@ function G.start(ids, opts)
 		if key == "weapon_rifle" then return "Rifle" end
 		return "LOC:" .. key
 	end })
-	rawset(_G, "GameSettings", { get_main_pad_number = function() return 0 end, MAX_NUM_ALLOWED_ENEMIES = 16, MAX_NUM_RESEARCH_SAMPLES = 3168 })
+	rawset(_G, "GameSettings", { get_main_pad_number = function() return 0 end, MAX_NUM_ALLOWED_ENEMIES = 16, MAX_NUM_RESEARCH_SAMPLES = 3168,
+		player_colors = { { x = 255, y = 10, z = 20, w = 30 } } })
 	rawset(_G, "CameraManager", { change_settings = function(_, ...) game.camera = { ... } end, set_ignore_level_bounds = function() end,
-		add_shake = function() game.shakes = (game.shakes or 0) + 1 end })
+		add_shake = function() game.shakes = (game.shakes or 0) + 1 end, targets = {}, fov = math.rad(60), state = "follow",
+		set_fov = function(self, v) self.fov = v end, set_state = function(self, s) self.state = s end,
+		add_target = function(self, u) self.targets[u] = {} end, remove_target = function(self, u) self.targets[u] = nil end,
+		set_position = function(self, p) self.at = p end, set_rotation = function(self, r) self.turn = r end })
+	rawset(_G, "QuaternionAux", { box_elements = function(t, a, r, g, b) t.x, t.y, t.z, t.w = a, r, g, b return t end })
 	rawset(_G, "UserManager", { get_user_id = function() return "user" end, get_name = function() return "Tester" end,
 		unlock_trophy = function(_, name) game.trophy = name end })
 
-	local save = { user = { player_xp = 1000, research_samples = 50, item_unlocks = { "owned_item" }, new_unlocks = {}, item_upgrades = { a = 1 } }, common = {} }
+	local save = { user = { player_xp = 1000, research_samples = 50, item_unlocks = { "owned_item" }, new_unlocks = {}, item_upgrades = { a = 1 },
+		loadout = { perk = "perk_cardio", primary_weapon = "weapon_rifle", sidearm_weapon = "weapon_pistol", stratagems = { "a", "b", "c", "d", "e", "f", "g", "h" } },
+		loadouts = { { perk = "perk_cardio", primary_weapon = "weapon_rifle" }, { perk = "other" } } }, common = {} }
 	game.save = save
 	rawset(_G, "SaveManager", {
 		get = function(_, k) return save.common[k] end,
@@ -175,7 +192,10 @@ function G.start(ids, opts)
 	rawset(_G, "ProgressionSettings", { ranks = { { unlocks = { weapon = { "rank_item" } } } }, get_rank = function() return { name = "rank_private" } end })
 	rawset(_G, "CustomizationSettings", { helmet = { { name = "cus_helmet_a" }, { name = "cus_helmet_dlc" } }, body = { { name = "cus_body_a" } }, cape = { { name = "cus_cape_tutorial" } }, gender = { { name = "x" } } })
 	rawset(_G, "LoadoutSettings", {
-		primary_weapon = { { name = "weapon_rifle", unit_path = "equipment/rifle" }, { name = "weapon_dlc", unit_path = "equipment/dlc" } },
+		primary_weapon = { { name = "weapon_rifle", unit_path = "equipment/rifle", upgrades = { {}, {} } }, { name = "weapon_dlc", unit_path = "equipment/dlc", upgrades = { {} } } },
+		default_loadout = { perk = "perk_lasersight", primary_weapon = "weapon_rifle", sidearm_weapon = "weapon_pistol", stratagems = { "a", "b", "c", "d" } },
+		static_stratagems = { "stratagem_reinforce", "b", "c", "d" }, nr_of_stratagem_slots = 8,
+		get_max_upgrade_value = function(item, category) return category == "stratagems" and #item.upgrades or 2 ^ #item.upgrades - 1 end,
 		sidearm_weapon = { { name = "weapon_pistol", unit_path = "equipment/pistol" } },
 		perks = { { name = "perk_cardio" }, { name = "perk_lasersight" } },
 		stratagems = {
@@ -203,7 +223,7 @@ function G.start(ids, opts)
 		perk_cardio = { setup_master = perk_call("cardio setup_master"), remove_master = perk_call("cardio remove_master") },
 		perk_lasersight = { setup_master = perk_call("laser setup_master"), setup_slave = perk_call("laser setup_slave"), remove_slave = perk_call("laser remove_slave") },
 	})
-	rawset(_G, "StatusTemplateSettings", { heavy_burn = { power = 5, duration = 3 }, flashbang_stun = { duration = 3, status_name = "stun" }, flashbang_slow = { amount = 0.5, duration = 3, status_name = "slow" } })
+	rawset(_G, "StatusTemplateSettings", { heavy_burn = { power = 5, duration = 3, element = "fire" }, flashbang_stun = { duration = 3, status_name = "stun" }, flashbang_slow = { amount = 0.5, duration = 3, status_name = "slow" } })
 	rawset(_G, "EnemyGroupSettings", { bug_scout_x2 = { units = { { unit_path = "characters/bug_scout/bug_scout", amount = 2 } } },
 		cyborg_x1 = { units = { { unit_path = "characters/cyborg_soldier/cyborg_soldier", amount = 1 } } } })
 	rawset(_G, "EncounterSettings", { bugs = {
@@ -301,9 +321,10 @@ function G.start(ids, opts)
 	local weapon = unit(game, { components = { firearm = { rounds = 3, num_mags = 2, is_reloading = true, reload_time = 2 } } })
 	inventory.current_weapon, inventory.primary_weapon = weapon, weapon
 	local me = unit(game, { pos = { x = 1, y = 1, z = 0 }, components = {
-		health = { hitpoints = 100, constitution = 0, is_downed = false, is_dead = false, hitpoints_real = 100 }, status = {}, shield = { shieldpoints = 50 },
-		character = { sprint_stamina = 0, input = {} }, mover = { position = { x = 1, y = 1, z = 0 } },
-		inventory = inventory, customization = {}, enemy_target = {},
+		health = { hitpoints = 100, constitution = 0, is_downed = false, is_dead = false, hitpoints_real = 100, armor_min = 15, armor_max = 35 },
+		status = { immunities_elements = {}, immunities_statuses = {} }, shield = { shieldpoints = 50 },
+		character = { sprint_stamina = 0, input = {}, move_speed_sprint_max = 7, throw_range_multiplier = 1 }, mover = { position = { x = 1, y = 1, z = 0 }, acceleration = 20, deceleration = 30 },
+		inventory = inventory, customization = { visible = true, heavy_armor = 1 }, enemy_target = {},
 	} })
 	game.me = me
 	game.weapon = weapon
@@ -402,7 +423,8 @@ function G.start(ids, opts)
 	local mission_manager = { get_objectives = function()
 		return { { name = "objective_a", type = "objective_interact_object", group = 1, state = "pending", params = { 1, 3 }, position = { { x = 9, y = 9, z = 0 } } },
 			{ name = "mission_objective_extract", state = "pending", position = { { x = 7, y = 7, z = 0 } } } }
-	end, set_mission_completed = function() game.completed = true end, set_extraction_done = function() game.extraction_done = true end }
+	end, set_mission_completed = function() game.completed = true end, set_extraction_done = function() game.extraction_done = true end,
+		set_display_objectives = function(self, on) self.display_objectives = on end }
 	local state = {
 		players = { record }, mission_manager = mission_manager, mission_seed = 12345, event_delegate = G.delegate(),
 		respawn_position = { x = 2, y = 2, z = 0 },
@@ -429,12 +451,20 @@ function G.start(ids, opts)
 		component_manager = { component_name_to_index = { navmesh_mover = 1, enemy = 2 }, active_components = { 1, 2 },
 			pause_component = function(_, n) game.paused_component = n end, resume_component = function() end },
 		explosion_manager = { do_explosion = function() game.boom = true end },
-		viewport = { set_shading_environment_variable = function(_, n) game.shading = n end, remove_shading_environment_variable = function() end,
+		viewport = { set_shading_environment_variable = function(_, n, kind, value)
+				game.shading = n
+				game.shadings = game.shadings or {}
+				game.shadings[n] = { kind = kind, value = value }
+			end, remove_shading_environment_variable = function(_, n)
+				if game.shadings then game.shadings[n] = nil end
+			end,
 			set_shading_environment_settings = function(_, name) game.shading_setting = name end, get_camera = function() return "camera" end,
 			screen_to_world = function() return rawget(_G, "Vector3")(1, 1, -1) end },
-		world_proxy = { get_physics_world = function() return "physics" end, get_world = function() return "world" end },
+		world_proxy = { get_physics_world = function() return "physics" end, get_world = function() return "world" end, get_timpani_world = function() return "sound world" end },
 		hud = {},
-		hint_manager = { hints_on = opts.hints ~= false, add_hint = function(self, name, override, params, _, seconds)
+		audio_state_machine = { bus_volumes = { combat_enemy = -4 }, play_stinger = function(_, name) game.stinger = name end },
+		environment_area_manager = { set_shading_environment_event = function(_, event) game.flash = event end },
+		hint_manager = { hints_on = opts.hints ~= false, set_active = function(self, on) self.active = on end, add_hint = function(self, name, override, params, _, seconds)
 			if not (self.hints_on or override) then return end
 			local hint = rawget(_G, "HintSettings")[name]
 			local text = "text of " .. hint.text
@@ -442,7 +472,7 @@ function G.start(ids, opts)
 			if params then text = string.gsub(text, params[1], params[2]) end
 			game.hint = { text = text, seconds = seconds or hint.duration }
 		end },
-		generated_level = { shading_environment_setting = "dusk", width = 8, height = 8, map_size = { x = 10, y = 10 }, get_closest_position_on_level = function() return rawget(_G, "Vector3")(0, 0, 0) end },
+		generated_level = { shading_environment_setting = "dusk", environment_name = "desert", enemy = "bugs", width = 8, height = 8, map_size = { x = 10, y = 10 }, get_closest_position_on_level = function() return rawget(_G, "Vector3")(0, 0, 0) end },
 		set_extra_lives = function(_, _, n) game.lives = n end,
 		do_abort_mission = function() game.aborted = true end,
 		spawn_research_samples_on_all_markers = function() game.samples = true end,
@@ -451,7 +481,17 @@ function G.start(ids, opts)
 	}
 	game.state = state
 	ui.state_object = state
-	rawget(_G, "Boot").package_manager = { is_package_online = function(_, name) return name == "resource_packages/race_bugs" end }
+	game.packages = { ["resource_packages/race_bugs"] = true }
+	local boot = rawget(_G, "Boot")
+	boot.package_manager = { is_package_online = function(_, name) return game.packages[name] == true end,
+		load_package = function(_, name, flush) game.packages[name], game.flushed = true, flush end,
+		unload_package = function(_, name) game.packages[name] = nil end }
+	boot.update_volume = function() game.volumes_set = (game.volumes_set or 0) + 1 end
+	-- As the real one: unknown or paid items go back to the default, and it hands back what it got.
+	boot.ensure_loadout = function(_, t)
+		if t.primary_weapon == "weapon_dlc" then t.primary_weapon = "weapon_rifle" end
+		return t
+	end
 	rawset(_G, "DifficultySettings", { get_lookup_mission_params = function() return { difficulty = 5, enemy = "bugs" } end,
 		modulate_seed = function(...) game.seed_parts = { ... } return 777 end })
 

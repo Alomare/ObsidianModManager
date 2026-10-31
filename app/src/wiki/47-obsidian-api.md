@@ -101,10 +101,22 @@ end)
 | `on_objective_completed` | nothing | An objective was finished |
 | `on_stratagem_activated` | `peer`, `stratagem`, `position`, `unit` | A stratagem's countdown ended, on every player's game |
 | `on_avatar_extract` | `unit`, `shuttle` | This player boarded the shuttle |
+| `on_killed` | `unit`, `attacker`, `owner` | A unit with health was killed |
+| `on_dead` | `unit` | A unit's death finished |
+| `on_health_downed` | `unit`, `state` | A player went down |
+| `on_damage_taken` | `unit`, `hit` | A unit lost health. `hit` has `damage`, `hit_zone`, `attacker_unit` and `owner_unit` |
+| `on_health_received` | `unit`, `amount` | A unit was healed. A full heal passes neither |
+| `on_stratagem_pre_activated` | `stratagem`, `position`, `owner`, `flare` | A flare's countdown started |
+| `on_stratagem_used` | `unit`, `data` | A player used a stratagem |
+| `on_stratagem_wielded` | `unit`, `flare`, `info` | A player took a flare in hand |
+| `on_extract_shuttle_landed` | `unit` | The shuttle landed |
+| `on_add_to_stat` | `unit`, `stat`, `amount` | A statistic went up, such as `"stratagems_used"` or `"hits"`. This one comes often |
+| `on_pause` | `paused` | The pause menu opened or closed |
+| `on_mission_end` | `stats`, `extra` | The end screens have the results |
 
 - A function that fails counts against your mod, and the others still run.
 - Nothing arrives while the lobby isn't cleared.
-- `position` lasts one frame. Copy `x`, `y` and `z` to keep it.
+- `position` and `hit` last one frame. Copy what you need from them.
 - `api.events.off(name, fn)` stops one.
 
 ## What's in the API {#contents}
@@ -113,19 +125,39 @@ end)
 |---|---|
 | `api.game` | The current state, the local player, `is_host()`, and safe writes |
 | `api.catalog` | Weapons, stratagems, perks, enemies and groups by name, without paid items the player doesn't own. Also `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` and `max_upgrade(path)` |
-| `api.player` | `heal`, `respawn`, `teleport`, `set_cosmetic`, and more |
+| `api.player` | `heal`, `heal_by(amount)`, `set_health(n)`, `respawn`, `teleport`, `set_cosmetic`, `set_outline(r, g, b)`, `clear_status(name)`, `immune(name, on)`, `knockdown`, `drop_carried`, and more |
 | `api.gear` | `refill`, `give_weapon(slot, path, upgrade)`, `give_backpack(path, upgrade)`, `give_perk`, `remove_perk`, `refresh` |
 | `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop`, `call(name, pos, delay)`, `edit(name, field, value)` |
-| `api.enemies` | `spawn`, `spawn_group`, `spawn_entity(path, pos)`, `kill_all`, `kill(unit)`, `list`, `info(unit)`, `nearest(pos)`, `apply_status(unit, template)`, `stun_near(radius)`, `set_pressure(t)`, `waves()`, `force_wave(name, pos)` |
+| `api.enemies` | `spawn`, `spawn_group`, `spawn_entity(path, pos)`, `kill_all`, `kill(unit)`, `list`, `info(unit)`, `nearest(pos)`, `apply_status(unit, template)`, `stun_near(radius)`, `near(radius, pos)`, `damage(unit, power, statuses)`, `set_hitpoints(unit, n)`, `despawn(unit)`, `load_faction(name)`, `set_pressure(t)`, `waves()`, `force_wave(name, pos)` |
 | `api.mission` | `finish_objectives`, `objectives()`, `mutator(name)`, `win`, `abort`, `practice` |
 | `api.vehicles` | `current()`, `driving()`, `repair()`, `refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`, `off(name, fn)` |
 | `api.ui` | `hint(text, seconds)`, `ping(pos)` |
 | `api.lobby` | `players()` |
-| `api.world` | `cursor`, `ahead`, `explode` |
-| `api.progress` | `set_samples`, `unlock_items`, `upgrade_all` |
+| `api.world` | `cursor`, `ahead`, `explode`, `camera`, `shading(name, kind, value)`, `flash(seconds)` |
+| `api.audio` | `bus(name, db)`, `play(event, pos)`, `stinger(name)` |
+| `api.progress` | `set_samples`, `unlock_items`, `upgrade_all`, `loadout()`, `set_loadout(t)`, `upgrades()`, `set_upgrade(name, value)`, `upgrade_limit(name)` |
 | `api.console` | `run(line)`, `commands()` |
+
+## Player {#player}
+
+These effects stay on across respawns. Most give back what was there before, so a perk's own value returns when they come off.
+
+| Effect | Value |
+|---|---|
+| `armor` | Armor at every angle |
+| `sprint_speed` | Top sprint speed |
+| `throw_range` | A multiplier on throws |
+| `acceleration`, `deceleration` | How fast the player starts and stops |
+| `ignore_slow` | `true`: the mover's slow multiplier doesn't apply, so nothing that works through it slows the player |
+| `no_screen_leash` | `true`: the camera stops holding the player inside the screen |
+| `hide_model` | `true`: the player's model is hidden |
+| `heavy_armor_look` | `true`: the perk's look, without its armor |
+
+- `api.player.set_outline(r, g, b)` changes the outline the player shows through walls, and `set_outline(nil)` gives it back.
+- `api.player.clear_status(name)` takes off a status template, or every status of an element such as `"fire"`. `api.player.immune(name, on)` keeps one off across respawns, until `on` is `false`.
+- `set_cosmetic("gender", index)` changes the character, with an index from `api.catalog.cosmetics("gender")`.
 
 ## Gear {#gear}
 
@@ -164,6 +196,10 @@ api.enemies.set_pressure({ difficulty = false })
 - `difficulty` is what each encounter can spend. The seed, the waves on offer and the objectives stay the same.
 - `force_wave` spawns a wave from `api.enemies.waves()` all at once, ignoring its delays.
 - `spawn_entity` spawns a crate or pickup. Take paths from `api.catalog.crates()` and `pickups()`, which leave out paid items.
+- `near(radius, pos)` lists living enemies, nearest first, around a position or the player.
+- `damage(unit, power, statuses)` is a hit from this player that works from any player's game, and armor counts. `statuses` is an optional list of status names.
+- `set_hitpoints(unit, n)` and `despawn(unit)` go through whichever player's game owns the enemy.
+- `load_faction(name)` loads `"bugs"`, `"cyborgs"` or `"illuminates"` during a mission, so any of them can spawn on any planet. It answers `"alone_only"` with anyone else in the lobby, because every game needs the package. The game stops for a moment while it loads, and it's unloaded when the mission ends.
 
 ## Missions {#missions}
 
@@ -201,6 +237,57 @@ api.combat.scale({ players = 0.5, enemies = 2 })
 ```
 
 A multiplier from 0 to 100, after armor, so armor that stops a shot still stops it. 1 or `false` turns a side off. The game passes no attacker to its sums, so a scale goes by who takes the hit. Each player's game works out its own hits, so everyone in a lobby should use the same numbers.
+
+## Camera and look {#view}
+
+All of this is this player's alone: nobody else sees it. Obsidian API is a session mod, so it stops while the lobby isn't cleared.
+
+```lua
+api.world.camera.fov(90)                    -- degrees, nil gives it back
+api.world.camera.spin(30)                   -- degrees around the player
+api.world.camera.spectate(friend_unit)      -- nil comes back
+api.world.camera.photo(true)                -- freezes the camera and clears the screen
+api.world.camera.place(position, rotation)  -- moves it, in photo mode
+
+api.world.shading("fog_color", "vector3", { 0.5, 0.45, 0.3 })
+api.world.shading("fog_color", "vector3")   -- back to the planet's
+api.world.flash()                           -- lightning
+```
+
+- A low spin or angle can make aiming feel odd: the mouse aims in screen space.
+- `spectate` takes another player's unit, from `api.game.all_avatars()`.
+- `shading` takes the names in `api.world.SHADING`, by kind: `scalar` is a number, `vector2` and `vector3` are lists. A value goes on again in each new mission. The game only ships code for `fog_color`, `sun_color` and the other `vector3` names, with no use of its own, so check them on your first run.
+- `flash` needs a forest planet, and not one of the illuminates. Others answer `"wrong_environment"`.
+
+## Sound {#sound}
+
+Sound is local too.
+
+```lua
+api.audio.bus("combat_enemy", -30)   -- decibels; 0 is as mixed, -60 is silent
+api.audio.bus("combat_enemy", false) -- back to the game's mix
+
+api.audio.play("ui_select")          -- anywhere
+api.audio.play("ui_select", position)
+api.audio.stinger("music_objective_found")
+```
+
+- `api.audio.BUSES` lists the buses. A volume repeats every frame, because the game's mix states write them as they blend.
+- `play` and `stinger` answer `"unknown_event"` for a sound this mission hasn't loaded.
+- `stinger` goes through the game's own cooldown of 5 seconds.
+
+## Loadouts {#loadouts}
+
+```lua
+api.progress.set_loadout({ primary_weapon = "weapon_railgun", stratagems = { [1] = "stratagem_resupply" } })
+api.progress.set_upgrade("weapon_railgun", 3)
+```
+
+Both write the real save, on the ship, with its menus closed, and answer `"close_screen"` otherwise.
+
+- `set_loadout` takes any of `perk`, `primary_weapon`, `sidearm_weapon` and `stratagems`, which maps the four free slots to names. It's applied at the next spawn, and it's put in the first preset as well, because the Loadout screen starts from that.
+- Paid items and unknown names go back to the default, as when the game reads a save. An item the player hasn't unlocked doesn't survive the Loadout screen.
+- A value in `set_upgrade` is what the game keeps: a bit per upgrade for weapons, a level for stratagems. `upgrade_limit(name)` gives the highest one.
 
 ## Messages {#messages}
 

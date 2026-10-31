@@ -101,10 +101,22 @@ end)
 | `on_objective_completed` | 无 | 目标完成 |
 | `on_stratagem_activated` | `peer`、`stratagem`、`position`、`unit` | 战略配备倒计时结束，每位玩家的游戏都会收到 |
 | `on_avatar_extract` | `unit`、`shuttle` | 本玩家登上撤离飞船 |
+| `on_killed` | `unit`、`attacker`、`owner` | 有生命值的单位被杀死 |
+| `on_dead` | `unit` | 单位的死亡过程结束 |
+| `on_health_downed` | `unit`、`state` | 玩家倒地 |
+| `on_damage_taken` | `unit`、`hit` | 单位损失生命值。`hit` 包含 `damage`、`hit_zone`、`attacker_unit` 和 `owner_unit` |
+| `on_health_received` | `unit`、`amount` | 单位得到治疗。完全治疗时两者都不传 |
+| `on_stratagem_pre_activated` | `stratagem`、`position`、`owner`、`flare` | 信标开始倒计时 |
+| `on_stratagem_used` | `unit`、`data` | 玩家使用战略配备 |
+| `on_stratagem_wielded` | `unit`、`flare`、`info` | 玩家手持信标 |
+| `on_extract_shuttle_landed` | `unit` | 撤离飞船着陆 |
+| `on_add_to_stat` | `unit`、`stat`、`amount` | 统计数据增加，例如 `"stratagems_used"` 或 `"hits"`。此事件很频繁 |
+| `on_pause` | `paused` | 暂停菜单打开或关闭 |
+| `on_mission_end` | `stats`、`extra` | 结算界面已有结果 |
 
 - 函数出错时会计入你的模组，其他函数继续运行。
 - 大厅未处于许可状态时不会收到任何事件。
-- `position` 只在当前帧有效。要保留请复制 `x`、`y` 和 `z`。
+- `position` 和 `hit` 只在当前帧有效。请复制需要的内容。
 - `api.events.off(name, fn)` 用于取消。
 
 ## API 内容 {#contents}
@@ -113,19 +125,39 @@ end)
 |---|---|
 | `api.game` | 当前状态、本地玩家、`is_host()` 和安全写入 |
 | `api.catalog` | 按名称列出武器、战略配备、技能、敌人和敌群，不含玩家未拥有的付费物品。还有 `backpacks`、`crates`、`pickups`、`vehicles`、`by_subtype(name)` 和 `max_upgrade(path)` |
-| `api.player` | `heal`、`respawn`、`teleport`、`set_cosmetic` 等 |
+| `api.player` | `heal`、`heal_by(amount)`、`set_health(n)`、`respawn`、`teleport`、`set_cosmetic`、`set_outline(r, g, b)`、`clear_status(name)`、`immune(name, on)`、`knockdown`、`drop_carried` 等 |
 | `api.gear` | `refill`、`give_weapon(slot, path, upgrade)`、`give_backpack(path, upgrade)`、`give_perk`、`remove_perk`、`refresh` |
 | `api.stratagems` | `reset_cooldowns`、`refill_uses`、`give`、`drop`、`call(name, pos, delay)`、`edit(name, field, value)` |
-| `api.enemies` | `spawn`、`spawn_group`、`spawn_entity(path, pos)`、`kill_all`、`kill(unit)`、`list`、`info(unit)`、`nearest(pos)`、`apply_status(unit, template)`、`stun_near(radius)`、`set_pressure(t)`、`waves()`、`force_wave(name, pos)` |
+| `api.enemies` | `spawn`、`spawn_group`、`spawn_entity(path, pos)`、`kill_all`、`kill(unit)`、`list`、`info(unit)`、`nearest(pos)`、`apply_status(unit, template)`、`stun_near(radius)`、`near(radius, pos)`、`damage(unit, power, statuses)`、`set_hitpoints(unit, n)`、`despawn(unit)`、`load_faction(name)`、`set_pressure(t)`、`waves()`、`force_wave(name, pos)` |
 | `api.mission` | `finish_objectives`、`objectives()`、`mutator(name)`、`win`、`abort`、`practice` |
 | `api.vehicles` | `current()`、`driving()`、`repair()`、`refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`、`off(name, fn)` |
 | `api.ui` | `hint(text, seconds)`、`ping(pos)` |
 | `api.lobby` | `players()` |
-| `api.world` | `cursor`、`ahead`、`explode` |
-| `api.progress` | `set_samples`、`unlock_items`、`upgrade_all` |
+| `api.world` | `cursor`、`ahead`、`explode`、`camera`、`shading(name, kind, value)`、`flash(seconds)` |
+| `api.audio` | `bus(name, db)`、`play(event, pos)`、`stinger(name)` |
+| `api.progress` | `set_samples`、`unlock_items`、`upgrade_all`、`loadout()`、`set_loadout(t)`、`upgrades()`、`set_upgrade(name, value)`、`upgrade_limit(name)` |
 | `api.console` | `run(line)`、`commands()` |
+
+## 玩家 {#player}
+
+这些效果在重生后仍然有效。大多数效果关闭时会恢复之前的值，所以技能自身的数值会回来。
+
+| 效果 | 数值 |
+|---|---|
+| `armor` | 所有角度的护甲 |
+| `sprint_speed` | 最高冲刺速度 |
+| `throw_range` | 投掷距离倍率 |
+| `acceleration`、`deceleration` | 玩家起步和停下的快慢 |
+| `ignore_slow` | `true`：减速状态和地形不起作用 |
+| `no_screen_leash` | `true`：镜头不再把玩家限制在屏幕内 |
+| `hide_model` | `true`：隐藏玩家模型 |
+| `heavy_armor_look` | `true`：技能的外观，但没有其护甲 |
+
+- `api.player.set_outline(r, g, b)` 更改玩家透过墙壁显示的轮廓，`set_outline(nil)` 恢复。
+- `api.player.clear_status(name)` 移除一个状态模板，或某元素（如 `"fire"`）的所有状态。`api.player.immune(name, on)` 让其在重生后仍保持免疫，直到 `on` 为 `false`。
+- `set_cosmetic("gender", index)` 更改角色，索引来自 `api.catalog.cosmetics("gender")`。
 
 ## 装备 {#gear}
 
@@ -164,6 +196,10 @@ api.enemies.set_pressure({ difficulty = false })
 - `difficulty` 是每次遭遇可花费的预算。种子、可选波次和目标都不变。
 - `force_wave` 一次生成 `api.enemies.waves()` 中的一个波次，忽略其延迟。
 - `spawn_entity` 生成补给箱或拾取物。请使用 `api.catalog.crates()` 和 `pickups()` 中的路径，它们不含付费物品。
+- `near(radius, pos)` 列出某位置或玩家周围的存活敌人，由近到远。
+- `damage(unit, power, statuses)` 是来自本玩家的一次命中，在任何玩家的游戏中都有效，护甲也会计入。`statuses` 是可选的状态名称列表。
+- `set_hitpoints(unit, n)` 和 `despawn(unit)` 通过拥有该敌人的玩家的游戏执行。
+- `load_faction(name)` 在任务中加载 `"bugs"`、`"cyborgs"` 或 `"illuminates"`，让它们可以在任何星球上生成。大厅中还有其他人时返回 `"alone_only"`，因为每个游戏都需要该资源包。加载时游戏会短暂停顿，任务结束时卸载。
 
 ## 任务 {#missions}
 
@@ -201,6 +237,57 @@ api.combat.scale({ players = 0.5, enemies = 2 })
 ```
 
 倍率范围为 0 到 100，在护甲之后计算，所以能挡住射击的护甲仍然能挡住。1 或 `false` 关闭这一方。游戏的计算不提供攻击者，所以倍率按受击方区分。每位玩家的游戏各自计算命中，所以大厅中的每个人都应使用相同的数值。
+
+## 镜头和外观 {#view}
+
+这些内容只属于本玩家，其他人看不到。Obsidian API 是会话模组，所以大厅未处于许可状态时会停止。
+
+```lua
+api.world.camera.fov(90)                    -- 角度，nil 恢复
+api.world.camera.spin(30)                   -- 绕玩家旋转的角度
+api.world.camera.spectate(friend_unit)      -- nil 返回
+api.world.camera.photo(true)                -- 冻结镜头并清空屏幕
+api.world.camera.place(position, rotation)  -- 在照片模式中移动镜头
+
+api.world.shading("fog_color", "vector3", { 0.5, 0.45, 0.3 })
+api.world.shading("fog_color", "vector3")   -- 恢复星球的设置
+api.world.flash()                           -- 闪电
+```
+
+- 较低的旋转或角度可能让瞄准感觉异常：鼠标在屏幕空间中瞄准。
+- `spectate` 接受其他玩家的单位，来自 `api.game.all_avatars()`。
+- `shading` 接受 `api.world.SHADING` 中按类型列出的名称：`scalar` 是数字，`vector2` 和 `vector3` 是列表。数值会在每个新任务中重新应用。对于 `fog_color`、`sun_color` 和其他 `vector3` 名称，游戏只附带代码而自身没有使用，所以请在首次运行时检查。
+- `flash` 需要森林星球，且不能是 illuminates 的星球。其他情况返回 `"wrong_environment"`。
+
+## 声音 {#sound}
+
+声音同样只在本地。
+
+```lua
+api.audio.bus("combat_enemy", -30)   -- 分贝；0 为原始混音，-60 为静音
+api.audio.bus("combat_enemy", false) -- 恢复游戏的混音
+
+api.audio.play("ui_select")          -- 全局播放
+api.audio.play("ui_select", position)
+api.audio.stinger("music_objective_found")
+```
+
+- `api.audio.BUSES` 列出所有总线。音量会每帧重复设置，因为游戏的混音状态在过渡时会写入它们。
+- 对本任务未加载的声音，`play` 和 `stinger` 返回 `"unknown_event"`。
+- `stinger` 受游戏自身 5 秒冷却的限制。
+
+## 配装 {#loadouts}
+
+```lua
+api.progress.set_loadout({ primary_weapon = "weapon_railgun", stratagems = { [1] = "stratagem_resupply" } })
+api.progress.set_upgrade("weapon_railgun", 3)
+```
+
+两者都会写入真实存档，需要在飞船上且菜单已关闭，否则返回 `"close_screen"`。
+
+- `set_loadout` 接受 `perk`、`primary_weapon`、`sidearm_weapon` 和 `stratagems`，后者把四个空闲栏位映射到名称。它在下次重生时生效，同时也写入第一个预设，因为配装界面从它开始。
+- 付费物品和未知名称会恢复为默认值，与游戏读取存档时相同。玩家未解锁的物品无法通过配装界面保留。
+- `set_upgrade` 的数值就是游戏保存的值：武器每项升级一位，战略配备为等级。`upgrade_limit(name)` 给出最高值。
 
 ## 消息 {#messages}
 

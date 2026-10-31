@@ -127,6 +127,134 @@ Calls `fn(draw, width, height)` every frame, to put something on screen outside 
 
 Shows a short message at the bottom left of the screen.
 
+## Replacing the game's screens {#ui}
+
+`obsidian.ui` is for a mod that redraws the game's menus and HUD. Any mod can use it, of any scope, with nothing in `requires`, so a reskin stays a client mod and keeps the Galactic War and matchmaking. Nothing here runs until a mod asks for it.
+
+The idea is to keep the game's logic and input, stop its drawing, read its data and draw on top. The game's update and draw functions always run, because keys, mouse and network code live inside them.
+
+```lua
+local ui = obsidian.ui
+ui.frame(1920, 1080)
+
+ui.on("loadout", {
+  mute = true,
+  draw = function(kit, data, dt)
+    kit:panel{ 120, 140, 1680, 800, cut = 24, corners = "tr bl", fill = "#38383ee0", line = "#ffc433" }
+    kit:text("LOADOUT", 960, 880, { font = "heading", size = 48, tracking = 4, align = "center" })
+
+    for i, player in ipairs(data.players()) do
+      local panel = data.loadout(player.slot)
+      local x = 140 + (i - 1) * 420
+      kit:band(x, 780, 400, 40, player.color)
+      kit:text(player.name, x + 12, 792, { font = "body_large" })
+      if panel then kit:text(panel.ready and "READY" or "PICKING", x + 12, 740) end
+    end
+
+    kit:text(ui.prompt("menu_loadout_select"), 140, 150)
+  end,
+})
+```
+
+If a screen's code fails, that screen stops for the session, the game draws its own again, and the error goes in `loader.log`.
+
+> [!NOTE]
+> Two things are waiting on a run in the real game. A canvas draws nothing in a mission yet: `enter` and `exit` still run there, and a screen's `mute` list waits, so the player keeps the game's HUD. And `kit:icon` answers `false`, with `kit:band` a flat tint. The same code starts working when they're switched on.
+
+### obsidian.ui.current()
+
+Where the player is: `{ state, screen, sub }`. `screen` is the id the rest of this section uses: a menu by its name (`"loadout"`, `"armory_profile"`, `"main"`), `"title"` and `"ship"` with no menu open, `"hud"` in a mission, or the state's own name, such as `"mission_end"`. `sub` is the step inside it, when it has one.
+
+### obsidian.ui.on(id, handlers), off(id)
+
+Runs code while a screen is up. `id` is a value of `screen`, or `"*"` for all of them.
+
+| Handler | When |
+|---|---|
+| `enter(screen)` | The screen came up. It gets what `current()` gives |
+| `draw(kit, data, dt)` | Every frame. `kit` is a canvas of its own and `data` is `obsidian.ui.data` |
+| `exit()` | The screen went away |
+| `mute` | Not a function: `true` for this screen, or a list of ids, held only while it's up |
+
+A session mod's handlers stop, and its mutes lift, while the lobby isn't cleared. `off(id)` takes this mod's handlers away.
+
+### obsidian.ui.mute(id), unmute(id)
+
+Stops a part of the game drawing, until `unmute`. Its logic keeps running.
+
+| Id | What goes |
+|---|---|
+| A menu's name | That menu: `"loadout"`, `"armory"`, `"options"`, `"mission_briefing"`, and so on |
+| `"hud"` | Every part below |
+| `"hud.panels"` | The player panels |
+| `"hud.map"` | The map |
+| `"hud.stratagems"` | The stratagem list and cooldowns |
+| `"hud.names"` | Names over players |
+| `"hud.world"` | Labels on things in the world |
+| `"hud.prompts"` | Prompts on things to use |
+| `"hud.dialogue"` | Dialogue |
+| `"chat"`, `"hints"`, `"samples"`, `"news"`, `"save_icon"` | Each of those |
+| `"mission_end"` | The steps of the end screens |
+
+Parts nest: muting `"hud.panels"` leaves the map, until you mute that too. The 3D consoles on the ship, the galaxy map and the intro film aren't drawn this way, so they stay. The campaign screen draws a few frames directly, and those stay too.
+
+### obsidian.ui.scope(id, target, method)
+
+Adds your own part. `mute(id)` then stops whatever that function of the game draws: `target` is a table or the name of a global one. It changes nothing else.
+
+### obsidian.ui.data
+
+Copies of what the game knows, so writing to one changes nothing. Each answers `nil` where it doesn't apply. `player` is a slot from 1 to 4, and `nil` means the player at this keyboard.
+
+| Function | Gives |
+|---|---|
+| `players()` | `name`, `title`, `rank_icon`, `xp`, `color`, `index`, `slot`, `is_local`, `pad`, for each player |
+| `loadout(player)` | On the Loadout screen: `items`, `available`, `selection`, `submenu`, `slot`, `ready`, `random`, `loadout`, `presets`, `new_unlocks`, `upgrades` |
+| `hud(player)` | `state`, `health`, `shield`, `inventory`, `character`, `stratagems`, `cooldowns`, `respawn`. The tables use the game's own field names |
+| `map(player)` | `zoom`, `offset`, `size`, `pings`, `markers` |
+| `mission()` | `objectives`, `enemy`, `difficulty`, `environment`, `type`, `seed`, `game_over`, `exit` |
+| `campaign()` | `status`, `statistics`, `season`. It's large, so ask once |
+| `mission_end()` | `sub`, and `values` with every plain field of the state |
+
+### obsidian.ui.canvas(id, opts)
+
+A drawing kit, for code that isn't a `draw` handler. `opts.layer` runs from 0 to 875, and `opts.over_fades` keeps it at full strength while the game fades to black. By default a kit fades with the game.
+
+Coordinates are pixels from the bottom left, or your design space after `obsidian.ui.frame`. Colors are `{ r, g, b }`, `{ r, g, b, a }`, `"#rrggbb"` or `"#rrggbbaa"`.
+
+| Method | Draws |
+|---|---|
+| `kit:rect(x, y, w, h, color)` | A rectangle |
+| `kit:poly(points, color)` | A convex shape, from `{ x1, y1, x2, y2, ... }` |
+| `kit:outline(points, color, width)` | The edge of a shape, inside it |
+| `kit:panel{ x, y, w, h, cut, corners, fill, line, line_width }` | A panel with corners cut at 45 degrees. `corners` is any of `"tl tr br bl"`, by default `"tr bl"` |
+| `kit:hex(x, y, r, color, icon)` | A hexagon around a point, with an icon in it if you give one |
+| `kit:text(text, x, y, opts)` | Text. `y` is the baseline and a line break starts a new line. `opts`: `font`, `size`, `tracking`, `align`, `color`, `leading` |
+| `kit:measure(text, opts)` | Width and height of a text, tracking included. Draws nothing |
+| `kit:icon(name, x, y, w, h, color, uv)` | One of the game's images. `uv` is `{ u0, v0, u1, v1 }`. `obsidian.ui.icons()` lists the names |
+| `kit:band(x, y, w, h, color)` | The game's player band: its gradient, tinted |
+| `kit:bar(x, y, w, h, value, color, back)` | A bar filled from 0 to 1, over `back` |
+| `kit:clip(x, y, w, h, fn)` | Runs `fn(kit)` with drawing kept inside the rectangle |
+| `kit:layer(n)`, `kit:opacity(a)` | The layer and strength of what comes next |
+
+Fonts: `"body"`, `"body_large"`, `"heading"`, `"heading_large"`, `"chat"`, `"debug"`, `"debug_medium"`. `"heading"` is Insignia, and `"chat"` is the one with Chinese, Japanese and Korean, which a text falls back to when its font lacks a letter. `"debug"` needs nothing loaded, and every other font falls back to it until the game has loaded them.
+
+A clip cuts shapes and icons exactly, and text at whole letters. The Loadout screen's menu art isn't available: its material unloads between states, and a gui that lists one that isn't loaded can stop the game. Your own art needs the same check, so a canvas takes only the game's images for now.
+
+### obsidian.ui.frame(w, h), safe()
+
+`frame(1920, 1080)` makes this mod's coordinates a design space, scaled and centred the way the game does it, from the player's window and UI scale. `frame()` goes back to pixels. Call it once, even while the mod starts.
+
+`safe()` gives `{ x, y, w, h, scale }`, the area the game keeps its own menus in, in your coordinates.
+
+### obsidian.ui.remap_hits(id, fn)
+
+The game tests the mouse against where it draws. When your layout moves something, `fn(x, y, w, h)` gets each rectangle in pixels and answers where it is now, `nil` to leave it, or `false` for nowhere. `remap_hits(id)` stops it.
+
+### obsidian.ui.prompt(name, pad)
+
+The button for a player's device, as text to draw. `name` is an action such as `"select"`, `"back"`, `"fire"`, `"reload"` or `"map"`, a token such as `"#mod_map"`, or one of the game's text keys, which comes back with its buttons filled in. `pad` is the pad number from `data.players()`, and `nil` means the main player.
+
 ## Saved values {#storage}
 
 ### obsidian.storage.get(key, default), set(key, value), all()
@@ -137,7 +265,7 @@ Strings, numbers and booleans this mod keeps between launches. `set` with `nil` 
 
 `obsidian.version` is the API version, `1` today. A mod that needs a newer API sets `loader_api` in `obsidian.json`, and older loaders refuse to start it.
 
-`obsidian.capabilities` is a read-only table of what the running loader supports, one entry per feature: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`, `module`, `import`, `caller`, `menu`, `toast`, `storage`. Test a feature by name before using one that came later:
+`obsidian.capabilities` is a read-only table of what the running loader supports, one entry per feature: `hook`, `on_require`, `on_frame`, `on_session`, `after_startup`, `settings`, `keybind`, `session`, `text`, `log`, `module`, `import`, `caller`, `menu`, `toast`, `storage`, `ui`. Test a feature by name before using one that came later:
 
 ```lua
 if obsidian.capabilities.on_frame then

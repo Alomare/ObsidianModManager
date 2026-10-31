@@ -101,10 +101,22 @@ end)
 | `on_objective_completed` | nada | Um objetivo foi concluído |
 | `on_stratagem_activated` | `peer`, `stratagem`, `position`, `unit` | A contagem de um estratagema terminou, no jogo de cada jogador |
 | `on_avatar_extract` | `unit`, `shuttle` | Este jogador embarcou na nave de extração |
+| `on_killed` | `unit`, `attacker`, `owner` | Uma unidade com vida foi morta |
+| `on_dead` | `unit` | A morte de uma unidade terminou |
+| `on_health_downed` | `unit`, `state` | Um jogador caiu |
+| `on_damage_taken` | `unit`, `hit` | Uma unidade perdeu vida. `hit` tem `damage`, `hit_zone`, `attacker_unit` e `owner_unit` |
+| `on_health_received` | `unit`, `amount` | Uma unidade foi curada. Uma cura total não passa nenhum dos dois |
+| `on_stratagem_pre_activated` | `stratagem`, `position`, `owner`, `flare` | A contagem de um sinalizador começou |
+| `on_stratagem_used` | `unit`, `data` | Um jogador usou um estratagema |
+| `on_stratagem_wielded` | `unit`, `flare`, `info` | Um jogador pegou um sinalizador na mão |
+| `on_extract_shuttle_landed` | `unit` | A nave de extração pousou |
+| `on_add_to_stat` | `unit`, `stat`, `amount` | Uma estatística subiu, como `"stratagems_used"` ou `"hits"`. Este vem com frequência |
+| `on_pause` | `paused` | O menu de pausa abriu ou fechou |
+| `on_mission_end` | `stats`, `extra` | As telas finais têm os resultados |
 
 - Uma função que falha conta contra o seu mod, e as outras continuam rodando.
 - Nada chega enquanto o lobby não estiver liberado.
-- `position` dura um quadro. Copie `x`, `y` e `z` para guardar.
+- `position` e `hit` duram um quadro. Copie o que precisar deles.
 - `api.events.off(name, fn)` cancela uma.
 
 ## O que há na API {#contents}
@@ -113,19 +125,39 @@ end)
 |---|---|
 | `api.game` | O estado atual, o jogador local, `is_host()` e escritas seguras |
 | `api.catalog` | Armas, estratagemas, vantagens, inimigos e grupos por nome, sem itens pagos que o jogador não tem. Também `backpacks`, `crates`, `pickups`, `vehicles`, `by_subtype(name)` e `max_upgrade(path)` |
-| `api.player` | `heal`, `respawn`, `teleport`, `set_cosmetic` e mais |
+| `api.player` | `heal`, `heal_by(amount)`, `set_health(n)`, `respawn`, `teleport`, `set_cosmetic`, `set_outline(r, g, b)`, `clear_status(name)`, `immune(name, on)`, `knockdown`, `drop_carried` e mais |
 | `api.gear` | `refill`, `give_weapon(slot, path, upgrade)`, `give_backpack(path, upgrade)`, `give_perk`, `remove_perk`, `refresh` |
 | `api.stratagems` | `reset_cooldowns`, `refill_uses`, `give`, `drop`, `call(name, pos, delay)`, `edit(name, field, value)` |
-| `api.enemies` | `spawn`, `spawn_group`, `spawn_entity(path, pos)`, `kill_all`, `kill(unit)`, `list`, `info(unit)`, `nearest(pos)`, `apply_status(unit, template)`, `stun_near(radius)`, `set_pressure(t)`, `waves()`, `force_wave(name, pos)` |
+| `api.enemies` | `spawn`, `spawn_group`, `spawn_entity(path, pos)`, `kill_all`, `kill(unit)`, `list`, `info(unit)`, `nearest(pos)`, `apply_status(unit, template)`, `stun_near(radius)`, `near(radius, pos)`, `damage(unit, power, statuses)`, `set_hitpoints(unit, n)`, `despawn(unit)`, `load_faction(name)`, `set_pressure(t)`, `waves()`, `force_wave(name, pos)` |
 | `api.mission` | `finish_objectives`, `objectives()`, `mutator(name)`, `win`, `abort`, `practice` |
 | `api.vehicles` | `current()`, `driving()`, `repair()`, `refill()` |
 | `api.combat` | `scale{ players, enemies }` |
 | `api.events` | `on(name, fn)`, `off(name, fn)` |
 | `api.ui` | `hint(text, seconds)`, `ping(pos)` |
 | `api.lobby` | `players()` |
-| `api.world` | `cursor`, `ahead`, `explode` |
-| `api.progress` | `set_samples`, `unlock_items`, `upgrade_all` |
+| `api.world` | `cursor`, `ahead`, `explode`, `camera`, `shading(name, kind, value)`, `flash(seconds)` |
+| `api.audio` | `bus(name, db)`, `play(event, pos)`, `stinger(name)` |
+| `api.progress` | `set_samples`, `unlock_items`, `upgrade_all`, `loadout()`, `set_loadout(t)`, `upgrades()`, `set_upgrade(name, value)`, `upgrade_limit(name)` |
 | `api.console` | `run(line)`, `commands()` |
+
+## Jogador {#player}
+
+Estes efeitos continuam depois de um respawn. A maioria devolve o que havia antes, então o valor de uma vantagem volta quando eles saem.
+
+| Efeito | Valor |
+|---|---|
+| `armor` | Armadura em todos os ângulos |
+| `sprint_speed` | Velocidade máxima de corrida |
+| `throw_range` | Um multiplicador nos arremessos |
+| `acceleration`, `deceleration` | A rapidez com que o jogador arranca e para |
+| `ignore_slow` | `true`: status e terreno que deixam lento não fazem nada |
+| `no_screen_leash` | `true`: a câmera para de prender o jogador na tela |
+| `hide_model` | `true`: o modelo do jogador fica escondido |
+| `heavy_armor_look` | `true`: o visual da vantagem, sem a armadura dela |
+
+- `api.player.set_outline(r, g, b)` muda o contorno que o jogador mostra através de paredes, e `set_outline(nil)` devolve.
+- `api.player.clear_status(name)` tira um modelo de status, ou todos os status de um elemento como `"fire"`. `api.player.immune(name, on)` mantém um deles fora depois de um respawn, até `on` ser `false`.
+- `set_cosmetic("gender", index)` muda o personagem, com um índice de `api.catalog.cosmetics("gender")`.
 
 ## Equipamento {#gear}
 
@@ -164,6 +196,10 @@ api.enemies.set_pressure({ difficulty = false })
 - `difficulty` é quanto cada encontro pode gastar. A semente, as ondas disponíveis e os objetivos continuam iguais.
 - `force_wave` cria uma onda de `api.enemies.waves()` de uma vez, ignorando os atrasos dela.
 - `spawn_entity` cria uma caixa ou um item no chão. Use caminhos de `api.catalog.crates()` e `pickups()`, que deixam de fora itens pagos.
+- `near(radius, pos)` lista inimigos vivos, do mais perto ao mais longe, em volta de uma posição ou do jogador.
+- `damage(unit, power, statuses)` é um golpe deste jogador que funciona no jogo de qualquer jogador, e a armadura conta. `statuses` é uma lista opcional de nomes de status.
+- `set_hitpoints(unit, n)` e `despawn(unit)` passam pelo jogo do jogador dono do inimigo.
+- `load_faction(name)` carrega `"bugs"`, `"cyborgs"` ou `"illuminates"` durante uma missão, para qualquer um deles aparecer em qualquer planeta. Responde `"alone_only"` com mais alguém no lobby, porque todos os jogos precisam do pacote. O jogo para por um instante enquanto carrega, e o pacote sai quando a missão termina.
 
 ## Missões {#missions}
 
@@ -201,6 +237,57 @@ api.combat.scale({ players = 0.5, enemies = 2 })
 ```
 
 Um multiplicador de 0 a 100, depois da armadura, então a armadura que para um tiro continua parando. 1 ou `false` desliga um lado. O jogo não passa quem atacou para as contas, então a escala vale por quem leva o golpe. O jogo de cada jogador calcula os próprios golpes, então todos no lobby devem usar os mesmos números.
+
+## Câmera e visual {#view}
+
+Tudo isto é só deste jogador: ninguém mais vê. A Obsidian API é um mod de sessão, então para enquanto o lobby não estiver liberado.
+
+```lua
+api.world.camera.fov(90)                    -- graus, nil devolve
+api.world.camera.spin(30)                   -- graus em volta do jogador
+api.world.camera.spectate(friend_unit)      -- nil volta
+api.world.camera.photo(true)                -- congela a câmera e limpa a tela
+api.world.camera.place(position, rotation)  -- move a câmera, no modo foto
+
+api.world.shading("fog_color", "vector3", { 0.5, 0.45, 0.3 })
+api.world.shading("fog_color", "vector3")   -- volta ao do planeta
+api.world.flash()                           -- relâmpago
+```
+
+- Um giro ou ângulo baixo pode deixar a mira estranha: o mouse mira no espaço da tela.
+- `spectate` recebe a unidade de outro jogador, de `api.game.all_avatars()`.
+- `shading` aceita os nomes em `api.world.SHADING`, por tipo: `scalar` é um número, `vector2` e `vector3` são listas. Um valor volta em cada nova missão. O jogo só traz o código para `fog_color`, `sun_color` e os outros nomes `vector3`, sem usá-los, então confira na primeira vez.
+- `flash` precisa de um planeta de floresta, e não dos illuminates. Os outros respondem `"wrong_environment"`.
+
+## Som {#sound}
+
+O som também é local.
+
+```lua
+api.audio.bus("combat_enemy", -30)   -- decibéis; 0 é como mixado, -60 é silêncio
+api.audio.bus("combat_enemy", false) -- volta à mixagem do jogo
+
+api.audio.play("ui_select")          -- em todo lugar
+api.audio.play("ui_select", position)
+api.audio.stinger("music_objective_found")
+```
+
+- `api.audio.BUSES` lista os barramentos. Um volume se repete a cada quadro, porque os estados de mixagem do jogo os escrevem enquanto fazem a transição.
+- `play` e `stinger` respondem `"unknown_event"` para um som que esta missão não carregou.
+- `stinger` passa pela recarga de 5 segundos do próprio jogo.
+
+## Equipamentos salvos {#loadouts}
+
+```lua
+api.progress.set_loadout({ primary_weapon = "weapon_railgun", stratagems = { [1] = "stratagem_resupply" } })
+api.progress.set_upgrade("weapon_railgun", 3)
+```
+
+Os dois escrevem no save real, na nave, com os menus fechados, e respondem `"close_screen"` fora disso.
+
+- `set_loadout` aceita `perk`, `primary_weapon`, `sidearm_weapon` e `stratagems`, que liga os quatro espaços livres a nomes. Vale no próximo respawn, e entra também na primeira predefinição, porque a tela de equipamento começa por ela.
+- Itens pagos e nomes desconhecidos voltam ao padrão, como quando o jogo lê um save. Um item que o jogador não desbloqueou não passa pela tela de equipamento.
+- Um valor em `set_upgrade` é o que o jogo guarda: um bit por melhoria nas armas, um nível nos estratagemas. `upgrade_limit(name)` dá o maior.
 
 ## Mensagens {#messages}
 

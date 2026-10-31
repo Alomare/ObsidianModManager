@@ -16,7 +16,7 @@ end
 
 test("every_module_loads_and_the_api_is_exported", function()
 	local api = start()
-	for _, name in ipairs({ "game", "effects", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress", "events", "combat", "vehicles", "lobby", "ui" }) do
+	for _, name in ipairs({ "game", "effects", "edits", "console", "catalog", "world", "player", "gear", "stratagems", "enemies", "mission", "progress", "events", "combat", "vehicles", "lobby", "ui", "audio" }) do
 		E.eq(type(api[name]), "table", name)
 	end
 end)
@@ -1424,6 +1424,559 @@ test("nothing_new_writes_a_protected_key", function()
 	api.enemies.stun_near(200)
 	api.effects.clear()
 	e:frames(1)
+	no_tampering(game)
+end)
+
+local function commands_of(game, name)
+	local out = {}
+	for _, c in ipairs(game.commands) do
+		if c.command == name then out[#out + 1] = c end
+	end
+	return out
+end
+
+test("armor_reaches_both_copies_and_what_was_there_comes_back", function()
+	local api, game = start()
+	api.effects.set("armor", 200)
+	E.eq(G.command(game, "health", "armor").data.armor_max, 200)
+	E.eq(game.slave_commands[1].data.armor_min, 200, "the damage sums read the slave")
+	game.commands, game.slave_commands = {}, {}
+	api.effects.set("armor", false)
+	E.eq(G.command(game, "health", "armor").data.armor_min, 15)
+	E.eq(game.slave_commands[1].data.armor_max, 35)
+	no_tampering(game)
+end)
+
+test("a_value_on_a_field_gives_back_what_a_perk_set", function()
+	local api, game = start()
+	game.me.master.character.throw_range_multiplier = 1.5
+	api.effects.set("throw_range", 3)
+	E.eq(G.command(game, "character", "set_throw_range_multiplier").data, 3)
+	game.commands = {}
+	api.effects.set("throw_range", false)
+	E.eq(G.command(game, "character", "set_throw_range_multiplier").data, 1.5)
+	game.commands = {}
+	api.effects.set("sprint_speed", 12)
+	api.effects.set("acceleration", 60)
+	api.effects.set("deceleration", 60)
+	E.eq(G.command(game, "character", "move_speed_sprint_max").data, 12)
+	E.eq(G.command(game, "mover", "acceleration").data, 60)
+	game.commands = {}
+	api.effects.set("acceleration", false)
+	E.eq(G.command(game, "mover", "acceleration").data, 20)
+end)
+
+test("the_switches_go_both_ways", function()
+	local api, game = start()
+	api.effects.set("ignore_slow", true)
+	api.effects.set("no_screen_leash", true)
+	E.eq(G.command(game, "mover", "ignore_slow").data, true)
+	E.eq(G.command(game, "mover", "keep_inside_screen").data, false)
+	game.commands = {}
+	api.effects.set("ignore_slow", false)
+	api.effects.set("no_screen_leash", false)
+	E.eq(G.command(game, "mover", "ignore_slow").data, false)
+	E.eq(G.command(game, "mover", "keep_inside_screen").data, true)
+end)
+
+test("a_hidden_model_stays_hidden_after_a_seat_shows_it", function()
+	local api, game, e = start()
+	api.effects.set("hide_model", true)
+	E.eq(G.command(game, "customization", "set_visible").data, false)
+	game.me.master.customization.visible = false
+	e:frames(1)
+	game.commands = {}
+	e:frames(1)
+	E.eq(G.command(game, "customization", "set_visible"), nil, "already hidden")
+	game.me.master.customization.visible = true
+	e:frames(1)
+	E.eq(G.command(game, "customization", "set_visible").data, false)
+	game.commands = {}
+	api.effects.set("hide_model", false)
+	E.eq(G.command(game, "customization", "set_visible").data, true)
+end)
+
+test("the_heavy_armor_look_leaves_the_perks_own_alone", function()
+	local api, game = start()
+	api.effects.set("heavy_armor_look", true)
+	E.eq(G.command(game, "customization", "enable_heavy_armor") ~= nil, true)
+	game.commands = {}
+	api.effects.set("heavy_armor_look", false)
+	E.eq(G.command(game, "customization", "disable_heavy_armor") ~= nil, true)
+	game.commands = {}
+	game.me.master.customization.heavy_armor = 2
+	api.effects.set("heavy_armor_look", true)
+	api.effects.set("heavy_armor_look", false)
+	E.eq(G.command(game, "customization", "disable_heavy_armor"), nil, "the perk gave it")
+end)
+
+test("the_outline_is_boxed_and_goes_back_to_the_players_color", function()
+	local api, game = start()
+	game.record.player_go.index = 1
+	E.eq(api.player.set_outline(1, 2, 3), true)
+	local c = G.command(game, "customization", "set_silhouette_color").data
+	E.eq(c.y, 1, "boxed as the game's colors are")
+	E.eq(c.w, 3)
+	game.commands = {}
+	E.eq(api.player.set_outline(nil), true)
+	E.eq(G.command(game, "customization", "set_silhouette_color").data.y, 10)
+	E.eq(select(2, api.player.set_outline(300, 0, 0)), "out_of_range")
+	E.eq(select(2, api.player.set_outline(1, 2)), "out_of_range")
+end)
+
+test("a_status_comes_off_by_template_or_element_and_a_wrong_name_never_reaches_the_game", function()
+	local api, game = start()
+	E.eq(api.player.clear_status("heavy_burn"), true)
+	E.eq(G.command(game, "status", "remove_status").data, "heavy_burn")
+	E.eq(api.player.clear_status("fire"), true)
+	E.eq(G.command(game, "status", "remove_statuses_by_element").data, "fire")
+	game.commands = {}
+	E.eq(select(2, api.player.clear_status("nothing")), "unknown_status", "the game indexes its table with it, outside any pcall")
+	E.eq(#game.commands, 0)
+end)
+
+test("an_immunity_has_a_way_off_the_game_lacks", function()
+	local api, game = start()
+	E.eq(api.player.immune("fire"), true)
+	E.eq(G.command(game, "status", "add_immunity_element").data, "fire")
+	game.me.master.status.immunities_elements.fire = true
+	E.eq(api.player.immune("fire", false), true)
+	E.eq(game.me.master.status.immunities_elements.fire, nil)
+	E.eq(api.player.immune("flashbang_stun"), true)
+	E.eq(G.command(game, "status", "add_immunity_status").data, "flashbang_stun")
+	E.eq(select(2, api.player.immune("nothing")), "unknown_status")
+end)
+
+test("the_small_player_actions_are_checked", function()
+	local api, game = start()
+	E.eq(api.player.knockdown(), true)
+	E.eq(api.player.drop_carried(), true)
+	E.eq(G.command(game, "character", "do_knockdown") ~= nil, true)
+	E.eq(G.command(game, "character", "drop_carry") ~= nil, true)
+	E.eq(api.player.heal_by(25), true)
+	E.eq(G.command(game, "health", "do_heal").data, 25)
+	E.eq(api.player.set_health(50), true)
+	E.eq(G.command(game, "health", "set_hitpoints").data, 50)
+	for _, bad in ipairs({ 0, -5, "x", 0 / 0 }) do
+		E.eq(select(2, api.player.heal_by(bad)), "out_of_range")
+		E.eq(select(2, api.player.set_health(bad)), "out_of_range")
+	end
+	no_tampering(game)
+end)
+
+test("near_lists_enemies_by_distance", function()
+	local api, game = start()
+	local list = api.enemies.near(500)
+	E.eq(list[1], game.enemies[1])
+	E.eq(list[2], game.enemies[2])
+	E.eq(#api.enemies.near(20), 1)
+	E.eq(api.enemies.near(5, { x = 100, y = 0, z = 0 })[1], game.enemies[2])
+end)
+
+test("a_hit_from_a_mod_goes_as_a_weapons_does", function()
+	local api, game = start()
+	local other = game.enemies[2]
+	E.eq(api.enemies.damage(other, 500, { "flashbang_stun" }), true)
+	local c = game.commands[1]
+	E.eq(c.unit, other, "any enemy, from any peer")
+	E.eq(c.interface, "damageable")
+	E.eq(c.data.power, 500)
+	E.eq(c.data.owner_unit, game.me)
+	E.eq(c.data.hit_status_effects[1], "flashbang_stun")
+	game.commands = {}
+	E.eq(api.enemies.damage(other, 10), true)
+	E.eq(game.commands[1].data.hit_status_effects, nil)
+	game.commands = {}
+	E.eq(select(2, api.enemies.damage(other, -1)), "out_of_range")
+	E.eq(select(2, api.enemies.damage(other, 1, { "nope" })), "unknown_status")
+	E.eq(select(2, api.enemies.damage(game.me, 1)), "no_enemy")
+	E.eq(#game.commands, 0)
+end)
+
+test("hitpoints_of_one_enemy_go_through_its_owner", function()
+	local api, game = start()
+	E.eq(api.enemies.set_hitpoints(game.enemies[1], 5), true)
+	E.eq(G.command(game, "health", "set_hitpoints").data, 5)
+	E.eq(api.enemies.set_hitpoints(game.enemies[2], 7), true)
+	local rpc = game.rpc[1]
+	E.eq(rpc[2], "rpc_set_hitpoints_request")
+	E.eq(rpc[6], 7)
+	E.eq(select(2, api.enemies.set_hitpoints(game.enemies[1], 0)), "out_of_range")
+	no_tampering(game)
+end)
+
+test("one_enemy_can_be_despawned", function()
+	local api, game = start()
+	E.eq(api.enemies.despawn(game.enemies[1]), true)
+	E.eq(G.command(game, "enemy", "remove_from_group") ~= nil, true)
+	E.eq(api.enemies.despawn(game.enemies[2]), true)
+	E.eq(game.rpc[1][2], "rpc_despawn_enemy_unit")
+	E.eq(select(2, api.enemies.despawn(game.me)), "no_enemy")
+end)
+
+test("a_faction_loads_for_a_solo_player_and_goes_at_the_end_of_the_mission", function()
+	local api, game, e, ui = start()
+	E.eq(api.enemies.load_faction("cyborgs"), true)
+	E.eq(game.packages["resource_packages/race_cyborgs"], true)
+	E.eq(game.flushed, true, "ready at once, for a spawn on the next line")
+	e:frames(5)
+	E.eq(game.packages["resource_packages/race_cyborgs"], true, "kept through the mission")
+	ui.state = "mission_end"
+	e:frames(1)
+	E.eq(game.packages["resource_packages/race_cyborgs"], nil, "the game wouldn't release it")
+	E.eq(game.packages["resource_packages/race_bugs"], true, "and its own is its own")
+end)
+
+test("loading_a_faction_the_game_already_has_takes_nothing_away_later", function()
+	local api, game, e, ui = start()
+	E.eq(api.enemies.load_faction("bugs"), true)
+	ui.state = "mission_end"
+	e:frames(1)
+	E.eq(game.packages["resource_packages/race_bugs"], true)
+end)
+
+test("a_faction_needs_a_lone_player_a_mission_and_a_real_name", function()
+	local lobby = { my_id = "me", members = { "me", "friend" }, data = {} }
+	local api, game = start({ lobby = lobby })
+	E.eq(select(2, api.enemies.load_faction("cyborgs")), "alone_only", "every peer would need the package")
+	lobby.members = { "me" }
+	E.eq(select(2, api.enemies.load_faction("robots")), "unknown_faction")
+	E.eq(game.packages["resource_packages/race_cyborgs"], nil)
+	local api2, game2, e2, ui2 = start()
+	ui2.state = "menu"
+	E.eq(select(2, api2.enemies.load_faction("cyborgs")), "not_in_mission")
+end)
+
+test("the_field_of_view_is_checked_and_comes_back", function()
+	local api = start()
+	local cam = rawget(_G, "CameraManager")
+	E.eq(api.world.camera.fov(90), true)
+	E.eq(math.abs(cam.fov - math.rad(90)) < 0.001, true)
+	E.eq(api.world.camera.fov(nil), true)
+	E.eq(math.abs(cam.fov - math.rad(60)) < 0.001, true)
+	for _, bad in ipairs({ 5, 121, 0 / 0, "wide" }) do E.eq(select(2, api.world.camera.fov(bad)), "out_of_range") end
+end)
+
+test("the_spin_goes_back_to_what_a_mission_starts_with", function()
+	local api, game = start()
+	api.world.camera.spin(30)
+	E.eq(game.camera[4], 30)
+	api.world.camera.spin(nil)
+	E.eq(game.camera[4], -45)
+end)
+
+test("the_spin_leaves_the_ship_alone", function()
+	local api, game, e, ui = start()
+	ui.state = "menu"
+	game.camera = nil
+	api.world.camera.spin(30)
+	E.eq(game.camera, nil)
+end)
+
+local function teammate(game)
+	local go = { avatar_unit = game.enemies[2], name = "Friend" }
+	function go:owned() return false end
+	function go:owner() return "friend" end
+	function go:exists() return true end
+	function go:get(k) return self[k] end
+	function go:has(k) return self[k] ~= nil end
+	game.state.players[2] = { player_go = go, pad_number = 1 }
+	return game.enemies[2]
+end
+
+test("spectating_swaps_the_cameras_target_and_holds_past_a_respawn", function()
+	local api, game, e = start()
+	local cam = rawget(_G, "CameraManager")
+	cam.targets[game.me] = {}
+	local friend = teammate(game)
+	E.eq(api.world.camera.spectate(friend), true)
+	E.eq(cam.targets[friend] ~= nil, true)
+	E.eq(cam.targets[game.me], nil)
+	cam.targets[game.me] = {}
+	e:frames(1)
+	E.eq(cam.targets[game.me], nil, "the game adds a new avatar back")
+	E.eq(api.world.camera.spectate(nil), true)
+	E.eq(cam.targets[friend], nil)
+	E.eq(cam.targets[game.me] ~= nil, true)
+end)
+
+test("only_a_players_avatar_can_be_spectated", function()
+	local api, game = start()
+	E.eq(select(2, api.world.camera.spectate(game.enemies[1])), "no_avatar")
+end)
+
+test("a_spectated_player_who_is_gone_gives_the_camera_back", function()
+	local api, game, e = start()
+	local cam = rawget(_G, "CameraManager")
+	local friend = teammate(game)
+	api.world.camera.spectate(friend)
+	friend.alive = false
+	cam.targets = {}
+	e:frames(1)
+	E.eq(cam.targets[game.me] ~= nil, true)
+end)
+
+test("photo_mode_freezes_the_camera_and_clears_the_screen", function()
+	local api, game = start()
+	local cam = rawget(_G, "CameraManager")
+	E.eq(api.world.camera.photo(true), true)
+	E.eq(cam.state, "fully_static")
+	E.eq(api.effects.is_on("hide_hud"), true)
+	E.eq(game.state.hint_manager.active, false)
+	E.eq(game.state.mission_manager.display_objectives, false)
+	E.eq(api.world.camera.place("here", "that way"), true)
+	E.eq(cam.at, "here")
+	E.eq(api.world.camera.photo(false), true)
+	E.eq(cam.state, "follow")
+	E.eq(api.effects.is_on("hide_hud"), false)
+	E.eq(game.state.hint_manager.active, true)
+	E.eq(game.state.mission_manager.display_objectives, true)
+	E.eq(select(2, api.world.camera.place("here")), "not_photo_mode")
+end)
+
+test("photo_mode_leaves_a_hidden_hud_hidden", function()
+	local api = start()
+	api.effects.set("hide_hud", true)
+	api.world.camera.photo(true)
+	api.world.camera.photo(false)
+	E.eq(api.effects.is_on("hide_hud"), true)
+end)
+
+test("photo_mode_needs_a_mission", function()
+	local api, game, e, ui = start()
+	ui.state = "menu"
+	E.eq(select(2, api.world.camera.photo(true)), "not_in_mission")
+end)
+
+test("a_shading_value_goes_on_by_name_and_kind_and_comes_off", function()
+	local api, game = start()
+	E.eq(api.world.shading("fog_color", "vector3", { 0.5, 0.4, 0.3 }), true)
+	E.eq(game.shadings.fog_color.kind, "vector3")
+	E.eq(game.shadings.fog_color.value[3], 0.3)
+	E.eq(api.world.shading("exposure", "scalar", 2), true)
+	E.eq(game.shadings.exposure.value, 2)
+	E.eq(api.world.shading("fog_color", "vector3"), true)
+	E.eq(game.shadings.fog_color, nil)
+end)
+
+test("a_shading_value_comes_back_in_a_new_mission", function()
+	local api, game, e = start()
+	api.world.shading("sun_color", "vector3", { 8, 1, 1 })
+	game.shadings = nil
+	game.state.players[1].player_go.avatar_unit = game.enemies[1]
+	e:frames(1)
+	E.eq(game.shadings.sun_color.value[1], 8)
+end)
+
+test("the_engine_gets_no_shading_name_or_value_it_wouldnt_take", function()
+	local api, game = start()
+	E.eq(select(2, api.world.shading("made_up", "scalar", 1)), "unknown_shading")
+	E.eq(select(2, api.world.shading("fog_color", "scalar", 1)), "bad_type", "the viewport would hand it over as the wrong type")
+	E.eq(select(2, api.world.shading("fog_color", "vector3", { 1, 2 })), "bad_value", "a list of 2 fails an assert in the frame")
+	E.eq(select(2, api.world.shading("fog_color", "vector3", { 1, 2, 0 / 0 })), "bad_value")
+	E.eq(select(2, api.world.shading("exposure", "scalar", 1 / 0)), "bad_value")
+	E.eq(game.shadings, nil)
+end)
+
+test("lightning_needs_a_forest_that_has_it", function()
+	local api, game = start()
+	E.eq(select(2, api.world.flash()), "wrong_environment", "a desert")
+	game.state.generated_level.environment_name = "forest"
+	E.eq(api.world.flash(), true)
+	E.eq(game.flash.shading_environment, "lightning")
+	E.eq(game.flash.target_value, 1)
+	E.eq(type(game.flash.fade_out_time), "number", "the game ignores an event without its three times")
+	game.state.generated_level.enemy = "illuminates"
+	E.eq(select(2, api.world.flash()), "wrong_environment", "their forest has no such setting")
+	game.state.generated_level.enemy = "bugs"
+	E.eq(select(2, api.world.flash(0)), "out_of_range")
+end)
+
+test("a_bus_volume_holds_against_the_mix_states_and_comes_back", function()
+	local api, game, e = start()
+	E.eq(api.audio.bus("combat_enemy", -30), true)
+	e:frames(1)
+	E.eq(game.buses.combat_enemy, -30)
+	game.buses.combat_enemy = -4
+	e:frames(1)
+	E.eq(game.buses.combat_enemy, -30, "a state blend wrote it")
+	E.eq(api.audio.bus("combat_enemy", false), true)
+	E.eq(game.buses.combat_enemy, -4, "what the mix wants")
+end)
+
+test("a_master_bus_comes_back_through_the_options", function()
+	local api, game, e = start()
+	api.audio.bus("sfx_master", -60)
+	e:frames(1)
+	E.eq(api.audio.bus("sfx_master", nil), true)
+	E.eq(game.volumes_set, 1)
+end)
+
+test("zero_is_a_volume_not_off", function()
+	local api, game, e = start()
+	api.audio.bus("vo", 0)
+	e:frames(1)
+	E.eq(game.buses.vo, 0)
+	E.eq(api.effects.is_on("bus_vo"), true)
+end)
+
+test("a_bus_is_checked", function()
+	local api, game = start()
+	E.eq(select(2, api.audio.bus("nothing", 0)), "unknown_bus")
+	E.eq(select(2, api.audio.bus("master", 0)), "unknown_bus", "it has no value to give back")
+	E.eq(select(2, api.audio.bus("vo", 50)), "out_of_range")
+	E.eq(select(2, api.audio.bus("vo", 0 / 0)), "out_of_range")
+end)
+
+test("a_sound_plays_only_if_the_game_has_it", function()
+	local api, game = start()
+	E.eq(api.audio.play("ui_select"), true)
+	E.eq(game.played[1].name, "ui_select")
+	E.eq(game.played[1].pos, nil)
+	E.eq(api.audio.play("ui_select", "there"), true)
+	E.eq(game.played[2].pos, "there")
+	E.eq(select(2, api.audio.play("made_up")), "unknown_event")
+	E.eq(select(2, api.audio.play(5)), "unknown_event")
+	E.eq(#game.played, 2)
+end)
+
+test("a_sting_goes_through_the_games_cooldown", function()
+	local api, game = start()
+	E.eq(api.audio.stinger("music_objective_found"), true)
+	E.eq(game.stinger, "music_objective_found")
+	E.eq(select(2, api.audio.stinger("made_up")), "unknown_event")
+	game.state.audio_state_machine = nil
+	E.eq(select(2, api.audio.stinger("music_objective_found")), "not_in_mission")
+end)
+
+test("the_session_gate_takes_the_view_and_the_sound_off_and_gives_them_back", function()
+	local lobby = { my_id = "me", members = { "me" }, data = {} }
+	local api, game, e = start({ lobby = lobby })
+	api.world.camera.fov(100)
+	api.audio.bus("combat_enemy", -30)
+	api.world.shading("exposure", "scalar", 2)
+	e:frames(31)
+	lobby.members = { "me", "stranger" }
+	e:frames(31)
+	local cam = rawget(_G, "CameraManager")
+	E.eq(math.abs(cam.fov - math.rad(60)) < 0.001, true)
+	E.eq(game.buses.combat_enemy, -4)
+	E.eq(game.shadings.exposure, nil)
+	lobby.members = { "me" }
+	e:frames(33)
+	E.eq(math.abs(cam.fov - math.rad(100)) < 0.001, true)
+	E.eq(game.shadings.exposure.value, 2)
+end)
+
+local function on_ship(ui, game)
+	ui.state = "menu"
+	game.state.active_screens = {}
+end
+
+test("a_loadout_goes_in_the_save_and_the_first_preset", function()
+	local api, game, e, ui = start()
+	on_ship(ui, game)
+	E.eq(api.progress.set_loadout({ primary_weapon = "weapon_other", stratagems = { [1] = "s1", [4] = "s4" } }), true)
+	local l = game.save.user.loadout
+	E.eq(l.primary_weapon, "weapon_other")
+	E.eq(l.perk, "perk_cardio", "left out, left alone")
+	E.eq(l.stratagems[5], "s1", "after the four fixed slots")
+	E.eq(l.stratagems[8], "s4")
+	E.eq(l.stratagems[1], "a")
+	E.eq(game.save.user.loadouts[1].primary_weapon, "weapon_other", "the Loadout screen starts from it")
+	E.eq(game.save.user.loadouts[2].perk, "other")
+	E.eq(game.saved, 1, "written out")
+	E.eq(api.progress.loadout().primary_weapon, "weapon_other")
+end)
+
+test("a_paid_item_doesnt_get_into_a_loadout", function()
+	local api, game, e, ui = start()
+	on_ship(ui, game)
+	E.eq(api.progress.set_loadout({ primary_weapon = "weapon_dlc" }), true)
+	E.eq(game.save.user.loadout.primary_weapon, "weapon_rifle")
+end)
+
+test("a_loadout_is_changed_only_with_the_screens_closed", function()
+	local api, game, e, ui = start()
+	E.eq(select(2, api.progress.set_loadout({})), "not_on_ship")
+	on_ship(ui, game)
+	game.state.active_screens = { {} }
+	E.eq(select(2, api.progress.set_loadout({})), "close_screen", "it would write its own copy back")
+	game.state.active_screens = {}
+	E.eq(select(2, api.progress.set_loadout("rifle")), "bad_type")
+	E.eq(select(2, api.progress.set_loadout({ stratagems = { [5] = "s" } })), "out_of_range")
+	E.eq(select(2, api.progress.set_loadout({ stratagems = { x = "s" } })), "out_of_range")
+	E.eq(game.save.user.loadout.stratagems[5], "e", "nothing written")
+end)
+
+test("a_copy_of_the_loadout_doesnt_reach_the_save", function()
+	local api, game = start()
+	api.progress.loadout().perk = "changed"
+	api.progress.upgrades().a = 9
+	E.eq(game.save.user.loadout.perk, "perk_cardio")
+	E.eq(game.save.user.item_upgrades.a, 1)
+end)
+
+test("one_item_can_be_upgraded_in_the_games_range", function()
+	local api, game, e, ui = start()
+	on_ship(ui, game)
+	E.eq(api.progress.upgrade_limit("weapon_rifle"), 3, "two bits")
+	E.eq(api.progress.upgrade_limit("stratagem_resupply"), 3, "three levels")
+	E.eq(api.progress.upgrade_limit("stratagem_machinegun"), nil)
+	E.eq(api.progress.set_upgrade("weapon_rifle", 3), true)
+	E.eq(game.save.user.item_upgrades.weapon_rifle, 3)
+	E.eq(game.save.user.item_upgrades.a, 1, "merged")
+	E.eq(api.progress.upgrades().weapon_rifle, 3)
+	E.eq(select(2, api.progress.set_upgrade("weapon_rifle", 4)), "out_of_range")
+	E.eq(select(2, api.progress.set_upgrade("weapon_rifle", 0.5)), "out_of_range")
+	E.eq(select(2, api.progress.set_upgrade("weapon_dlc", 1)), "not_available", "paid")
+	E.eq(select(2, api.progress.set_upgrade("no_item", 1)), "not_available")
+	game.state.active_screens = { {} }
+	E.eq(select(2, api.progress.set_upgrade("weapon_rifle", 1)), "close_screen")
+end)
+
+test("every_new_event_reaches_a_listener", function()
+	local api, game, e = start()
+	local heard = {}
+	for _, name in ipairs(api.events.NAMES) do
+		E.eq(api.events.on(name, function(...) heard[name] = select("#", ...) end), true)
+	end
+	e:frames(1)
+	for _, name in ipairs({ "on_killed", "on_dead", "on_health_downed", "on_damage_taken", "on_health_received", "on_stratagem_pre_activated",
+		"on_stratagem_used", "on_stratagem_wielded", "on_extract_shuttle_landed", "on_add_to_stat", "on_pause", "on_mission_end" }) do
+		game.state.event_delegate:trigger(name, game.me, 2)
+		E.eq(heard[name], 2, name)
+	end
+end)
+
+test("the_game_cheat_detector_stays_out_of_reach", function()
+	local api = start()
+	E.eq(select(2, api.events.on("on_fusk_detected", function() end)), "unknown_event")
+end)
+
+test("every_effect_of_this_release_has_a_way_off", function()
+	local api = start()
+	api.audio.bus("vo", 0)
+	api.world.shading("exposure", "scalar", 1)
+	api.player.immune("fire")
+	for _, id in ipairs({ "armor", "sprint_speed", "throw_range", "acceleration", "deceleration", "ignore_slow", "no_screen_leash", "hide_model",
+		"heavy_armor_look", "outline_color", "camera_fov", "camera_spin", "camera_spectate", "photo_mode", "bus_vo", "shading_exposure", "immune_fire" }) do
+		E.eq(type(api.effects.defs[id].remove), "function", id)
+	end
+end)
+
+test("nothing_of_this_release_writes_a_protected_key", function()
+	local api, game, e = start()
+	api.effects.set("armor", 100)
+	api.effects.set("sprint_speed", 10)
+	api.effects.set("throw_range", 2)
+	api.effects.set("acceleration", 50)
+	api.player.heal_by(5)
+	api.player.set_health(50)
+	api.enemies.set_hitpoints(game.enemies[1], 5)
+	api.enemies.damage(game.enemies[1], 5)
+	for _ = 1, 5 do e:frames(1) end
+	api.effects.clear()
 	no_tampering(game)
 end)
 

@@ -17,6 +17,7 @@ obsidian.capabilities.settings boolean
 obsidian.capabilities.storage boolean
 obsidian.capabilities.text boolean
 obsidian.capabilities.toast boolean
+obsidian.capabilities.ui boolean
 obsidian.hook function
 obsidian.import function
 obsidian.keybind function
@@ -35,6 +36,7 @@ obsidian.settings.get function
 obsidian.storage table
 obsidian.text function
 obsidian.toast function
+obsidian.ui table
 obsidian.version number
 log: Obsidian Loader, API 1, jit available
 log: settings: no file, defaults used

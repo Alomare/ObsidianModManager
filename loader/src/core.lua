@@ -8,6 +8,7 @@ local pool = require("obsidian/loader/pool")
 local settings = require("obsidian/loader/settings")
 local game_text = require("obsidian/loader/game_text")
 local menu = require("obsidian/loader/menu")
+local ui = require("obsidian/loader/ui")
 local storage = require("obsidian/loader/storage")
 
 local API_VERSION = 1
@@ -22,6 +23,7 @@ local M = {
 local capabilities = {
 	after_startup = true, log = true, hook = true, on_require = true, on_session = true, session = true,
 	settings = true, keybind = true, text = true, on_frame = true, module = true, import = true, menu = true, toast = true, storage = true, caller = true,
+	ui = true,
 }
 local api = {
 	version = API_VERSION,
@@ -33,6 +35,7 @@ local api = {
 	keybind = settings.keybind,
 	text = settings.text,
 	menu = menu.api(),
+	ui = ui.api(),
 	toast = menu.toast,
 	storage = storage.api(),
 	capabilities = B.setmetatable({}, {
@@ -277,6 +280,7 @@ function M.boot()
 	hooks.on_frame(show_notices)
 	hooks.on_frame(run_frame_callbacks)
 	menu.setup(M, hooks, session)
+	ui.setup(M, hooks, session)
 	storage.setup(M, game_side and (game_side .. "/logs"))
 	hooks.wrap_require()
 

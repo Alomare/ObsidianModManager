@@ -12,16 +12,33 @@ function F.install(e, opts)
 	rawset(_G, "Vector3", function(x, y, z) return { x = x, y = y, z = z } end)
 	rawset(_G, "Vector2", function(x, y) return { x = x, y = y } end)
 	rawset(_G, "Color", function(a, r, g, b) return { a, r, g, b } end)
+	-- What the title screen run of 2026-10-30 showed: a triangle with its points as (x, y, 0) draws
+	-- nothing, so only (x, 0, y) lands in the list; text_extents gives min and max, and counts tracking.
+	ui.triangles, ui.bitmaps, ui.guis = {}, {}, {}
 	rawset(_G, "Gui", {
-		rect = function(_, pos, size, color) ui.rects[#ui.rects + 1] = { pos = pos, size = size, color = color } end,
-		text = function(_, text, font, size, material, pos, color)
-			ui.texts[#ui.texts + 1] = { text = text, font = font, size = size, material = material, pos = pos, color = color }
+		rect = function(gui, pos, size, color) ui.rects[#ui.rects + 1] = { gui = gui, pos = pos, size = size, color = color } end,
+		text = function(gui, text, font, size, material, pos, color, option, value)
+			ui.texts[#ui.texts + 1] = { gui = gui, text = text, font = font, size = size, material = material, pos = pos, color = color, option = option, value = value }
+		end,
+		triangle = function(gui, a, b, c, layer, color)
+			if a.y == 0 and b.y == 0 and c.y == 0 then
+				ui.triangles[#ui.triangles + 1] = { gui = gui, a = a, b = b, c = c, layer = layer, color = color }
+			end
+		end,
+		text_extents = function(_, text, _, size, option, value)
+			local gaps = option == "letter_spacing" and (#text - 1) * value or 0
+			return { x = 0, y = 0, z = 0 }, { x = #text * size * 0.5 + gaps, y = 0, z = size }
+		end,
+		has_all_glyphs = function(_, text) return not ui.missing_glyphs or not string.find(text, ui.missing_glyphs, 1, true) end,
+		bitmap_uv = function(gui, name, uv0, uv1, pos, size, color)
+			ui.bitmaps[#ui.bitmaps + 1] = { gui = gui, name = name, uv0 = uv0, uv1 = uv1, pos = pos, size = size, color = color }
 		end,
 	})
 	rawset(_G, "World", {
 		create_screen_gui = function(world, a, b, c)
 			ui.gui_args = { world, a, b, c }
-			return "gui"
+			ui.guis[#ui.guis + 1] = b
+			return "gui " .. tostring(b)
 		end,
 		destroy_gui = function() ui.destroyed = ui.destroyed + 1 end,
 	})
@@ -145,7 +162,7 @@ function F.install(e, opts)
 	end
 
 	function ui.frame()
-		ui.rects, ui.texts = {}, {}
+		ui.rects, ui.texts, ui.triangles, ui.bitmaps = {}, {}, {}, {}
 		e:frames(1)
 	end
 
